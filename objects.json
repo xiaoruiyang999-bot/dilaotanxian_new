@@ -1,0 +1,1 @@
+{"status":"error","errorCode":"SKILL_NOT_FOUND","error":"Skill 'gameobject_find_objects' not found","skill":"gameobject_find_objects","suggestedFixes":[{"action":"retry","skill":"GET /skills/recommend?intent=...","args":null,"reason":"Discover skills by natural-language intent"}],"retryStrategy":"fix_and_retry"}

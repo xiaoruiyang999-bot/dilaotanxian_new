@@ -13,6 +13,15 @@
           "processors": "",
           "interactions": "",
           "initialStateCheck": true
+        },
+        {
+          "name": "Attack",
+          "type": "Button",
+          "id": "c7d8e9f0-a1b2-4c3d-5e6f-7a8b9c0d1e2f",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
         }
       ],
       "bindings": [
@@ -70,6 +79,17 @@
           "action": "Move",
           "isComposite": false,
           "isPartOfComposite": true
+        },
+        {
+          "name": "",
+          "id": "f8a9b0c1-d2e3-4f5a-6b7c-8d9e0f1a2b3c",
+          "path": "<Mouse>/leftButton",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Attack",
+          "isComposite": false,
+          "isPartOfComposite": false
         }
       ]
     }
