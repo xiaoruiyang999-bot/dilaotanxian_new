@@ -255,6 +255,10 @@ Sprite:
     settingsRaw: 64
     uvTransform: {x: 64, y: 32, z: 64, w: 32}
     downscaleMultiplier: 1
-  m_PhysicsShape: []
+  m_PhysicsShape:
+  - - {x: -0.5, y: -0.5}
+    - {x: -0.5, y: 0.5}
+    - {x: 0.5, y: 0.5}
+    - {x: 0.5, y: -0.5}
   m_Bones: []
   m_SpriteID: 

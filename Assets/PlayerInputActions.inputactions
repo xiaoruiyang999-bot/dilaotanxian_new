@@ -1,0 +1,78 @@
+{
+  "name": "PlayerInputActions",
+  "maps": [
+    {
+      "name": "Player",
+      "id": "01e47131-685e-4fbc-ad04-971f43f5a403",
+      "actions": [
+        {
+          "name": "Move",
+          "type": "Value",
+          "id": "5bacd109-973d-4437-9d9f-d868409fa445",
+          "expectedControlType": "Vector2",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": true
+        }
+      ],
+      "bindings": [
+        {
+          "name": "2D Vector",
+          "id": "5b232564-7f80-44a4-8752-00bcc58c55a5",
+          "path": "2DVector",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Move",
+          "isComposite": true,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "up",
+          "id": "7dc8819a-0ac0-4df1-988f-29323cb24735",
+          "path": "<Keyboard>/w",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Move",
+          "isComposite": false,
+          "isPartOfComposite": true
+        },
+        {
+          "name": "down",
+          "id": "c8a90198-63f3-41c9-b705-f2f31d0aece6",
+          "path": "<Keyboard>/s",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Move",
+          "isComposite": false,
+          "isPartOfComposite": true
+        },
+        {
+          "name": "left",
+          "id": "169b231d-45d7-407e-bdb3-8ce1a4e5a96b",
+          "path": "<Keyboard>/a",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Move",
+          "isComposite": false,
+          "isPartOfComposite": true
+        },
+        {
+          "name": "right",
+          "id": "554e26b5-a065-48da-8285-b4871d69202f",
+          "path": "<Keyboard>/d",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Move",
+          "isComposite": false,
+          "isPartOfComposite": true
+        }
+      ]
+    }
+  ],
+  "controlSchemes": []
+}
