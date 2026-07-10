@@ -75,6 +75,8 @@ public class EnemyController : MonoBehaviour
 
     private void OnHitFlash()
     {
+        // 训练木桩由 TrainingDummy 自己管理闪烁，避免两个协程同时改颜色导致闪烁不消失
+        if (GetComponent<TrainingDummy>() != null) return;
         if (sr == null) return;
         StartCoroutine(HitFlashCoroutine());
     }

@@ -76,9 +76,17 @@ public class WarriorAttack : MonoBehaviour, IAttack
 
         foreach (Collider2D hit in hits)
         {
-            // 3. 计算敌人与角色面向方向的夹角
-            Vector2 toEnemy = (hit.transform.position - transform.position).normalized;
-            float angle = Vector2.Angle(facingDir, toEnemy);
+            // 忽略触发器（如敌人的探测圈 CircleCollider2D），只命中实际物理碰撞体
+            if (hit.isTrigger) continue;
+
+            // 使用碰撞体上距离玩家最近的点进行判定，确保是 BoxCollider2D 本体进入攻击范围才造成伤害
+            Vector2 closestPoint = hit.ClosestPoint(transform.position);
+            Vector2 toPoint = closestPoint - (Vector2)transform.position;
+            float distance = toPoint.magnitude;
+            if (distance > attackRange) continue;
+
+            // 3. 计算最近点与角色面向方向的夹角
+            float angle = Vector2.Angle(facingDir, toPoint.normalized);
 
             // 4. 夹角在扇形半角内则命中
             if (angle <= halfAngle)
