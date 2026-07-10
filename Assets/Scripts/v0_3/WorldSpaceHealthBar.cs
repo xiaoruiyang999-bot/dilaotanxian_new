@@ -2,96 +2,98 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 世界空间血条。挂载在敌人（或任何有Health的对象）上，在头顶显示血条。
+/// 世界空间血条。挂载在需要显示血条的物体上。
+/// v0.4修改：支持Health（玩家/通用）和EnemyHealth（敌人）。
 /// </summary>
-[RequireComponent(typeof(Health))]
 public class WorldSpaceHealthBar : MonoBehaviour
 {
-    [Header("血条UI预制")]
-    [SerializeField] private Sprite backgroundSprite;   // WhiteSquare.asset
-    [SerializeField] private Color backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f); // 深灰
-    [SerializeField] private Color fillColor = new Color(0.9f, 0.1f, 0.1f, 1f);       // 红色
+    [Header("数据源（二选一）")]
+    [SerializeField] private Health playerHealth;      // 给玩家或有Health的对象用
+    [SerializeField] private EnemyHealth enemyHealth;  // 给有EnemyHealth的敌人用
+
+    [Header("血条外观")]
+    [SerializeField] private Sprite backgroundSprite;
+    [SerializeField] private Color backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);
+    [SerializeField] private Color fillColor = new Color(0.9f, 0.1f, 0.1f, 1f);
 
     [Header("血条尺寸")]
-    [SerializeField] private float barWidth = 0.5f;   // 基准宽度（对应1单位大小的敌人）
-    [SerializeField] private float barHeight = 0.08f;  // 基准高度
-    [SerializeField] private float yOffset = 0.85f;   // 基准头顶偏移
+    [SerializeField] private float barWidth = 0.8f;
+    [SerializeField] private float barHeight = 0.12f;
+    [SerializeField] private float yOffset = 0.6f;
 
-    private Health health;
     private Transform canvasTransform;
     private Image fillImage;
-    private float currentYOffset;
+    private Camera mainCamera;
 
     void Awake()
     {
-        health = GetComponent<Health>();
+        mainCamera = Camera.main;
+
+        // 自动查找数据源（如果没在Inspector中设置）
+        if (playerHealth == null && enemyHealth == null)
+        {
+            playerHealth = GetComponent<Health>();
+            enemyHealth = GetComponent<EnemyHealth>();
+        }
+
+        // 至少需要一个数据源
+        if (playerHealth == null && enemyHealth == null)
+        {
+            Debug.LogWarning($"[WorldSpaceHealthBar] {gameObject.name} 上未找到Health或EnemyHealth组件！");
+            enabled = false;
+            return;
+        }
+
         CreateHealthBar();
     }
 
     void OnEnable()
     {
-        if (health != null)
-            health.OnHealthChanged += OnHealthChanged;
+        if (playerHealth != null)
+            playerHealth.OnHealthChanged += OnHealthChanged;
+        else if (enemyHealth != null)
+            enemyHealth.OnHealthChanged += OnHealthChanged;
     }
 
     void OnDisable()
     {
-        if (health != null)
-            health.OnHealthChanged -= OnHealthChanged;
+        if (playerHealth != null)
+            playerHealth.OnHealthChanged -= OnHealthChanged;
+        else if (enemyHealth != null)
+            enemyHealth.OnHealthChanged -= OnHealthChanged;
     }
 
     void LateUpdate()
     {
-        // 血条位置跟随父对象头顶
         if (canvasTransform != null)
         {
-            canvasTransform.position = transform.position + Vector3.up * currentYOffset;
+            canvasTransform.position = transform.position + Vector3.up * yOffset;
         }
     }
 
     private void CreateHealthBar()
     {
-        // 根据敌人实际大小等比例缩放血条
-        float enemyScale = Mathf.Max(transform.localScale.x, transform.localScale.y, 0.001f);
-        float width = barWidth * enemyScale;
-        float height = barHeight * enemyScale;
-        currentYOffset = yOffset * enemyScale;
-
-        // 尺寸用像素表示（CanvasScaler dynamicPixelsPerUnit=100）
-        Vector2 sizeInPixels = new Vector2(width * 100f, height * 100f);
-
-        // 创建世界空间Canvas
         GameObject canvasGo = new GameObject("HealthBarCanvas");
         canvasGo.transform.SetParent(transform);
         canvasTransform = canvasGo.transform;
-        canvasTransform.localPosition = new Vector3(0, currentYOffset, 0);
-        canvasTransform.localScale = new Vector3(0.02f, 0.02f, 0.02f);
+        canvasTransform.localPosition = new Vector3(0, yOffset, 0);
 
         Canvas canvas = canvasGo.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 10; // 在角色和敌人之上
+        canvas.sortingOrder = 10;
 
         CanvasScaler scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.dynamicPixelsPerUnit = 100f;
 
-        // 关键：显式限制Canvas大小，避免默认尺寸过大遮挡画面
-        RectTransform canvasRect = canvasGo.GetComponent<RectTransform>();
-        canvasRect.sizeDelta = sizeInPixels;
-
-        // 创建背景Image（填满Canvas）
+        // 背景
         GameObject bgGo = new GameObject("Background");
         bgGo.transform.SetParent(canvasGo.transform, false);
         Image bgImage = bgGo.AddComponent<Image>();
         bgImage.color = backgroundColor;
         if (backgroundSprite != null) bgImage.sprite = backgroundSprite;
+        bgImage.rectTransform.sizeDelta = new Vector2(barWidth * 100f, barHeight * 100f);
 
-        RectTransform bgRect = bgImage.rectTransform;
-        bgRect.anchorMin = Vector2.zero;
-        bgRect.anchorMax = Vector2.one;
-        bgRect.offsetMin = Vector2.zero;
-        bgRect.offsetMax = Vector2.zero;
-
-        // 创建填充Image（填满背景）
+        // 填充
         GameObject fillGo = new GameObject("Fill");
         fillGo.transform.SetParent(bgGo.transform, false);
         fillImage = fillGo.AddComponent<Image>();
@@ -99,7 +101,7 @@ public class WorldSpaceHealthBar : MonoBehaviour
         if (backgroundSprite != null) fillImage.sprite = backgroundSprite;
         fillImage.type = Image.Type.Filled;
         fillImage.fillMethod = Image.FillMethod.Horizontal;
-        fillImage.fillOrigin = 0; // Left
+        fillImage.fillOrigin = 0;
         fillImage.fillAmount = 1f;
 
         RectTransform fillRect = fillImage.rectTransform;

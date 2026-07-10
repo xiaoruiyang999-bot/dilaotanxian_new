@@ -1,0 +1,38 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-29693" at "2026-07-10T05:10:38.3809006Z"
+[Licensing::Client] Code 1 while verifying Licensing Client signature (process Id: 33496, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Error: HandshakeResponse reported an error:
+	ResponseCode: 505
+	ResponseStatus: Unsupported protocol version '1.16.2'.
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-29693"
+[Licensing::IpcConnector] LicenseClient-29693 channel disconnected successfully.
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-29693-2022.3.62" at "2026-07-10T05:10:38.4060416Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 4176, path: "C:/Program Files/Unity/Hub/Editor/2022.3.62f1c1/Editor/Data/Resources/Licensing/Client/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.16.2+bdef8f5
+  Session Id:              45786e5e68044c9596d14b29a0876a78
+  Correlation Id:          8a87a7ee7c40ed61569d2e72ce54a5ec
+  External correlation Id: 3497807638142374975
+  Machine Id:              dZEHjy4XGfiIhCuN7/g5L1EhdNk=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-29693-2022.3.62" (connect: 0.00s, validation: 0.01s, handshake: 0.04s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-29693-2022.3.62-notifications" at "2026-07-10T05:10:38.4616624Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully updated license
+Built from '2022.3/china_unity/release' branch; Version is '2022.3.62f1c1 (b0109b07edb8) revision 11538587'; Using compiler version '192829333'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit CoreCountrySpecific' Language: 'zh' Physical Memory: 16091 MB
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "F4-HTQK-U7Q7-Z3PS-5666-XXXX"
+BatchMode: 0, IsHumanControllingUs: 1, StartBugReporterOnCrash: 1, Is64bit: 1, IsPro: 0
+[Licensing::Client] Successfully resolved entitlement details
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\2022.3.62f1c1\Editor\Unity.exe
+-projectPath
+D:/unity project/dilaotanxian_new
+-logFile
+D:/unity project/dilaotanxian_new/unity_launch_v04.log
+Successfully changed project path to: D:/unity project/dilaotanxian_new
+D:/unity project/dilaotanxian_new
+Exiting without the bug reporter. Application will terminate with return code 0

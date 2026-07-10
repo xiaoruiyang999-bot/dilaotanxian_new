@@ -1,0 +1,224 @@
+using UnityEngine;
+
+/// <summary>
+/// 敌人AI状态机核心。管理四个状态：Patrol/Chase/Attack/ReturnToPatrol。
+/// 被攻击时（OnTakeDamage）强制切换到Chase（发现玩家）。
+/// </summary>
+public class EnemyAI : MonoBehaviour
+{
+    public enum State { Patrol, Chase, Attack, ReturnToPatrol }
+
+    [Header("AI配置")]
+    [SerializeField] private float patrolRadius = 2f;       // 巡逻半径
+    [SerializeField] private float patrolWaitTime = 2f;     // 巡逻点间等待时间
+
+    // 组件引用
+    private EnemyController controller;
+    private EnemyStats stats;
+    private EnemyCombat combat;
+    private EnemyHealth health;
+
+    // 目标与状态
+    private Transform target;           // 玩家
+    private Vector3 patrolOrigin;       // 巡逻原点
+    private State currentState;
+    private float patrolWaitTimer = 0f;
+    private Vector3 currentPatrolTarget;
+
+    void Awake()
+    {
+        controller = GetComponent<EnemyController>();
+        stats = GetComponent<EnemyStats>();
+        combat = GetComponent<EnemyCombat>();
+        health = GetComponent<EnemyHealth>();
+
+        patrolOrigin = transform.position;
+        currentPatrolTarget = patrolOrigin;
+        currentState = State.Patrol;
+
+        // 查找玩家
+        GameObject player = GameObject.FindWithTag("Player");
+        if (player != null) target = player.transform;
+
+        // 监听被攻击事件：被打了立刻发现玩家
+        if (health != null)
+            health.OnTakeDamage += OnDamaged;
+    }
+
+    void OnDestroy()
+    {
+        if (health != null)
+            health.OnTakeDamage -= OnDamaged;
+    }
+
+    void Update()
+    {
+        if (target == null) return;
+        if (health != null && health.IsDead) return;
+
+        float distToTarget = Vector2.Distance(transform.position, target.position);
+        float distToOrigin = Vector2.Distance(transform.position, patrolOrigin);
+
+        switch (currentState)
+        {
+            case State.Patrol:
+                UpdatePatrol(distToTarget);
+                break;
+            case State.Chase:
+                UpdateChase(distToTarget);
+                break;
+            case State.Attack:
+                UpdateAttack(distToTarget);
+                break;
+            case State.ReturnToPatrol:
+                UpdateReturnToPatrol(distToOrigin);
+                break;
+        }
+    }
+
+    // ========== 被攻击回调 ==========
+    private void OnDamaged()
+    {
+        // 被攻击时，如果不在Chase/Attack状态，切换到Chase（发现攻击者）
+        if (currentState == State.Patrol || currentState == State.ReturnToPatrol)
+        {
+            ChangeState(State.Chase);
+        }
+    }
+
+    // ========== Patrol（巡逻） ==========
+    private void UpdatePatrol(float distToTarget)
+    {
+        controller.StopMoving();
+
+        // 等待计时
+        patrolWaitTimer -= Time.deltaTime;
+        if (patrolWaitTimer <= 0f)
+        {
+            // 选新巡逻点
+            currentPatrolTarget = PatrolSystem.GetRandomPatrolPoint(
+                patrolOrigin, patrolRadius);
+            patrolWaitTimer = patrolWaitTime;
+        }
+
+        // 向巡逻点移动（简单版：直接用MoveTowards）
+        Vector2 dir = (currentPatrolTarget - transform.position).normalized;
+        if (Vector2.Distance(transform.position, currentPatrolTarget) > 0.2f)
+        {
+            controller.MoveTowards(dir);
+            controller.FaceTowards(dir);
+        }
+
+        // 检测玩家
+        if (distToTarget <= stats.DetectionRange)
+        {
+            ChangeState(State.Chase);
+        }
+    }
+
+    // ========== Chase（追击） ==========
+    private void UpdateChase(float distToTarget)
+    {
+        Vector2 dir = (target.position - transform.position).normalized;
+        controller.MoveTowards(dir);
+        controller.FaceTowards(dir);
+
+        // 进入攻击范围
+        if (combat.IsInAttackRange(target))
+        {
+            ChangeState(State.Attack);
+        }
+        // 玩家跑太远，丢失
+        else if (distToTarget > stats.LosePlayerRange)
+        {
+            ChangeState(State.ReturnToPatrol);
+        }
+    }
+
+    // ========== Attack（攻击） ==========
+    private void UpdateAttack(float distToTarget)
+    {
+        controller.StopMoving();
+
+        // 面向玩家
+        Vector2 dir = (target.position - transform.position).normalized;
+        controller.FaceTowards(dir);
+
+        // 尝试攻击
+        if (combat.IsInAttackRange(target))
+        {
+            // 获取玩家的IDamageable
+            if (target.TryGetComponent<IDamageable>(out var damageable))
+            {
+                combat.TryAttack(damageable);
+            }
+        }
+
+        // 玩家跑出攻击范围
+        if (!combat.IsInAttackRange(target))
+        {
+            ChangeState(State.Chase);
+        }
+    }
+
+    // ========== ReturnToPatrol（返回巡逻点） ==========
+    private void UpdateReturnToPatrol(float distToOrigin)
+    {
+        Vector2 dir = (patrolOrigin - transform.position).normalized;
+        controller.MoveTowards(dir);
+        controller.FaceTowards(dir);
+
+        // 回到原点
+        if (distToOrigin <= 0.3f)
+        {
+            controller.StopMoving();
+            ChangeState(State.Patrol);
+        }
+
+        // 返回途中又发现玩家
+        float distToTarget = Vector2.Distance(transform.position, target.position);
+        if (distToTarget <= stats.DetectionRange)
+        {
+            ChangeState(State.Chase);
+        }
+    }
+
+    // ========== 状态切换 ==========
+    private void ChangeState(State newState)
+    {
+        if (currentState == newState) return;
+
+        // 退出旧状态
+        switch (currentState)
+        {
+            case State.Patrol:
+                patrolWaitTimer = 0f;
+                break;
+            case State.Chase:
+                break;
+            case State.Attack:
+                break;
+            case State.ReturnToPatrol:
+                break;
+        }
+
+        currentState = newState;
+
+        // 进入新状态
+        switch (newState)
+        {
+            case State.Patrol:
+                currentPatrolTarget = patrolOrigin;
+                patrolWaitTimer = 0f;
+                break;
+            case State.Chase:
+                break;
+            case State.Attack:
+                break;
+            case State.ReturnToPatrol:
+                break;
+        }
+    }
+
+    public State CurrentState => currentState;
+}
