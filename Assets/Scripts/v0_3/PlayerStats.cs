@@ -44,6 +44,26 @@ public class PlayerStats : MonoBehaviour
         lastDamageTime = Time.time;
     }
 
+    /// <summary>
+    /// 优先使用护甲吸收伤害，返回剩余应由生命值承担的伤害。
+    /// 护甲变化时会触发 OnStatsChanged 事件以更新 UI。
+    /// </summary>
+    public float AbsorbDamageWithArmor(float damage)
+    {
+        if (damage <= 0) return 0f;
+
+        float absorbed = Mathf.Min(CurrentArmor, damage);
+        CurrentArmor -= absorbed;
+
+        if (absorbed > 0)
+        {
+            OnStatsChanged?.Invoke();
+            Debug.Log($"[PlayerStats] Armor absorbed {absorbed}, remainingArmor={CurrentArmor}/{maxArmor}");
+        }
+
+        return damage - absorbed;
+    }
+
     public void ModifyArmor(float delta)
     {
         CurrentArmor = Mathf.Clamp(CurrentArmor + delta, 0, maxArmor);

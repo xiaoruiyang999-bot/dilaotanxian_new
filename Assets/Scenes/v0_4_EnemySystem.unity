@@ -1466,21 +1466,6 @@ Tilemap:
     e31: 0
     e32: 0
     e33: 1
---- !u!115 &364862481
-MonoScript:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 7
-  m_DefaultReferences: {}
-  m_Icon: {fileID: 0}
-  m_Type: 0
-  m_ExecutionOrder: 0
-  m_ClassName: PlayerUI
-  m_Namespace: 
-  m_AssemblyName: Assembly-CSharp
 --- !u!1 &675803772
 GameObject:
   m_ObjectHideFlags: 0
@@ -2300,7 +2285,7 @@ Transform:
   m_GameObject: {fileID: 1474215301}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4.07, y: 5.33, z: 0}
+  m_LocalPosition: {x: 0.82, y: 5.33, z: 0}
   m_LocalScale: {x: 0.6, y: 0.6, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3241,8 +3226,6 @@ GameObject:
   - component: {fileID: 1734992718}
   - component: {fileID: 1734992717}
   - component: {fileID: 1734992716}
-  - component: {fileID: 1734992720}
-  - component: {fileID: 1734992721}
   - component: {fileID: 1734992722}
   m_Layer: 0
   m_Name: Canvas
@@ -3334,30 +3317,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
---- !u!114 &1734992720
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1734992715}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e6b0bf0091da606458ac0eeee66d424e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!114 &1734992721
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1734992715}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0fe71a92817e71645aad1c9ea157307c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &1734992722
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3367,7 +3326,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1734992715}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 364862481}
+  m_Script: {fileID: 11500000, guid: 0fe71a92817e71645aad1c9ea157307c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   hpBar: {fileID: 1802142349}
@@ -3430,7 +3389,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: 2bd120ef3439d804ead962cc348c6caf, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3536,7 +3495,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: 2bd120ef3439d804ead962cc348c6caf, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -3611,7 +3570,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: 2bd120ef3439d804ead962cc348c6caf, type: 3}
   m_Type: 3
   m_PreserveAspect: 0
   m_FillCenter: 1

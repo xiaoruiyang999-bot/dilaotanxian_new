@@ -28,13 +28,26 @@ public class Health : MonoBehaviour, IDamageable
     public void TakeDamage(float damage)
     {
         if (IsDead) return;
-        CurrentHealth = Mathf.Max(CurrentHealth - damage, 0f);
-        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
-        
-        // 通知PlayerStats重置脱战计时
+        if (damage <= 0) return;
+
+        float damageToHealth = damage;
+
+        // 玩家（有 PlayerStats）：优先由护甲承受伤害，剩余部分再扣 HP
         if (TryGetComponent<PlayerStats>(out var stats))
-            stats.OnTakeDamage();
-        
+        {
+            damageToHealth = stats.AbsorbDamageWithArmor(damage);
+            stats.OnTakeDamage(); // 重置脱战计时
+        }
+
+        // 应用剩余伤害到生命值
+        if (damageToHealth > 0)
+        {
+            CurrentHealth = Mathf.Max(CurrentHealth - damageToHealth, 0f);
+            OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+        }
+
+        Debug.Log($"[Health] TakeDamage raw={damage}, damageToHealth={damageToHealth}, CurrentHealth={CurrentHealth}/{maxHealth}, OnHealthChanged listeners={OnHealthChanged?.GetInvocationList().Length ?? 0}");
+
         if (CurrentHealth <= 0f) Die();
     }
 

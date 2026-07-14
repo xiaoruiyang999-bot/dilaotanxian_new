@@ -71,9 +71,15 @@ public class WorldSpaceHealthBar : MonoBehaviour
     void OnEnable()
     {
         if (playerHealth != null)
+        {
             playerHealth.OnHealthChanged += OnHealthChanged;
+            OnHealthChanged(playerHealth.CurrentHealth, playerHealth.MaxHealth);
+        }
         else if (enemyHealth != null)
+        {
             enemyHealth.OnHealthChanged += OnHealthChanged;
+            OnHealthChanged(enemyHealth.CurrentHealth, enemyHealth.MaxHealth);
+        }
     }
 
     void OnDisable()
