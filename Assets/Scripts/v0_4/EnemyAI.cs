@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// 敌人AI状态机核心。管理四个状态：Patrol/Chase/Attack/ReturnToPatrol。
 /// 被攻击时（OnTakeDamage）强制切换到Chase（发现玩家）。
+/// Attack 状态内部拆分为：Windup（前摇）→ Execute（执行判定）→ Recovery（后摇）。
 /// </summary>
 public class EnemyAI : MonoBehaviour
 {
@@ -12,11 +13,17 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float patrolRadius = 2f;       // 巡逻半径
     [SerializeField] private float patrolWaitTime = 2f;     // 巡逻点间等待时间
 
+    [Header("攻击手感")]
+    [SerializeField] private float windupTime = 0.4f;       // 攻击前摇
+    [SerializeField] private float recoveryTime = 0.35f;    // 攻击后摇
+    [SerializeField] private float dangerThreshold = 0.1f;  // 前摇最后 X 秒变红
+
     // 组件引用
     private EnemyController controller;
     private EnemyStats stats;
     private EnemyCombat combat;
     private EnemyHealth health;
+    private AttackIndicator indicator;
 
     // 目标与状态
     private Transform target;           // 玩家
@@ -25,12 +32,18 @@ public class EnemyAI : MonoBehaviour
     private float patrolWaitTimer = 0f;
     private Vector3 currentPatrolTarget;
 
+    // Attack 状态内部子阶段
+    private enum AttackSubPhase { Windup, Recovery }
+    private AttackSubPhase attackSubPhase;
+    private float attackTimer;
+
     void Awake()
     {
         controller = GetComponent<EnemyController>();
         stats = GetComponent<EnemyStats>();
         combat = GetComponent<EnemyCombat>();
         health = GetComponent<EnemyHealth>();
+        indicator = GetComponentInChildren<AttackIndicator>(true);
 
         patrolOrigin = transform.position;
         currentPatrolTarget = patrolOrigin;
@@ -74,6 +87,13 @@ public class EnemyAI : MonoBehaviour
                 UpdateReturnToPatrol(distToOrigin);
                 break;
         }
+    }
+
+    void OnValidate()
+    {
+        windupTime = Mathf.Max(0f, windupTime);
+        recoveryTime = Mathf.Max(0f, recoveryTime);
+        dangerThreshold = Mathf.Clamp(dangerThreshold, 0f, windupTime);
     }
 
     // ========== 被攻击回调 ==========
@@ -123,8 +143,8 @@ public class EnemyAI : MonoBehaviour
         controller.MoveTowards(dir);
         controller.FaceTowards(dir);
 
-        // 进入攻击范围
-        if (combat.IsInAttackRange(target))
+        // 进入攻击范围且冷却完毕才开始攻击流程
+        if (combat.IsInAttackRange(target) && combat.CanAttack)
         {
             ChangeState(State.Attack);
         }
@@ -138,26 +158,48 @@ public class EnemyAI : MonoBehaviour
     // ========== Attack（攻击） ==========
     private void UpdateAttack(float distToTarget)
     {
-        controller.StopMoving();
-
-        // 面向玩家
+        // 攻击期间保持面向玩家
         Vector2 dir = (target.position - transform.position).normalized;
         controller.FaceTowards(dir);
 
-        // 尝试攻击
-        if (combat.IsInAttackRange(target))
+        if (attackSubPhase == AttackSubPhase.Windup)
         {
-            // 获取玩家的IDamageable
-            if (target.TryGetComponent<IDamageable>(out var damageable))
+            attackTimer -= Time.deltaTime;
+
+            // 预警颜色：最后 dangerThreshold 秒变红
+            if (indicator != null)
             {
-                combat.TryAttack(damageable);
+                if (attackTimer <= dangerThreshold)
+                    indicator.SetColor(indicator.DangerColor);
+                else
+                    indicator.SetColor(indicator.WarningColor);
+            }
+
+            if (attackTimer <= 0f)
+            {
+                // 前摇结束，再次检测范围后执行一次攻击判定
+                if (combat.IsInAttackRange(target))
+                {
+                    if (target.TryGetComponent<IDamageable>(out var damageable))
+                    {
+                        combat.TryAttack(damageable);
+                    }
+                }
+
+                if (indicator != null)
+                    indicator.Hide();
+
+                attackSubPhase = AttackSubPhase.Recovery;
+                attackTimer = recoveryTime;
             }
         }
-
-        // 玩家跑出攻击范围
-        if (!combat.IsInAttackRange(target))
+        else if (attackSubPhase == AttackSubPhase.Recovery)
         {
-            ChangeState(State.Chase);
+            attackTimer -= Time.deltaTime;
+            if (attackTimer <= 0f)
+            {
+                ChangeState(State.Chase);
+            }
         }
     }
 
@@ -197,6 +239,9 @@ public class EnemyAI : MonoBehaviour
             case State.Chase:
                 break;
             case State.Attack:
+                // 退出攻击时确保指示器隐藏、子阶段重置
+                if (indicator != null) indicator.Hide();
+                attackSubPhase = AttackSubPhase.Windup;
                 break;
             case State.ReturnToPatrol:
                 break;
@@ -214,6 +259,15 @@ public class EnemyAI : MonoBehaviour
             case State.Chase:
                 break;
             case State.Attack:
+                attackSubPhase = AttackSubPhase.Windup;
+                attackTimer = windupTime;
+                controller.StopMoving(); // 攻击期间只停止一次移动
+                if (indicator != null)
+                {
+                    indicator.SetRadius(stats.AttackRange);
+                    indicator.Show();
+                    indicator.SetColor(indicator.WarningColor);
+                }
                 break;
             case State.ReturnToPatrol:
                 break;
