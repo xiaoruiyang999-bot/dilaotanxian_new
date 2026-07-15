@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 1150000000000000000, guid: 45b7e7a30eb4449eb588746bd464d01a, type: 3}
+  m_Name: EnemyMeleeAttackData
+  m_EditorClassIdentifier: 
+  windupTime: 0.25
+  activeDuration: 0.25
+  recoveryTime: 0.35
+  attackStartAngle: -70
+  attackEndAngle: 70
+  attackEase: 1
+  activeMomentRatio: 0.5
