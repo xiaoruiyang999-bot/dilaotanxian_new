@@ -159,6 +159,8 @@ public static class V0_1_InitialHouseBuilder
         sprite.name = Path.GetFileNameWithoutExtension(assetPath);
         AssetDatabase.CreateAsset(sprite, assetPath);
         AssetDatabase.AddObjectToAsset(tex, sprite);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
         return sprite;
     }
 
@@ -188,6 +190,8 @@ public static class V0_1_InitialHouseBuilder
         sprite.name = Path.GetFileNameWithoutExtension(assetPath);
         AssetDatabase.CreateAsset(sprite, assetPath);
         AssetDatabase.AddObjectToAsset(tex, sprite);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
         return sprite;
     }
 

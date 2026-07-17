@@ -1,15 +1,13 @@
 using UnityEngine;
 
 /// <summary>
-/// 敌人AI状态机核心。管理四个状态：Patrol/Chase/Attack/ReturnToPatrol。
+/// 敌人AI状态机核心。管理高层状态：Patrol/Chase/Attack/ReturnToPatrol。
 /// 被攻击时（OnTakeDamage）强制切换到Chase（发现玩家）。
-/// Attack 状态内部拆分为：Windup（前摇）→ Active（攻击释放）→ Recovery（后摇）。
-/// 攻击阶段由 AttackData 驱动，武器动画由 WeaponAnimator 播放。
+/// 攻击流程完全交给 EnemyCombat，本类只负责决策。
 /// </summary>
 public class EnemyAI : MonoBehaviour
 {
     public enum State { Patrol, Chase, Attack, ReturnToPatrol }
-    private enum AttackSubPhase { Windup, Active, Recovery }
 
     [Header("AI配置")]
     [SerializeField] private float patrolRadius = 2f;       // 巡逻半径
@@ -17,15 +15,12 @@ public class EnemyAI : MonoBehaviour
 
     [Header("攻击配置")]
     [SerializeField] private AttackData attackData;         // 攻击阶段与动画配置
-    [SerializeField] private float dangerThreshold = 0.1f;  // 前摇最后 X 秒指示器变红
 
     // 组件引用
     private EnemyController controller;
     private EnemyStats stats;
     private EnemyCombat combat;
     private EnemyHealth health;
-    private AttackIndicator indicator;
-    private WeaponAnimator weaponAnimator;
 
     // 目标与状态
     private Transform target;           // 玩家
@@ -34,26 +29,12 @@ public class EnemyAI : MonoBehaviour
     private float patrolWaitTimer = 0f;
     private Vector3 currentPatrolTarget;
 
-    // Attack 状态内部子阶段与计时器
-    private AttackSubPhase attackSubPhase;
-    private float windupTimer;
-    private float activeTimer;
-    private float recoveryTimer;
-    private bool activeMomentTriggered;
-
-    // 从 AttackData 读取阶段时长（未配置时使用默认值兜底）
-    private float WindupTime     => attackData != null ? attackData.WindupTime     : 0.25f;
-    private float ActiveDuration => attackData != null ? attackData.ActiveDuration : 0.25f;
-    private float RecoveryTime   => attackData != null ? attackData.RecoveryTime   : 0.35f;
-
     void Awake()
     {
         controller = GetComponent<EnemyController>();
         stats = GetComponent<EnemyStats>();
         combat = GetComponent<EnemyCombat>();
         health = GetComponent<EnemyHealth>();
-        indicator = GetComponentInChildren<AttackIndicator>(true);
-        weaponAnimator = GetComponentInChildren<WeaponAnimator>(true);
 
         patrolOrigin = transform.position;
         currentPatrolTarget = patrolOrigin;
@@ -97,11 +78,6 @@ public class EnemyAI : MonoBehaviour
                 UpdateReturnToPatrol(distToOrigin);
                 break;
         }
-    }
-
-    void OnValidate()
-    {
-        dangerThreshold = Mathf.Max(0f, dangerThreshold);
     }
 
     // ========== 被攻击回调 ==========
@@ -151,14 +127,21 @@ public class EnemyAI : MonoBehaviour
         controller.MoveTowards(dir);
         controller.FaceTowards(dir);
 
+        // 传递目标给 EnemyCombat，用于普通状态武器朝向
+        combat.SetTarget(target);
+
         // 进入攻击范围且冷却完毕才开始攻击流程
         if (combat.IsInAttackRange(target) && combat.CanAttack)
         {
-            ChangeState(State.Attack);
+            if (combat.TryStartAttack(target))
+            {
+                ChangeState(State.Attack);
+            }
         }
         // 玩家跑太远，丢失
         else if (distToTarget > stats.LosePlayerRange)
         {
+            combat.SetTarget(null);
             ChangeState(State.ReturnToPatrol);
         }
     }
@@ -166,104 +149,11 @@ public class EnemyAI : MonoBehaviour
     // ========== Attack（攻击） ==========
     private void UpdateAttack(float distToTarget)
     {
-        // 攻击期间保持面向玩家
-        Vector2 dir = (target.position - transform.position).normalized;
-        controller.FaceTowards(dir);
-
-        switch (attackSubPhase)
-        {
-            case AttackSubPhase.Windup:
-                UpdateWindup();
-                break;
-            case AttackSubPhase.Active:
-                UpdateActive();
-                break;
-            case AttackSubPhase.Recovery:
-                UpdateRecovery();
-                break;
-        }
-    }
-
-    private void UpdateWindup()
-    {
+        // 攻击期间保持静止，避免扇形指示器与判定方向因位移/旋转而错位。
         controller.StopMoving();
 
-        windupTimer -= Time.deltaTime;
-
-        // 预警颜色：最后 dangerThreshold 秒变红
-        if (indicator != null)
-        {
-            if (windupTimer <= dangerThreshold)
-                indicator.SetColor(indicator.DangerColor);
-            else
-                indicator.SetColor(indicator.WarningColor);
-        }
-
-        if (windupTimer <= 0f)
-        {
-            EnterActive();
-        }
-    }
-
-    private void EnterActive()
-    {
-        attackSubPhase = AttackSubPhase.Active;
-        activeTimer = ActiveDuration;
-        activeMomentTriggered = false;
-
-        // 播放武器动画，命中回调由 WeaponAnimator 在配置时间点触发
-        if (weaponAnimator != null)
-            weaponAnimator.PlayAttack(OnActiveMoment);
-        else
-            OnActiveMoment();
-    }
-
-    private void UpdateActive()
-    {
-        controller.StopMoving();
-
-        activeTimer -= Time.deltaTime;
-        if (activeTimer <= 0f)
-        {
-            EnterRecovery();
-        }
-    }
-
-    /// <summary>
-    /// 命中时刻回调。由 WeaponAnimator 在动画配置比例点触发。
-    /// 隐藏指示器并执行一次伤害判定。
-    /// </summary>
-    private void OnActiveMoment()
-    {
-        if (activeMomentTriggered) return;
-        activeMomentTriggered = true;
-
-        // 真正挥击瞬间隐藏攻击范围指示器
-        if (indicator != null)
-            indicator.Hide();
-
-        // 仍由 EnemyCombat 做范围判定与伤害
-        if (combat.IsInAttackRange(target))
-        {
-            if (target.TryGetComponent<IDamageable>(out var damageable))
-            {
-                combat.TryAttack(damageable);
-            }
-        }
-    }
-
-    private void EnterRecovery()
-    {
-        attackSubPhase = AttackSubPhase.Recovery;
-        recoveryTimer = RecoveryTime;
-    }
-
-    private void UpdateRecovery()
-    {
-        controller.StopMoving();
-
-        recoveryTimer -= Time.deltaTime;
-        if (recoveryTimer <= 0f)
+        // 攻击流程由 EnemyCombat 内部管理。
+        if (combat.CanAttack)
         {
             ChangeState(State.Chase);
         }
@@ -305,11 +195,7 @@ public class EnemyAI : MonoBehaviour
             case State.Chase:
                 break;
             case State.Attack:
-                // 退出攻击时确保指示器隐藏、动画停止、子阶段重置
-                if (indicator != null) indicator.Hide();
-                if (weaponAnimator != null) weaponAnimator.Stop();
-                activeMomentTriggered = false;
-                attackSubPhase = AttackSubPhase.Windup;
+                // 攻击流程由 EnemyCombat 管理，这里只处理 AI 层切换
                 break;
             case State.ReturnToPatrol:
                 break;
@@ -321,23 +207,17 @@ public class EnemyAI : MonoBehaviour
         switch (newState)
         {
             case State.Patrol:
+                combat.SetTarget(null);
                 currentPatrolTarget = patrolOrigin;
                 patrolWaitTimer = 0f;
                 break;
             case State.Chase:
                 break;
             case State.Attack:
-                attackSubPhase = AttackSubPhase.Windup;
-                windupTimer = WindupTime;
-                controller.StopMoving(); // 攻击期间只停止一次移动
-                if (indicator != null)
-                {
-                    indicator.SetRadius(stats.AttackRange);
-                    indicator.Show();
-                    indicator.SetColor(indicator.WarningColor);
-                }
+                controller.StopMoving();
                 break;
             case State.ReturnToPatrol:
+                combat.SetTarget(null);
                 break;
         }
     }

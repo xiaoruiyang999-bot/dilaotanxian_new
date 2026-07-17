@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 攻击范围预警显示组件。纯视觉层（Presentation Layer）。
-/// 作为 Enemy 的子物体预先存在。EnemyAI 通过 Show/Hide/SetRadius/SetColor 控制。
+/// 使用运行时生成的 Mesh 显示圆形或扇形攻击范围；Mesh 不可用时回退到 SpriteRenderer。
 /// 禁止：攻击逻辑、AI逻辑、状态机、计时器、事件、TryAttack、Enemy引用控制、Chase控制、Recovery控制。
 /// </summary>
 public class AttackIndicator : MonoBehaviour
@@ -15,6 +15,8 @@ public class AttackIndicator : MonoBehaviour
     }
 
     [Header("渲染组件")]
+    [SerializeField] private MeshFilter meshFilter;
+    [SerializeField] private MeshRenderer meshRenderer;
     [SerializeField] private SpriteRenderer spriteRenderer;
 
     [Header("颜色")]
@@ -22,77 +24,382 @@ public class AttackIndicator : MonoBehaviour
     [SerializeField] private Color dangerColor = new Color(1f, 0f, 0f, 140f / 255f);
 
     [Header("形状")]
-    [SerializeField] private ShapeType shape = ShapeType.Circle;
+    [SerializeField] private ShapeType shape = ShapeType.Sector;
 
     [Header("位置偏移")]
     [SerializeField] private Vector3 localOffset = Vector3.zero;
 
+    [Header("扇形细分")]
+    [Tooltip("扇形每 5 度一个分段，角度越大分段越多")]
+    [SerializeField] private float degreesPerSegment = 5f;
+
+    [Header("材质")]
+    [SerializeField] private Material indicatorMaterial;
+
+    private Mesh indicatorMesh;
     private Color currentColor;
+    private bool useSpriteFallback;
+
+    private Transform originalParent;
+    private Vector3 originalLocalPosition;
+    private Quaternion originalLocalRotation;
+    private bool isDetached;
+
+    private float currentRadius = 1f;
+    private float currentAngle = 360f;
+    private Vector2 currentDirection = Vector2.right;
 
     public Color WarningColor => warningColor;
     public Color DangerColor => dangerColor;
 
     void Awake()
     {
+        if (meshFilter == null)
+            meshFilter = GetComponent<MeshFilter>();
+        if (meshRenderer == null)
+            meshRenderer = GetComponent<MeshRenderer>();
         if (spriteRenderer == null)
             spriteRenderer = GetComponent<SpriteRenderer>();
 
+        InitializeRenderer();
+
         currentColor = warningColor;
-        UpdateVisual();
+        RebuildMesh();
+
+        // 初始化完成后默认隐藏，由 Show()/Hide() 通过 renderer.enabled 控制，不再修改 GameObject active 状态。
+        HideRenderers();
+    }
+
+    /// <summary>
+    /// 初始化渲染器：优先 Mesh，失败则回退到 SpriteRenderer。
+    /// </summary>
+    private void InitializeRenderer()
+    {
+        if (meshFilter == null)
+            meshFilter = gameObject.AddComponent<MeshFilter>();
+        if (meshRenderer == null)
+            meshRenderer = gameObject.AddComponent<MeshRenderer>();
+
+        if (meshFilter != null && meshRenderer != null)
+        {
+            useSpriteFallback = false;
+
+            Shader shader = Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default");
+            if (shader == null)
+                shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null)
+                shader = Shader.Find("Sprites/Default");
+            if (shader == null)
+                shader = Shader.Find("Hidden/InternalErrorShader");
+
+            if (indicatorMaterial == null)
+                indicatorMaterial = new Material(shader);
+
+            indicatorMaterial = new Material(indicatorMaterial);
+            indicatorMaterial.shader = shader;
+            indicatorMaterial.color = warningColor;
+            indicatorMaterial.SetInt("_Cull", (int)UnityEngine.Rendering.CullMode.Off);
+            indicatorMaterial.SetInt("_ZWrite", 0);
+            indicatorMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            indicatorMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            indicatorMaterial.renderQueue = 3000;
+
+            meshRenderer.material = indicatorMaterial;
+            meshRenderer.sortingLayerID = spriteRenderer != null ? spriteRenderer.sortingLayerID : 0;
+            meshRenderer.sortingOrder = 100;
+            meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            meshRenderer.receiveShadows = false;
+
+            indicatorMesh = new Mesh { name = "AttackIndicatorMesh" };
+            meshFilter.mesh = indicatorMesh;
+
+            if (spriteRenderer != null)
+                spriteRenderer.enabled = false;
+        }
+        else
+        {
+            useSpriteFallback = true;
+            Debug.LogWarning("[AttackIndicator] MeshFilter/MeshRenderer 初始化失败，回退到 SpriteRenderer。", this);
+
+            if (spriteRenderer == null)
+                spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.sprite = CreateCircleSprite();
+                spriteRenderer.color = warningColor;
+                spriteRenderer.sortingOrder = 100;
+                spriteRenderer.enabled = false;
+            }
+
+            if (meshRenderer != null)
+                meshRenderer.enabled = false;
+        }
     }
 
     void OnDisable()
     {
-        Hide();
+        HideRenderers();
+        RestoreParent();
     }
 
-    /// <summary>显示并定位攻击范围指示器。</summary>
+    /// <summary>显示攻击范围指示器。</summary>
     public void Show()
     {
-        transform.localPosition = localOffset;
-        transform.localRotation = Quaternion.identity;
-        gameObject.SetActive(true);
+        // 显示时脱离父物体，保持当前世界位置与旋转，避免跟随 Enemy 移动/旋转。
+        if (!isDetached && transform.parent != null)
+        {
+            originalParent = transform.parent;
+            originalLocalPosition = transform.localPosition;
+            originalLocalRotation = transform.localRotation;
+            transform.SetParent(null, true);
+            isDetached = true;
+        }
+
+        // 脱离父物体后 ApplyTransform 不再重置缩放，避免覆盖 UpdateSpriteVisual 设置的半径。
+        ApplyTransform();
+
+        // 确保 Mesh/Sprite 与当前参数同步后再显示。
+        RebuildMesh();
+
+        ShowRenderers();
     }
 
     /// <summary>隐藏攻击范围指示器。</summary>
     public void Hide()
     {
-        gameObject.SetActive(false);
+        HideRenderers();
+        RestoreParent();
     }
 
-    /// <summary>设置攻击范围半径（视觉缩放）。</summary>
+    private void ShowRenderers()
+    {
+        if (meshRenderer != null)
+            meshRenderer.enabled = true;
+        else if (spriteRenderer != null)
+            spriteRenderer.enabled = true;
+    }
+
+    private void HideRenderers()
+    {
+        if (meshRenderer != null)
+            meshRenderer.enabled = false;
+        else if (spriteRenderer != null)
+            spriteRenderer.enabled = false;
+    }
+
+    /// <summary>设置攻击范围半径。</summary>
     public void SetRadius(float radius)
     {
-        transform.localScale = Vector3.one * (radius * 2f);
+        currentRadius = Mathf.Max(0.01f, radius);
+        RebuildMesh();
+    }
+
+    /// <summary>设置攻击角度。扇形使用，圆形可忽略。</summary>
+    public void SetAngle(float angle)
+    {
+        currentAngle = Mathf.Clamp(angle, 0f, 360f);
+        RebuildMesh();
+    }
+
+    /// <summary>设置攻击方向。扇形使用，圆形可忽略。</summary>
+    public void SetDirection(Vector2 direction)
+    {
+        if (direction.sqrMagnitude > 0.0001f)
+        {
+            currentDirection = direction.normalized;
+            RebuildMesh();
+        }
     }
 
     /// <summary>设置当前颜色。</summary>
     public void SetColor(Color color)
     {
         currentColor = color;
-        UpdateVisual();
+        if (useSpriteFallback)
+        {
+            if (spriteRenderer != null)
+                spriteRenderer.color = currentColor;
+        }
+        else
+        {
+            if (indicatorMaterial != null)
+                indicatorMaterial.color = currentColor;
+        }
     }
 
-    /// <summary>设置指示器形状（扩展点，当前主要支持 Circle）。</summary>
+    /// <summary>设置指示器形状。</summary>
     public void SetShape(ShapeType newShape)
     {
         shape = newShape;
-        UpdateVisual();
+        RebuildMesh();
     }
 
     /// <summary>设置透明度（0~1）。</summary>
     public void SetAlpha(float alpha)
     {
         currentColor.a = Mathf.Clamp01(alpha);
-        UpdateVisual();
+        SetColor(currentColor);
     }
 
-    /// <summary>刷新视觉表现。</summary>
-    private void UpdateVisual()
+    private void RestoreParent()
+    {
+        if (!isDetached || originalParent == null) return;
+
+        transform.SetParent(originalParent, false);
+        transform.localPosition = originalLocalPosition;
+        transform.localRotation = originalLocalRotation;
+        transform.localScale = Vector3.one;
+        isDetached = false;
+        originalParent = null;
+    }
+
+    private void ApplyTransform()
+    {
+        if (isDetached)
+        {
+            // 脱离父物体后重置旋转，让扇形方向完全由 currentDirection 决定，
+            // 避免父物体旋转与扇形内部方向叠加导致双重旋转。
+            transform.rotation = Quaternion.identity;
+        }
+        else
+        {
+            transform.localPosition = localOffset;
+            transform.localRotation = Quaternion.identity;
+            transform.localScale = Vector3.one;
+        }
+    }
+
+    /// <summary>根据当前形状重建 Mesh 或 Sprite。</summary>
+    private void RebuildMesh()
+    {
+        // 如果 meshRenderer 不可用，使用 spriteRenderer 显示扇形/圆形。
+        if (meshRenderer == null && spriteRenderer != null)
+        {
+            UpdateSpriteVisual();
+            return;
+        }
+
+        switch (shape)
+        {
+            case ShapeType.Sector:
+                BuildSectorMesh();
+                break;
+            case ShapeType.Circle:
+            default:
+                BuildCircleMesh();
+                break;
+        }
+    }
+
+    private void UpdateSpriteVisual()
     {
         if (spriteRenderer == null) return;
-        spriteRenderer.color = currentColor;
 
-        // TODO v0.5+: 根据 shape 更换 sprite / mesh / LineRenderer
+        spriteRenderer.sprite = CreateSectorSprite(currentAngle, currentDirection);
+        spriteRenderer.sortingOrder = 100;
+        transform.localScale = new Vector3(currentRadius * 2f, currentRadius * 2f, 1f);
+    }
+
+    private Sprite CreateCircleSprite()
+    {
+        return CreateSectorSprite(360f, Vector2.right);
+    }
+
+    private Sprite CreateSectorSprite(float angle, Vector2 direction)
+    {
+        const int size = 128;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color[] pixels = new Color[size * size];
+        Vector2 center = new Vector2(size - 1, size - 1) * 0.5f;
+        float radius = size * 0.5f - 1f;
+
+        float halfAngle = angle * 0.5f;
+        float baseAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 offset = new Vector2(x, y) - center;
+                float dist = offset.magnitude;
+
+                if (dist > radius)
+                {
+                    pixels[y * size + x] = Color.clear;
+                    continue;
+                }
+
+                if (angle < 360f)
+                {
+                    float pixelAngle = Mathf.Atan2(offset.y, offset.x) * Mathf.Rad2Deg;
+                    float delta = Mathf.DeltaAngle(baseAngle, pixelAngle);
+                    if (Mathf.Abs(delta) > halfAngle)
+                    {
+                        pixels[y * size + x] = Color.clear;
+                        continue;
+                    }
+                }
+
+                pixels[y * size + x] = Color.white;
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+        tex.filterMode = FilterMode.Bilinear;
+
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+
+    private void BuildCircleMesh()
+    {
+        BuildSectorMeshInternal(360f, currentDirection);
+    }
+
+    private void BuildSectorMesh()
+    {
+        BuildSectorMeshInternal(currentAngle, currentDirection);
+    }
+
+    private void BuildSectorMeshInternal(float angle, Vector2 direction)
+    {
+        if (indicatorMesh == null) return;
+
+        angle = Mathf.Clamp(angle, 0.01f, 360f);
+
+        int segments = Mathf.Max(2, Mathf.RoundToInt(angle / Mathf.Max(0.1f, degreesPerSegment)));
+        Vector3[] vertices = new Vector3[segments + 2];
+        int[] triangles = new int[segments * 3];
+
+        vertices[0] = Vector3.zero;
+
+        float halfAngle = angle * 0.5f;
+        float baseAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+
+        for (int i = 0; i <= segments; i++)
+        {
+            float t = (float)i / segments;
+            float currentDegree = baseAngle - halfAngle + angle * t;
+            float rad = currentDegree * Mathf.Deg2Rad;
+            vertices[i + 1] = new Vector3(
+                Mathf.Cos(rad) * currentRadius,
+                Mathf.Sin(rad) * currentRadius,
+                0f);
+        }
+
+        // 顶点顺序反转，确保在 2D 相机（从 Z 轴负方向看）下为正面
+        for (int i = 0; i < segments; i++)
+        {
+            triangles[i * 3] = 0;
+            triangles[i * 3 + 1] = i + 2;
+            triangles[i * 3 + 2] = i + 1;
+        }
+
+        indicatorMesh.Clear();
+        indicatorMesh.vertices = vertices;
+        indicatorMesh.triangles = triangles;
+        indicatorMesh.RecalculateNormals();
+        indicatorMesh.RecalculateBounds();
     }
 }

@@ -79,10 +79,8 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
-        if (!health.IsDead)
-        {
-            HandleMouseAiming();
-        }
+        // 鼠标瞄准与武器朝向由 PlayerAimController + WeaponController 负责，
+        // PlayerController 不再直接旋转角色，避免与 WeaponPivot 叠加导致武器转得比鼠标快。
     }
 
     void FixedUpdate()
@@ -94,19 +92,6 @@ public class PlayerController : MonoBehaviour
         }
 
         rb.velocity = moveInput.normalized * stats.MoveSpeed;
-    }
-
-    // ========== 鼠标瞄准 ==========
-
-    private void HandleMouseAiming()
-    {
-        if (Mouse.current == null || Camera.main == null) return;
-
-        Vector3 mouseScreenPos = Mouse.current.position.ReadValue();
-        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos);
-        Vector2 direction = mouseWorldPos - transform.position;
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        transform.rotation = Quaternion.Euler(0, 0, angle);
     }
 
     // ========== 死亡处理 ==========

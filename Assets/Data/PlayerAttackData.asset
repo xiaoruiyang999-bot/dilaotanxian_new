@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45b7e7a30eb4449eb588746bd464d01a, type: 3}
-  m_Name: EnemyMeleeAttackData
+  m_Name: PlayerAttackData
   m_EditorClassIdentifier: 
   attackShape: 0
-  windupTime: 0.25
-  activeDuration: 0.25
-  recoveryTime: 0.35
-  attackRange: 1.5
+  windupTime: 0.2
+  activeDuration: 0.2
+  recoveryTime: 0.3
+  attackRange: 1.8
   attackAngle: 120
   attackDamage: 1
-  attackCooldown: 1
+  attackCooldown: 0.5
   targetLayer:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 64
   animationType: 0
   attackEase: 1
   activeMomentRatio: 0.5

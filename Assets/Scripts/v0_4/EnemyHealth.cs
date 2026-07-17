@@ -20,6 +20,7 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     {
         CurrentHealth = maxHealth;
         IsDead = false;
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }
 
     /// <summary>实现IDamageable接口</summary>
