@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// 玩家攻击管理。
-/// 职责：维护 Windup / Active / Recovery 阶段；调用 WeaponAnimator 播放动画；执行扇形伤害判定。
+/// 职责：维护 Windup / Active / Recovery 阶段；调用 WeaponAnimator 播放动画；
+/// Active 阶段驱动 WeaponHitbox 做武器矩形命中检测。
 /// 不控制 WeaponPivot，不读取鼠标输入，不管理武器视觉。
 /// </summary>
 public class PlayerCombat : MonoBehaviour
@@ -15,7 +16,7 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private WeaponController weaponController;
     [SerializeField] private WeaponAnimator weaponAnimator;
     [SerializeField] private AttackIndicator attackIndicator;
-    [SerializeField] private AttackQuery attackQuery;
+    [SerializeField] private WeaponHitbox weaponHitbox;
 
     public System.Action OnAttackStart;
     public System.Action OnAttackEnd;
@@ -45,8 +46,8 @@ public class PlayerCombat : MonoBehaviour
         if (attackIndicator == null)
             attackIndicator = GetComponentInChildren<AttackIndicator>(true);
 
-        if (attackQuery == null)
-            attackQuery = GetComponent<AttackQuery>();
+        if (weaponHitbox == null)
+            weaponHitbox = GetComponent<WeaponHitbox>();
     }
 
     void Update()
@@ -138,6 +139,9 @@ public class PlayerCombat : MonoBehaviour
         activeTimer = attackData.ActiveDuration;
         activeMomentTriggered = false;
 
+        // Active 开始，武器矩形检测同步启动
+        weaponHitbox?.BeginSwing();
+
         if (weaponAnimator != null && weaponController != null)
         {
             weaponAnimator.Play(
@@ -160,12 +164,18 @@ public class PlayerCombat : MonoBehaviour
     {
         activeTimer -= Time.deltaTime;
         if (activeTimer <= 0f)
+        {
             EnterRecovery();
+            return;
+        }
+
+        // Active 期间每帧执行一次武器矩形检测，检测窗口严格等于 Active 阶段
+        weaponHitbox?.Tick();
     }
 
     /// <summary>
     /// 命中时刻回调。由 WeaponAnimator 在动画配置比例点触发。
-    /// 执行一次与动画同步的扇形攻击判定。
+    /// v0.4.6 起伤害由 WeaponHitbox 全程检测结算，此处仅负责隐藏指示器。
     /// </summary>
     private void OnActiveMoment()
     {
@@ -174,26 +184,15 @@ public class PlayerCombat : MonoBehaviour
 
         if (attackIndicator != null)
             attackIndicator.Hide();
-
-        PerformFanAttack();
-    }
-
-    private void PerformFanAttack()
-    {
-        if (attackQuery != null)
-        {
-            attackQuery.ExecuteAttack(transform.position, attackDirection, out _);
-        }
-        else
-        {
-            Debug.LogWarning("[PlayerCombat] attackQuery is null, cannot perform attack.", this);
-        }
     }
 
     private void EnterRecovery()
     {
         subPhase = SubPhase.Recovery;
         recoveryTimer = attackData.RecoveryTime;
+
+        // Active 结束即停挥，关闭武器检测（不能等到 Recovery 之后）
+        weaponHitbox?.EndSwing();
     }
 
     private void UpdateRecovery()

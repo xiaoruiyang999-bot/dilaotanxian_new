@@ -16,7 +16,7 @@ public class EnemyCombat : MonoBehaviour
     [SerializeField] private WeaponController weaponController;
     [SerializeField] private WeaponAnimator weaponAnimator;
     [SerializeField] private AttackIndicator attackIndicator;
-    [SerializeField] private AttackQuery attackQuery;
+    [SerializeField] private WeaponHitbox weaponHitbox;
 
     private enum AttackState { None, Windup, Active, Recovery }
     private AttackState currentState = AttackState.None;
@@ -43,8 +43,8 @@ public class EnemyCombat : MonoBehaviour
             weaponAnimator = GetComponentInChildren<WeaponAnimator>(true);
         if (attackIndicator == null)
             attackIndicator = GetComponentInChildren<AttackIndicator>(true);
-        if (attackQuery == null)
-            attackQuery = GetComponent<AttackQuery>();
+        if (weaponHitbox == null)
+            weaponHitbox = GetComponent<WeaponHitbox>();
     }
 
     void Update()
@@ -170,6 +170,9 @@ public class EnemyCombat : MonoBehaviour
         activeTimer = attackData.ActiveDuration;
         activeMomentTriggered = false;
 
+        // Active 开始，武器矩形检测同步启动
+        weaponHitbox?.BeginSwing();
+
         // Active 阶段将指示器切换为危险色
         if (attackIndicator != null)
             attackIndicator.SetColor(attackIndicator.DangerColor);
@@ -196,30 +199,33 @@ public class EnemyCombat : MonoBehaviour
     {
         activeTimer -= Time.deltaTime;
         if (activeTimer <= 0f)
+        {
             EnterRecovery();
+            return;
+        }
+
+        // Active 期间每帧执行一次武器矩形检测，检测窗口严格等于 Active 阶段
+        weaponHitbox?.Tick();
     }
 
+    /// <summary>
+    /// v0.4.6 起伤害由 WeaponHitbox 全程检测结算，此处仅负责隐藏指示器。
+    /// </summary>
     private void OnActiveMoment()
     {
         if (activeMomentTriggered) return;
         activeMomentTriggered = true;
 
         attackIndicator?.Hide();
-
-        if (attackQuery != null)
-        {
-            attackQuery.ExecuteAttack(transform.position, attackDirection, out _);
-        }
-        else
-        {
-            Debug.LogWarning("[EnemyCombat] attackQuery is null, cannot perform attack.", this);
-        }
     }
 
     private void EnterRecovery()
     {
         currentState = AttackState.Recovery;
         recoveryTimer = attackData.RecoveryTime;
+
+        // Active 结束即停挥，关闭武器检测（不能等到 Recovery 之后）
+        weaponHitbox?.EndSwing();
     }
 
     private void UpdateRecovery()
@@ -241,6 +247,19 @@ public class EnemyCombat : MonoBehaviour
 
         canAttack = false;
         cooldownTimer = attackData.AttackCooldown;
+    }
+
+    /// <summary>
+    /// 死亡/失活时中断攻击流程：关闭武器检测并隐藏攻击预警。
+    /// 预警显示时会脱离父物体挂到场景根部，若不在此清理，Enemy 被销毁后指示器会成为孤儿常驻显示。
+    /// </summary>
+    void OnDisable()
+    {
+        if (currentState == AttackState.None) return;
+
+        currentState = AttackState.None;
+        weaponHitbox?.EndSwing();
+        attackIndicator?.Hide();
     }
 
     /// <summary>

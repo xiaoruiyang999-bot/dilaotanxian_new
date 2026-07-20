@@ -54,13 +54,13 @@ public class EnemyController : MonoBehaviour
     public void MoveTowards(Vector2 direction)
     {
         if (stats == null || rb == null) return;
-        rb.velocity = direction.normalized * stats.MoveSpeed;
+        rb.linearVelocity = direction.normalized * stats.MoveSpeed;
     }
 
     /// <summary>停止移动</summary>
     public void StopMoving()
     {
-        if (rb != null) rb.velocity = Vector2.zero;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
     }
 
     /// <summary>面向指定方向</summary>

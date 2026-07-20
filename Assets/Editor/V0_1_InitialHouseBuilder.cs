@@ -110,7 +110,7 @@ public static class V0_1_InitialHouseBuilder
         CompositeCollider2D cc = wallsGo.AddComponent<CompositeCollider2D>();
         Rigidbody2D rb = wallsGo.GetComponent<Rigidbody2D>();
         rb.bodyType = RigidbodyType2D.Static;
-        tmc.usedByComposite = true;
+        tmc.compositeOperation = Collider2D.CompositeOperation.Merge;
 
         // Test player (green circle)
         GameObject playerGo = new GameObject("TestPlayer");

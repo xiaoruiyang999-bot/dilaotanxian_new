@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3750983646266118015}
   - component: {fileID: 3906170790380796685}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: WeaponSprite
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -102,9 +102,11 @@ GameObject:
   - component: {fileID: 3936714822272515558}
   - component: {fileID: 1448680205994273094}
   - component: {fileID: 1122334455667788990}
-  - component: {fileID: 9988776655443322110}
+  - component: {fileID: 8988776655443322110}
   - component: {fileID: 7620958924149439312}
   - component: {fileID: 4455667788990011222}
+  - component: {fileID: 5500000000000000001}
+  - component: {fileID: 5500000000000000002}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -126,6 +128,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 283850676589024314}
+  - {fileID: 5500000000000000004}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &1906358049243988414
@@ -348,10 +351,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   attackData: {fileID: 11400000, guid: 523190e3772aa284983fab3c0f033c99, type: 2}
   aimController: {fileID: 1122334455667788990}
-  weaponController: {fileID: 9988776655443322110}
+  weaponController: {fileID: 8988776655443322110}
   weaponAnimator: {fileID: 7620958924149439312}
   attackIndicator: {fileID: 0}
-  attackQuery: {fileID: 4455667788990011222}
+  weaponHitbox: {fileID: 5500000000000000001}
 --- !u!114 &1448680205994273094
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -381,7 +384,7 @@ MonoBehaviour:
   autoAimLayer:
     serializedVersion: 2
     m_Bits: 0
---- !u!114 &9988776655443322110
+--- !u!114 &8988776655443322110
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -454,5 +457,77 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3750983646266118015}
+  m_Father: {fileID: 857263768900391870}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5500000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5645691151929306351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96914e95abb5add4ab945dbcca115a6a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  attackData: {fileID: 11400000, guid: 523190e3772aa284983fab3c0f033c99, type: 2}
+  weaponPivot: {fileID: 283850676589024314}
+  weaponWidth: 0.15
+  drawGizmos: 0
+--- !u!114 &5500000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5645691151929306351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1eacaa96eccb7641ac05e8ee55d8579, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  anchor: {fileID: 5500000000000000004}
+  health: {fileID: 8476436258134989188}
+  stats: {fileID: 1445554880683012351}
+  barSprite: {fileID: 0}
+  backgroundColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  hpColor: {r: 0.9, g: 0.1, b: 0.1, a: 1}
+  armorColor: {r: 0.2, g: 0.5, b: 0.95, a: 1}
+  canvasSize: {x: 84, y: 20}
+  canvasScale: 0.01
+  canvasSortingOrder: 10
+  hpBarSize: {x: 80, y: 8}
+  armorBarSize: {x: 80, y: 5}
+  barSpacing: 3
+--- !u!1 &5500000000000000003
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5500000000000000004}
+  m_Layer: 0
+  m_Name: HealthBarAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5500000000000000004
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5500000000000000003}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.2, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
   m_Father: {fileID: 857263768900391870}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

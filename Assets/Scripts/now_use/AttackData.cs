@@ -50,7 +50,7 @@ public class AttackData : ScriptableObject
     [Tooltip("攻击判定半径（物理）")]
     [SerializeField] private float attackRange = 1.5f;
 
-    [Tooltip("攻击判定扇形全角（度）。Arc 动画的挥动幅度也引用此值。")]
+    [Tooltip("扇形全角（度）。仅用于 Arc 动画挥动幅度与预警指示器形状；v0.4.6 起近战伤害由武器矩形（WeaponHitbox）判定，不再使用此角度。")]
     [Range(0f, 360f)]
     [SerializeField] private float attackAngle = 140f;
 

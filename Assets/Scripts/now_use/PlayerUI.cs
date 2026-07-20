@@ -21,7 +21,7 @@ public class PlayerUI : MonoBehaviour
     [SerializeField] private Image armorBar;
 
     [Header("角色引用")]
-    [Tooltip("玩家控制器。为空时优先使用 FindFirstObjectByType，其次按 Tag 'Player' 查找。")]
+    [Tooltip("玩家控制器。为空时优先使用 FindAnyObjectByType，其次按 Tag 'Player' 查找。")]
     [SerializeField] private PlayerController player;
 
     private Health health;
@@ -94,7 +94,7 @@ public class PlayerUI : MonoBehaviour
         if (player != null) return;
 
         // 优先使用新版的类型搜索 API（Unity 2021.2+）
-        player = FindFirstObjectByType<PlayerController>();
+        player = FindAnyObjectByType<PlayerController>();
 
         // 回退方案：按 Tag 查找（兼容旧版本或特殊场景结构）
         if (player == null)

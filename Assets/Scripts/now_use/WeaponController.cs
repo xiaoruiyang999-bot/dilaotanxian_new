@@ -28,6 +28,12 @@ public class WeaponController : MonoBehaviour
 
     public bool IsDirectionLocked => isDirectionLocked;
 
+    /// <summary>武器矩形宽度。供 WeaponHitbox 读取，保证判定宽度与视觉宽度同源。</summary>
+    public float WeaponWidth => weaponWidth;
+
+    /// <summary>武器挂载点。供 WeaponHitbox 读取检测姿态。</summary>
+    public Transform WeaponPivot => weaponPivot;
+
     /// <summary>
     /// 获取当前瞄准方向（归一化 Vector2）。
     /// 攻击锁定期间返回锁定瞬间的方向。

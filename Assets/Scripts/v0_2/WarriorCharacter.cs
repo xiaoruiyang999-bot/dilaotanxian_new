@@ -49,7 +49,7 @@ public class WarriorCharacter : MonoBehaviour
     void FixedUpdate()
     {
         // 使用Rigidbody2D.velocity移动，与Tilemap Collider正确交互
-        rb.velocity = moveInput.normalized * moveSpeed;
+        rb.linearVelocity = moveInput.normalized * moveSpeed;
     }
 
     // ========== 属性修改接口（后续版本受伤/恢复时调用）==========
@@ -75,6 +75,6 @@ public class WarriorCharacter : MonoBehaviour
     void OnDisable()
     {
         // 对象禁用时停止移动
-        rb.velocity = Vector2.zero;
+        rb.linearVelocity = Vector2.zero;
     }
 }

@@ -53,7 +53,7 @@ public class PlayerController : MonoBehaviour
         if (playerInput != null)
             playerInput.onActionTriggered -= OnActionTriggered;
 
-        rb.velocity = Vector2.zero;
+        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
     }
 
@@ -87,18 +87,18 @@ public class PlayerController : MonoBehaviour
     {
         if (health.IsDead)
         {
-            rb.velocity = Vector2.zero;
+            rb.linearVelocity = Vector2.zero;
             return;
         }
 
-        rb.velocity = moveInput.normalized * stats.MoveSpeed;
+        rb.linearVelocity = moveInput.normalized * stats.MoveSpeed;
     }
 
     // ========== 死亡处理 ==========
 
     private void OnPlayerDeath()
     {
-        rb.velocity = Vector2.zero;
+        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
 
         // 变灰表现
