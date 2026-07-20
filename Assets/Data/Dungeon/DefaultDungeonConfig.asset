@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f13331479a5e514b81aae3ae0a3d4a3, type: 3}
+  m_Name: DefaultDungeonConfig
+  m_EditorClassIdentifier: Assembly-CSharp::DungeonConfig
+  roomCountMin: 8
+  roomCountMax: 12
+  roomWidth: 18
+  roomHeight: 11
+  doorWidth: 2
+  treasureCount: 1
+  shopCount: 1
+  eventCount: 0
+  eliteChance: 0.15
+  bossMinDistance: 3
+  enemyCountBonusPerFloor: 1
+  hpMultiplierPerFloor: 0.15

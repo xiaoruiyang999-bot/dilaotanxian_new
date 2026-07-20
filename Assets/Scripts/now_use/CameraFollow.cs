@@ -26,4 +26,12 @@ public class CameraFollow : MonoBehaviour
             1f / smoothSpeed
         );
     }
+
+    /// <summary>瞬移到目标位置（出生 / 楼层切换时调用，避免镜头横穿全图）。</summary>
+    public void SnapToTarget()
+    {
+        if (target == null) return;
+        transform.position = target.position + offset;
+        currentVelocity = Vector3.zero;
+    }
 }
