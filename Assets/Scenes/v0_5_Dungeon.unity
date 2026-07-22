@@ -906,6 +906,7 @@ MonoBehaviour:
   floorTile: {fileID: 11400000, guid: 41edccbcf942e484a83fa82a7b5f8b9f, type: 2}
   wallTile: {fileID: 11400000, guid: 698308b33d30bb54a8086030916ba62b, type: 2}
   dungeonRoot: {fileID: 289048147}
+  doorPrefab: {fileID: 5266975208585212604, guid: 71149df588a824046abc90f62ede033f, type: 3}
 --- !u!114 &1357356020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -923,6 +924,10 @@ MonoBehaviour:
   builder: {fileID: 1357356019}
   player: {fileID: 1474215305}
   drawGizmos: 1
+  debugPopulateEnemies: 1
+  debugEnemyPrefab: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+  debugEnemyRoomCount: 2
+  debugEnemiesPerRoom: 2
 --- !u!4 &1474215305 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
@@ -1455,6 +1460,10 @@ PrefabInstance:
     - target: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1448680205994273094, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5645691151929306351, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
       propertyPath: m_Name

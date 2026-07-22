@@ -1,8 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 房间运行时数据（v0.5.0 基础版：无状态机，仅持有布局数据与世界边界）。
-/// v0.5.1 升级：状态机 Unvisited/Active/Cleared + 门管理 + 敌人注册与清房判定。
+/// 房间（v0.5.1 完整版）：状态机 Unvisited/Active/Cleared + 门管理 + 敌人注册与清房判定。
+/// 低耦合：不认识 EnemyAI，只认「注册了若干个会死的东西」（EnemyHealth.OnDeath 计数）。
+/// 休眠制：战斗房敌人未进房时**可见但不动**（禁用 EnemyAI/EnemyCombat + 刚体冻结），
+/// 玩家能透过门洞看到房内敌人；进房瞬间唤醒。
 /// </summary>
 public class Room : MonoBehaviour
 {
@@ -13,10 +16,108 @@ public class Room : MonoBehaviour
     public Rect Bounds { get; private set; }
     public Vector2 Center => Bounds.center;
 
-    public void Init(int id, RoomType type, Rect bounds)
+    public RoomState State { get; private set; } = RoomState.Unvisited;
+    public RoomClearCondition ClearCondition { get; private set; }
+    /// <summary>内容挂载点：敌人/障碍物/装饰挂在其下；战斗房初始 SetActive(false) 休眠。</summary>
+    public Transform ContentRoot { get; private set; }
+
+    /// <summary>首次进入（Unvisited → Active）时触发（风格同 WeaponHitbox.OnHit / EnemyHealth.OnDeath）。</summary>
+    public System.Action<Room> OnRoomEntered;
+    /// <summary>清房（→ Cleared）时触发。v0.5.4 Boss 结算监听此事件。</summary>
+    public System.Action<Room> OnRoomCleared;
+
+    private readonly List<EnemyHealth> enemies = new List<EnemyHealth>();
+    private readonly List<Door> doors = new List<Door>();
+
+    public void Init(int id, RoomType type, Rect bounds, RoomClearCondition clearCondition, Transform contentRoot)
     {
         Id = id;
         Type = type;
         Bounds = bounds;
+        ClearCondition = clearCondition;
+        ContentRoot = contentRoot;
+    }
+
+    /// <summary>登记门（Builder 建门时调用，相邻两个房间各登记一次）。</summary>
+    public void RegisterDoor(Door door)
+    {
+        if (door != null && !doors.Contains(door)) doors.Add(door);
+    }
+
+    /// <summary>登记敌人并订阅死亡（v0.5.1 手工摆放 / v0.5.2 Spawner 共用此入口）。
+    /// 战斗房未进入时登记的敌人立即休眠（可见但不动）。</summary>
+    public void RegisterEnemy(EnemyHealth enemy)
+    {
+        if (enemy == null || enemies.Contains(enemy)) return;
+        enemies.Add(enemy);
+        enemy.OnDeath += () => NotifyEnemyDied(enemy);
+        if (ClearCondition == RoomClearCondition.AllEnemiesDead && State == RoomState.Unvisited)
+            SetEnemyDormant(enemy, true);
+    }
+
+    /// <summary>休眠开关：禁用 AI/Combat + 冻结刚体；精灵与碰撞保持原样（可见、可被武器打到）。</summary>
+    private void SetEnemyDormant(EnemyHealth enemy, bool dormant)
+    {
+        if (enemy == null) return;
+        var ai = enemy.GetComponent<EnemyAI>();
+        if (ai != null) ai.enabled = !dormant;
+        var combat = enemy.GetComponent<EnemyCombat>();
+        if (combat != null) combat.enabled = !dormant;
+        var rb = enemy.GetComponent<Rigidbody2D>();
+        if (rb != null) rb.constraints = dormant ? RigidbodyConstraints2D.FreezeAll : RigidbodyConstraints2D.FreezeRotation;
+    }
+
+    private void SetAllEnemiesDormant(bool dormant)
+    {
+        foreach (EnemyHealth e in enemies) SetEnemyDormant(e, dormant);
+    }
+
+    /// <summary>玩家首次进入（RoomTrigger 调用）。</summary>
+    public void Enter()
+    {
+        if (State != RoomState.Unvisited) return;
+        State = RoomState.Active;
+        OnRoomEntered?.Invoke(this);
+
+        if (ClearCondition == RoomClearCondition.None)
+        {
+            SetCleared();   // 无战斗房：直接完成，门常开
+            return;
+        }
+
+        // AllEnemiesDead：唤醒敌人 + 关门
+        SetAllEnemiesDormant(false);
+        RefreshDoors();
+        if (enemies.Count == 0) SetCleared(); // 防御：空战斗房直接完成
+    }
+
+    /// <summary>敌人死亡回调（注册时以闭包订阅）。</summary>
+    public void NotifyEnemyDied(EnemyHealth enemy)
+    {
+        enemies.Remove(enemy);
+        if (State == RoomState.Active
+            && ClearCondition == RoomClearCondition.AllEnemiesDead
+            && enemies.Count == 0)
+            SetCleared();
+    }
+
+    private void SetCleared()
+    {
+        State = RoomState.Cleared;
+        RefreshDoors();
+        OnRoomCleared?.Invoke(this);
+    }
+
+    private void RefreshDoors()
+    {
+        foreach (Door d in doors) if (d != null) d.RefreshState();
+    }
+
+    /// <summary>调试：杀光房内所有登记敌人（验收「杀光开门」用）。</summary>
+    [ContextMenu("Debug Kill All Enemies")]
+    private void DebugKillAllEnemies()
+    {
+        for (int i = enemies.Count - 1; i >= 0; i--)
+            if (enemies[i] != null) enemies[i].TakeDamage(float.MaxValue);
     }
 }
