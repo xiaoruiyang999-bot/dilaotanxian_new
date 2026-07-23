@@ -1,6 +1,6 @@
-# now_use — 当前版本实际在用脚本（v0.4.6）
+# now_use — 当前版本实际在用脚本（v0.5.2）
 
-> 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` + Player/Enemy/TrainingDummy）实际运行所需的脚本**。
+> 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` 地牢）实际运行所需的脚本**。
 > 历史/弃用脚本保留在原版本文件夹（`v0_2` / `v0_3` / `v0_4` / `Framework`）作为档案，不删除。
 >
 > **维护约定（每个新版本必须执行）**：
@@ -9,7 +9,7 @@
 > 3. 每次变动后更新本 README 的清单与版本号。
 > 4. 移动用 Unity 资产移动（Editor 拖拽或 asset_move），保证 .meta 跟随，不要在外部资源管理器裸移。
 
-## 清单（23 个，按职责分组）
+## 清单（25 个，按职责分组）
 
 ### Player 侧
 | 脚本 | 职责 |
@@ -49,6 +49,8 @@
 | CameraFollow | 相机平滑跟随 |
 | PatrolSystem | 巡逻点生成（EnemyAI 使用） |
 | IDamageable | 统一伤害接口 |
+| ObstacleHealth | 可破坏障碍物生命（IDamageable，HP=刀数，v0.5.2） |
+| DestructibleObstacle | 可破坏障碍物表现（闪白/变深/销毁，v0.5.2） |
 
 ## 明确不在用（留在档案目录）
 - `v0_2/CharacterInput.cs`、`v0_2/WarriorCharacter.cs` — v0.2 旧场景专用

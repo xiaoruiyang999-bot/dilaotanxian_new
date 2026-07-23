@@ -94,7 +94,9 @@ public class WeaponHitbox : MonoBehaviour
             Collider2D hit = hitBuffer[i];
             if (hit == null) continue;
             if (hit.isTrigger) continue;                        // 跳过探测圈等 trigger（如 Enemy 半径5的触发器）
-            if (hit.transform.root == transform.root) continue; // 跳过攻击者自身
+            if (hit.transform.IsChildOf(transform)) continue;   // 跳过攻击者自身（含子物体）。
+                                                                // 注意不能用 transform.root 比较：v0.5.2 起敌人/障碍物同挂 DungeonSystem 根下，
+                                                                // root 相同会被误判为"自身"（敌人武器因此打不到木箱）
             if (hitThisSwing.Contains(hit)) continue;           // 每次挥击每目标只结算一次
 
             hitThisSwing.Add(hit);

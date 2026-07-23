@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60818b153d524bf4ebe83e39b0cd14d1, type: 3}
+  m_Name: DecorationTable_Combat
+  m_EditorClassIdentifier: Assembly-CSharp::SpawnTable
+  entries:
+  - prefab: {fileID: 4896593441238947520, guid: 648c009abe11b004e999c60883d7e275, type: 3}
+    weight: 1
+    destructible: 0
+    hp: 0
+  - prefab: {fileID: 2479038862450236651, guid: 5fec591decfe5dd4fb8d9d8b9b28a93d, type: 3}
+    weight: 1
+    destructible: 0
+    hp: 0
+  countMin: 1
+  countMax: 3

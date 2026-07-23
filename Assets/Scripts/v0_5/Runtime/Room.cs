@@ -28,6 +28,8 @@ public class Room : MonoBehaviour
 
     private readonly List<EnemyHealth> enemies = new List<EnemyHealth>();
     private readonly List<Door> doors = new List<Door>();
+    /// <summary>本房间的门（只读）。生成位置规则（距门 ≥2.5 格）使用。</summary>
+    public IReadOnlyList<Door> Doors => doors;
 
     public void Init(int id, RoomType type, Rect bounds, RoomClearCondition clearCondition, Transform contentRoot)
     {

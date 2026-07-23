@@ -246,6 +246,15 @@ public class AttackIndicator : MonoBehaviour
     {
         if (!isDetached || originalParent == null) return;
 
+        // 父物体正在停用/销毁（如敌人死亡触发 EnemyCombat.OnDisable → Hide）时，
+        // SetParent 会被 Unity 拒绝并报错——放弃归位，指示器随父物体一起销毁即可。
+        if (!originalParent.gameObject.activeInHierarchy)
+        {
+            isDetached = false;
+            originalParent = null;
+            return;
+        }
+
         transform.SetParent(originalParent, false);
         transform.localPosition = originalLocalPosition;
         transform.localRotation = originalLocalRotation;

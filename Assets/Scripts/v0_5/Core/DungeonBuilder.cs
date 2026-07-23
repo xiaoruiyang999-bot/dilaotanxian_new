@@ -23,14 +23,19 @@ public class DungeonBuilder : MonoBehaviour
     [Header("v0.5.1 房间流程")]
     [SerializeField] private Door doorPrefab;
 
+    [Header("v0.5.2 随机内容生成")]
+    [Tooltip("战斗类房间（ClearCondition=AllEnemiesDead）共用的默认内容配置；v0.5.3 起按房间类型分配置")]
+    [SerializeField] private RoomContentProfile defaultContentProfile;
+
     private readonly Dictionary<int, Room> rooms = new Dictionary<int, Room>();
     /// <summary>当前楼层的房间（Room.id → Room），供 Gizmos / 后续系统查询。</summary>
     public IReadOnlyDictionary<int, Room> Rooms => rooms;
 
     private int roomW, roomH, doorW;   // 配置缓存（瓦片）
 
-    /// <summary>按布局重建整层地牢，返回起始房中心（世界坐标）。</summary>
-    public Vector3 Build(DungeonLayout layout, DungeonConfig config)
+    /// <summary>按布局重建整层地牢，返回起始房中心（世界坐标）。
+    /// layoutSeed 用于派生每个房间的内容子 seed（同 seed 下地图与内容完全一致）。</summary>
+    public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed)
     {
         roomW = config.roomWidth;
         roomH = config.roomHeight;
@@ -49,7 +54,23 @@ public class DungeonBuilder : MonoBehaviour
         foreach (RoomNode node in layout.rooms) CreateRoomObject(node);
         foreach (KeyValuePair<RoomConnection, Rect> kv in doorRects) CreateDoor(kv.Key, kv.Value);
 
+        // v0.5.2：内容生成放在最后——位置规则要读门洞中心（门已建）、敌人登记要 Room 已 Init。
+        foreach (RoomNode node in layout.rooms) SpawnContent(node, layoutSeed);
+
         return GetRoomCenterWorld(layout.startRoom);
+    }
+
+    /// <summary>按默认 Profile 为战斗类房间生成敌人/障碍物/装饰（子 seed 派生：seed*7919 + roomId）。</summary>
+    private void SpawnContent(RoomNode node, int layoutSeed)
+    {
+        if (defaultContentProfile == null) return;
+        if (!rooms.TryGetValue(node.id, out Room room)) return;
+        if (room.ClearCondition != RoomClearCondition.AllEnemiesDead) return;  // Start 等无战斗房不生成
+
+        var rng = new System.Random(layoutSeed * 7919 + node.id);
+        EnemySpawner.Spawn(room, defaultContentProfile.enemyTable, rng);
+        ObstacleSpawner.Spawn(room, defaultContentProfile.obstacleTable, rng);
+        DecorationSpawner.Spawn(room, defaultContentProfile.decorationTable, rng);
     }
 
     /// <summary>清空 Tilemap 与全部生成物（重建 / 楼层切换共用）。</summary>

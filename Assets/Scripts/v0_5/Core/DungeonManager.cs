@@ -20,12 +20,6 @@ public class DungeonManager : MonoBehaviour
     [Header("调试")]
     [SerializeField] private bool drawGizmos = true;
 
-    [Header("v0.5.1 调试摆敌（v0.5.2 生成器上线后移除）")]
-    [SerializeField] private bool debugPopulateEnemies = false;
-    [SerializeField] private GameObject debugEnemyPrefab;
-    [SerializeField, Range(1, 5)] private int debugEnemyRoomCount = 2;
-    [SerializeField, Range(1, 6)] private int debugEnemiesPerRoom = 2;
-
     /// <summary>当前楼层布局（纯数据，小地图等系统直接消费）。</summary>
     public DungeonLayout Layout { get; private set; }
     /// <summary>本层实际使用的种子。</summary>
@@ -47,7 +41,7 @@ public class DungeonManager : MonoBehaviour
 
         ActiveSeed = seed != 0 ? seed : System.Environment.TickCount;
         Layout = DungeonGenerator.Generate(config, ActiveSeed);
-        Vector3 spawnPos = builder.Build(Layout, config);
+        Vector3 spawnPos = builder.Build(Layout, config, ActiveSeed);
 
         if (player == null)
         {
@@ -62,36 +56,6 @@ public class DungeonManager : MonoBehaviour
         }
 
         Debug.Log($"[Dungeon] 生成完成 seed={ActiveSeed} rooms={Layout.rooms.Count} connections={Layout.connections.Count} bossRoom=#{Layout.bossRoom.id} bossDist={Layout.bossRoom.distanceFromStart}");
-
-        if (debugPopulateEnemies) DebugPopulateEnemies();
-    }
-
-    /// <summary>v0.5.1 调试：往距出生房最近的 N 个战斗房各放 M 个敌人（手工摆放的运行时等价物）。
-    /// 敌人挂在 contentRoot 下 → 初始休眠，进房激活；v0.5.2 由 EnemySpawner 取代。</summary>
-    private void DebugPopulateEnemies()
-    {
-        if (debugEnemyPrefab == null) { Debug.LogWarning("[Dungeon] 调试摆敌已开启但未配置 debugEnemyPrefab"); return; }
-
-        var sorted = new List<RoomNode>(Layout.rooms);
-        sorted.Sort((x, y) => x.distanceFromStart.CompareTo(y.distanceFromStart));
-
-        int placedRooms = 0;
-        foreach (RoomNode node in sorted)
-        {
-            if (placedRooms >= debugEnemyRoomCount) break;
-            if (node.type != RoomType.Combat) continue;
-            if (!builder.Rooms.TryGetValue(node.id, out Room room)) continue;
-
-            for (int i = 0; i < debugEnemiesPerRoom; i++)
-            {
-                Vector3 pos = (Vector3)room.Center + new Vector3((i - (debugEnemiesPerRoom - 1) * 0.5f) * 2f, 0f, 0f);
-                GameObject e = Instantiate(debugEnemyPrefab, pos, Quaternion.identity, room.ContentRoot);
-                e.name = $"Enemy_Debug_{node.id}_{i}";
-                room.RegisterEnemy(e.GetComponent<EnemyHealth>());
-            }
-            placedRooms++;
-        }
-        Debug.Log($"[Dungeon] 调试摆敌：{placedRooms} 个战斗房 × {debugEnemiesPerRoom} 敌人");
     }
 
     // ---------- 离线自检 ----------

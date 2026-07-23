@@ -533,7 +533,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 10
+  orthographic size: 7
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
@@ -907,6 +907,7 @@ MonoBehaviour:
   wallTile: {fileID: 11400000, guid: 698308b33d30bb54a8086030916ba62b, type: 2}
   dungeonRoot: {fileID: 289048147}
   doorPrefab: {fileID: 5266975208585212604, guid: 71149df588a824046abc90f62ede033f, type: 3}
+  defaultContentProfile: {fileID: 11400000, guid: 99f6f8e32070a5d41bbbfe85b45312ff, type: 2}
 --- !u!114 &1357356020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -920,14 +921,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DungeonManager
   config: {fileID: 11400000, guid: 3c3c9f1522624bf4b828eb4442c4d4df, type: 2}
-  seed: 0
+  seed: 12345
   builder: {fileID: 1357356019}
   player: {fileID: 1474215305}
   drawGizmos: 1
-  debugPopulateEnemies: 1
-  debugEnemyPrefab: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-  debugEnemyRoomCount: 2
-  debugEnemiesPerRoom: 2
 --- !u!4 &1474215305 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
@@ -1423,11 +1420,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.82
+      value: 6.34
       objectReference: {fileID: 0}
     - target: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 5.33
+      value: 3.37
       objectReference: {fileID: 0}
     - target: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
       propertyPath: m_LocalPosition.z

@@ -22,7 +22,7 @@ MonoBehaviour:
   attackCooldown: 0.5
   targetLayer:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 192
   animationType: 0
   attackEase: 1
   activeMomentRatio: 0.5
