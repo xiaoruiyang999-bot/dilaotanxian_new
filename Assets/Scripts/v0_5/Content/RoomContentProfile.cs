@@ -11,4 +11,6 @@ public class RoomContentProfile : ScriptableObject
     public SpawnTable enemyTable;        // 可空（空 = 无战斗）
     public SpawnTable obstacleTable;     // 可空
     public SpawnTable decorationTable;   // 可空
+    [Tooltip("v0.5.3：宝箱/祭坛/补给基座等 walk-over 交互物表（可空）")]
+    public SpawnTable interactableTable; // 可空
 }

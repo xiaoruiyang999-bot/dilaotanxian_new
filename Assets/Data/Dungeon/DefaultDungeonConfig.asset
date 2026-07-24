@@ -14,13 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DungeonConfig
   roomCountMin: 8
   roomCountMax: 12
-  roomWidth: 18
-  roomHeight: 11
+  roomWidth: 30
+  roomHeight: 18
   doorWidth: 2
   treasureCount: 1
   shopCount: 1
   eventCount: 0
   eliteChance: 0.15
   bossMinDistance: 3
+  bossCellSpan: 2
+  eliteCellSpan: 2
   enemyCountBonusPerFloor: 1
   hpMultiplierPerFloor: 0.15

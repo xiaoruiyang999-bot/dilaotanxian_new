@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98f22c73223754e4eb6fc92731aa59cf, type: 3}
+  m_Name: RoomTypeConfig_Start
+  m_EditorClassIdentifier: Assembly-CSharp::RoomTypeConfig
+  type: 0
+  floorTint: {r: 0.6, g: 0.7, b: 0.58, a: 1}
+  clearCondition: 0
+  contentProfile: {fileID: 0}

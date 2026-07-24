@@ -533,7 +533,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 7
+  orthographic size: 10
   m_Depth: 0
   m_CullingMask:
     serializedVersion: 2
@@ -558,7 +558,7 @@ Transform:
   m_GameObject: {fileID: 725043936}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 4.5, y: 3.5, z: -10}
+  m_LocalPosition: {x: 5.92, y: 3.5, z: -10}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -907,7 +907,14 @@ MonoBehaviour:
   wallTile: {fileID: 11400000, guid: 698308b33d30bb54a8086030916ba62b, type: 2}
   dungeonRoot: {fileID: 289048147}
   doorPrefab: {fileID: 5266975208585212604, guid: 71149df588a824046abc90f62ede033f, type: 3}
-  defaultContentProfile: {fileID: 11400000, guid: 99f6f8e32070a5d41bbbfe85b45312ff, type: 2}
+  roomTypeConfigs:
+  - {fileID: 11400000, guid: 0fe2bfe6656fa654d974feabae9fce79, type: 2}
+  - {fileID: 11400000, guid: d2dc82985baa5d44299fdfdc213f085a, type: 2}
+  - {fileID: 11400000, guid: a5e2ac6960d5cfb4bbe9b1769ba283bc, type: 2}
+  - {fileID: 11400000, guid: 5ffaa7ec901e48b478bb50e6747569dc, type: 2}
+  - {fileID: 11400000, guid: d8d06c5f23f0686439e5bceea9a52b9e, type: 2}
+  - {fileID: 11400000, guid: fea7dd57b53b0d047b275ca3380b33f3, type: 2}
+  - {fileID: 11400000, guid: bd39174ca9d777246a0dc6fe0dcc2928, type: 2}
 --- !u!114 &1357356020
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -921,7 +928,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DungeonManager
   config: {fileID: 11400000, guid: 3c3c9f1522624bf4b828eb4442c4d4df, type: 2}
-  seed: 12345
+  seed: 0
   builder: {fileID: 1357356019}
   player: {fileID: 1474215305}
   drawGizmos: 1

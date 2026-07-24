@@ -23,9 +23,23 @@ public class DungeonBuilder : MonoBehaviour
     [Header("v0.5.1 房间流程")]
     [SerializeField] private Door doorPrefab;
 
-    [Header("v0.5.2 随机内容生成")]
-    [Tooltip("战斗类房间（ClearCondition=AllEnemiesDead）共用的默认内容配置；v0.5.3 起按房间类型分配置")]
-    [SerializeField] private RoomContentProfile defaultContentProfile;
+    [Header("v0.5.3 房间类型系统")]
+    [Tooltip("7 种房间类型配置（着色/清房条件/内容 Profile），按 type 匹配")]
+    [SerializeField] private RoomTypeConfig[] roomTypeConfigs;
+
+    private Dictionary<RoomType, RoomTypeConfig> typeConfigMap;
+
+    /// <summary>按类型取配置；缺失时返回 null（调用方走保底）。</summary>
+    private RoomTypeConfig GetTypeConfig(RoomType type)
+    {
+        if (typeConfigMap == null)
+        {
+            typeConfigMap = new Dictionary<RoomType, RoomTypeConfig>();
+            foreach (RoomTypeConfig c in roomTypeConfigs)
+                if (c != null && !typeConfigMap.ContainsKey(c.type)) typeConfigMap.Add(c.type, c);
+        }
+        return typeConfigMap.TryGetValue(type, out RoomTypeConfig cfg) ? cfg : null;
+    }
 
     private readonly Dictionary<int, Room> rooms = new Dictionary<int, Room>();
     /// <summary>当前楼层的房间（Room.id → Room），供 Gizmos / 后续系统查询。</summary>
@@ -60,17 +74,18 @@ public class DungeonBuilder : MonoBehaviour
         return GetRoomCenterWorld(layout.startRoom);
     }
 
-    /// <summary>按默认 Profile 为战斗类房间生成敌人/障碍物/装饰（子 seed 派生：seed*7919 + roomId）。</summary>
+    /// <summary>按房间类型取 Profile 生成内容（子 seed 派生：seed*7919 + roomId）。Start 等无 Profile 房自然为空。</summary>
     private void SpawnContent(RoomNode node, int layoutSeed)
     {
-        if (defaultContentProfile == null) return;
+        RoomContentProfile profile = GetTypeConfig(node.type)?.contentProfile;
+        if (profile == null) return;
         if (!rooms.TryGetValue(node.id, out Room room)) return;
-        if (room.ClearCondition != RoomClearCondition.AllEnemiesDead) return;  // Start 等无战斗房不生成
 
         var rng = new System.Random(layoutSeed * 7919 + node.id);
-        EnemySpawner.Spawn(room, defaultContentProfile.enemyTable, rng);
-        ObstacleSpawner.Spawn(room, defaultContentProfile.obstacleTable, rng);
-        DecorationSpawner.Spawn(room, defaultContentProfile.decorationTable, rng);
+        EnemySpawner.Spawn(room, profile.enemyTable, rng);
+        ObstacleSpawner.Spawn(room, profile.obstacleTable, rng);
+        DecorationSpawner.Spawn(room, profile.decorationTable, rng);
+        InteractableSpawner.Spawn(room, profile.interactableTable, rng);
     }
 
     /// <summary>清空 Tilemap 与全部生成物（重建 / 楼层切换共用）。</summary>
@@ -87,50 +102,71 @@ public class DungeonBuilder : MonoBehaviour
         }
     }
 
-    // ---------- 坐标换算（格子 = 内部 + 四周各 1 格墙） ----------
+    // ---------- 坐标换算（格子 = 内部 + 四周各 1 格墙；跨格房占 spanX×spanY 格） ----------
 
     private int CellWidth => roomW + 2;
     private int CellHeight => roomH + 2;
 
-    /// <summary>房间格子原点的瓦片坐标（含墙外框左下角）。</summary>
+    /// <summary>房间锚点格子原点的瓦片坐标（含墙外框左下角）。</summary>
     private Vector2Int CellOrigin(RoomNode node)
         => new Vector2Int(node.gridPos.x * CellWidth, node.gridPos.y * CellHeight);
 
-    /// <summary>房间内部左下角瓦片坐标。</summary>
-    private Vector2Int InteriorOrigin(RoomNode node)
+    /// <summary>房间含墙瓦片矩形（v0.5.3.1：跨格房占 spanX×spanY 个粗格）。</summary>
+    private RectInt TileRect(RoomNode node)
     {
         Vector2Int o = CellOrigin(node);
-        return new Vector2Int(o.x + 1, o.y + 1);
+        return new RectInt(o.x, o.y, node.spanX * CellWidth, node.spanY * CellHeight);
+    }
+
+    /// <summary>房间内部矩形（去四周各 1 格墙）= Room.Bounds 唯一来源。</summary>
+    private Rect InteriorRect(RoomNode node)
+    {
+        RectInt r = TileRect(node);
+        return new Rect(r.xMin + 1, r.yMin + 1, r.width - 2, r.height - 2);
     }
 
     // ---------- 绘制 ----------
 
-    /// <summary>画一个房间：内部地板 + 四周一圈墙（格子间距含墙，相邻房间的墙线互不重叠）。</summary>
+    /// <summary>画一个房间：内部地板 + 四周一圈墙（格子间距含墙，相邻房间的墙线互不重叠）。
+    /// v0.5.3：内部地板按 RoomTypeConfig.floorTint 着色（alpha=0 不着色；需 FloorTile 解锁 LockColor）。</summary>
     private void PaintRoom(RoomNode node)
     {
-        Vector2Int o = CellOrigin(node);
-        for (int x = 0; x < CellWidth; x++)
+        RectInt rect = TileRect(node);
+        Color tint = GetTypeConfig(node.type)?.floorTint ?? Color.clear;
+
+        for (int x = 0; x < rect.width; x++)
         {
-            for (int y = 0; y < CellHeight; y++)
+            for (int y = 0; y < rect.height; y++)
             {
-                bool border = x == 0 || y == 0 || x == CellWidth - 1 || y == CellHeight - 1;
-                var pos = new Vector3Int(o.x + x, o.y + y, 0);
-                if (border) wallsTilemap.SetTile(pos, wallTile);
-                else floorTilemap.SetTile(pos, floorTile);
+                bool border = x == 0 || y == 0 || x == rect.width - 1 || y == rect.height - 1;
+                var pos = new Vector3Int(rect.xMin + x, rect.yMin + y, 0);
+                if (border)
+                {
+                    wallsTilemap.SetTile(pos, wallTile);
+                }
+                else
+                {
+                    floorTilemap.SetTile(pos, floorTile);
+                    if (tint.a > 0f) floorTilemap.SetColor(pos, tint);
+                }
             }
         }
     }
 
-    /// <summary>在相邻房间的共用墙中段开门洞：两侧墙线一起打穿 + 铺地板。返回门洞世界矩形（供 Door 定位）。</summary>
+    /// <summary>在相邻房间的共用墙中段开门洞：两侧墙线一起打穿 + 铺地板。返回门洞世界矩形（供 Door 定位）。
+    /// v0.5.3.1：方向按含墙矩形相邻判定（跨格房锚点差不再轴对齐），门洞在两房内部重叠段居中。</summary>
     private Rect? CarveDoor(RoomConnection conn)
     {
-        Vector2Int delta = conn.b.gridPos - conn.a.gridPos;
-        if (delta.x != 0) // 东西向连接：打穿西房间的东墙线 + 东房间的西墙线
+        RectInt ra = TileRect(conn.a), rb = TileRect(conn.b);
+
+        if (rb.xMin >= ra.xMax || rb.xMax <= ra.xMin) // 东西向连接：打穿西房东墙线 + 东房西墙线
         {
-            RoomNode west = delta.x > 0 ? conn.a : conn.b;
-            Vector2Int westInner = InteriorOrigin(west);
-            int wallX1 = westInner.x + roomW;
-            int startY = westInner.y + (roomH - doorW) / 2;
+            RectInt west = rb.xMin >= ra.xMax ? ra : rb;
+            int wallX1 = west.xMax - 1;   // 西房东墙线；+1 = 东房西墙线
+            int y0 = Mathf.Max(ra.yMin, rb.yMin) + 1;   // 两房内部重叠段（不含墙）
+            int y1 = Mathf.Min(ra.yMax, rb.yMax) - 1;   // exclusive
+            if (y1 - y0 < doorW) return null;           // 防御：重叠段不足（构造上不存在）
+            int startY = Mathf.Clamp((y0 + y1 - doorW) / 2, y0, y1 - doorW);
             for (int dy = 0; dy < doorW; dy++)
             {
                 OpenDoorTile(wallX1, startY + dy);
@@ -138,12 +174,14 @@ public class DungeonBuilder : MonoBehaviour
             }
             return new Rect(wallX1, startY, 2f, doorW);
         }
-        if (delta.y != 0) // 南北向连接：打穿南房间的北墙线 + 北房间的南墙线
+        if (rb.yMin >= ra.yMax || rb.yMax <= ra.yMin) // 南北向连接：打穿南房北墙线 + 北房南墙线
         {
-            RoomNode south = delta.y > 0 ? conn.a : conn.b;
-            Vector2Int southInner = InteriorOrigin(south);
-            int wallY1 = southInner.y + roomH;
-            int startX = southInner.x + (roomW - doorW) / 2;
+            RectInt south = rb.yMin >= ra.yMax ? ra : rb;
+            int wallY1 = south.yMax - 1;
+            int x0 = Mathf.Max(ra.xMin, rb.xMin) + 1;
+            int x1 = Mathf.Min(ra.xMax, rb.xMax) - 1;
+            if (x1 - x0 < doorW) return null;
+            int startX = Mathf.Clamp((x0 + x1 - doorW) / 2, x0, x1 - doorW);
             for (int dx = 0; dx < doorW; dx++)
             {
                 OpenDoorTile(startX + dx, wallY1);
@@ -151,7 +189,7 @@ public class DungeonBuilder : MonoBehaviour
             }
             return new Rect(startX, wallY1, doorW, 2f);
         }
-        // delta 为 (0,0) 或非相邻属生成器数据错误（Validate 自检会拦截），此处静默忽略
+        // 非相邻属生成器数据错误（Validate 自检会拦截），此处静默忽略
         return null;
     }
 
@@ -164,19 +202,15 @@ public class DungeonBuilder : MonoBehaviour
 
     // ---------- Room / Door 实例化 ----------
 
-    /// <summary>清房条件映射（v0.5.3 起改由 RoomTypeConfig 数据驱动）。</summary>
-    private static RoomClearCondition ConditionFor(RoomType type)
-    {
-        return type == RoomType.Combat || type == RoomType.Boss
-            ? RoomClearCondition.AllEnemiesDead
-            : RoomClearCondition.None;
-    }
-
     private void CreateRoomObject(RoomNode node)
     {
-        Vector2Int inner = InteriorOrigin(node);
-        var bounds = new Rect(inner.x, inner.y, roomW, roomH);
-        RoomClearCondition condition = ConditionFor(node.type);
+        Rect bounds = InteriorRect(node);   // v0.5.3.1：跨格房边界来自含墙矩形
+        // v0.5.3：清房条件由 RoomTypeConfig 数据驱动；配置缺失时保底 = v0.5.1 旧映射
+        RoomTypeConfig typeCfg = GetTypeConfig(node.type);
+        RoomClearCondition condition = typeCfg != null
+            ? typeCfg.clearCondition
+            : (node.type == RoomType.Combat || node.type == RoomType.Boss
+                ? RoomClearCondition.AllEnemiesDead : RoomClearCondition.None);
 
         var go = new GameObject($"Room_{node.id}_{node.type}");
         go.transform.SetParent(dungeonRoot, false);
@@ -198,7 +232,7 @@ public class DungeonBuilder : MonoBehaviour
         triggerGo.transform.localPosition = Vector3.zero;
         var triggerCol = triggerGo.AddComponent<BoxCollider2D>();
         triggerCol.isTrigger = true;
-        triggerCol.size = new Vector2(roomW - 1f, roomH - 1f);
+        triggerCol.size = new Vector2(bounds.width - 1f, bounds.height - 1f);
         triggerGo.AddComponent<RoomTrigger>().Init(room);
     }
 
@@ -217,7 +251,7 @@ public class DungeonBuilder : MonoBehaviour
     /// <summary>房间内部中心（世界坐标）。</summary>
     public Vector3 GetRoomCenterWorld(RoomNode node)
     {
-        Vector2Int inner = InteriorOrigin(node);
-        return new Vector3(inner.x + roomW * 0.5f, inner.y + roomH * 0.5f, 0f);
+        Rect r = InteriorRect(node);
+        return new Vector3(r.center.x, r.center.y, 0f);
     }
 }

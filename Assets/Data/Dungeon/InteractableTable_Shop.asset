@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60818b153d524bf4ebe83e39b0cd14d1, type: 3}
+  m_Name: InteractableTable_Shop
+  m_EditorClassIdentifier: Assembly-CSharp::SpawnTable
+  entries:
+  - prefab: {fileID: 2649812206430025290, guid: 4f6033d90e93e894eac7ea4065e5903c, type: 3}
+    weight: 2
+    minCount: 0
+    destructible: 0
+    hp: 0
+  - prefab: {fileID: 443412101730695489, guid: 33a957f4fd99be44db57742963bb56c8, type: 3}
+    weight: 1
+    minCount: 0
+    destructible: 0
+    hp: 0
+  - prefab: {fileID: 2649812206430025290, guid: 4f6033d90e93e894eac7ea4065e5903c, type: 3}
+    weight: 2
+    minCount: 0
+    destructible: 0
+    hp: 0
+  countMin: 3
+  countMax: 3
+  layoutMode: 1
+  rowSpacing: 2.5

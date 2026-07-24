@@ -23,6 +23,12 @@ public class DungeonConfig : ScriptableObject
     [Tooltip("Boss 房距出生房最小 BFS 距离（尽力满足）")]
     public int bossMinDistance = 3;
 
+    [Header("房间尺寸（v0.5.3.1 启用）")]
+    [Tooltip("Boss 房占 N×N 个粗格（2 = 2×2，尽力满足，失败回退 1×1）")]
+    public int bossCellSpan = 2;
+    [Tooltip("Elite 房占 N×1 或 1×N 个粗格（尽力满足，失败回退 1×1）")]
+    public int eliteCellSpan = 2;
+
     [Header("楼层缩放（v0.5.4 启用）")]
     [Tooltip("每层敌人数量 +N（封顶另定）")]
     public int enemyCountBonusPerFloor = 1;

@@ -15,6 +15,7 @@ public class RoomNode
     public Vector2Int gridPos;          // 粗网格坐标
     public RoomType type;               // v0.5.0 填 Start/Combat/Boss，v0.5.3 由 Assigner 填全
     public int distanceFromStart;       // BFS 距离（Boss/特殊房选址依据）
+    public int spanX = 1, spanY = 1;    // 占用粗网格格数（v0.5.3.1：Elite 2×1/1×2，Boss 2×2；gridPos 为最小角锚点）
     public List<RoomConnection> connections = new List<RoomConnection>();
     public bool IsLeaf => connections.Count == 1;   // 叶子房（宝箱/商店选址依据）
 }

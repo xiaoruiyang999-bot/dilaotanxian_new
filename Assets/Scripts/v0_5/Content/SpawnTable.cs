@@ -13,6 +13,8 @@ public class SpawnTable : ScriptableObject
     {
         public GameObject prefab;
         public int weight = 1;
+        [Tooltip("保底生成数量：无视权重，每个房间至少生成该条目 N 个（先于权重抽取，v0.5.3.1）")]
+        public int minCount = 0;
         [Tooltip("仅障碍物表使用：可被玩家武器破坏")]
         public bool destructible;
         [Tooltip("仅障碍物表使用：可破坏时的血量（≈需要砍的刀数）")]
@@ -21,6 +23,11 @@ public class SpawnTable : ScriptableObject
 
     public List<Entry> entries = new List<Entry>();
     public int countMin = 2, countMax = 4;   // 每个房间生成数量区间
+
+    [Tooltip("Random = 随机散点（默认）；Row = 房中心一列排放（条目即商品按列表顺序，忽略权重与数量区间）")]
+    public SpawnLayout layoutMode = SpawnLayout.Random;
+    [Tooltip("Row 模式：相邻商品间距（格）")]
+    public float rowSpacing = 2.5f;
 
     /// <summary>按数量区间 roll 本房生成个数。</summary>
     public int RollCount(System.Random rng)
@@ -46,3 +53,6 @@ public class SpawnTable : ScriptableObject
         return null;
     }
 }
+
+/// <summary>生成布局模式（v0.5.3.1）。Random = 随机散点（默认）；Row = 房中心一列排放。</summary>
+public enum SpawnLayout { Random, Row }

@@ -21,10 +21,21 @@ public static class DungeonGenerator
         for (int attempt = 0; attempt < 50; attempt++)
         {
             DungeonLayout layout = TryGrow(config, rng, target, seed);
-            if (layout != null) return layout;
+            if (layout != null)
+            {
+                // v0.5.3 类型分配 + v0.5.3.1 尺寸扩展：共用独立随机流（seed*31+7），布局流零接触
+                var typeRng = new System.Random(seed * 31 + 7);
+                RoomTypeAssigner.Assign(layout, config, typeRng);
+                RoomSizeExpander.Expand(layout, config, typeRng);
+                return layout;
+            }
         }
         Debug.LogError($"[Dungeon] Generator 50 次重roll仍失败 (seed={seed})，按下限房间数保底");
-        return TryGrow(config, rng, config.roomCountMin, seed);
+        DungeonLayout fallback = TryGrow(config, rng, config.roomCountMin, seed);
+        var fallbackTypeRng = new System.Random(seed * 31 + 7);
+        RoomTypeAssigner.Assign(fallback, config, fallbackTypeRng);
+        RoomSizeExpander.Expand(fallback, config, fallbackTypeRng);
+        return fallback;
     }
 
     private static DungeonLayout TryGrow(DungeonConfig config, System.Random rng, int target, int seed)
