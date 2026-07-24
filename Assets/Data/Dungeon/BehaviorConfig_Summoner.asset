@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec5b9423876462a458f605f78581c111, type: 3}
+  m_Name: BehaviorConfig_Summoner
+  m_EditorClassIdentifier:
+  behaviorType: 4
+  preferredDistance: {x: 5, y: 12}
+  retreatSpeedMultiplier: 0.7
+  retreatDuration: 0.5
+  skirmishRetreatSpeed: 1.5
+  chargeSpeedMultiplier: 3
+  chargeIgnoreEnemies: 1
+  minionPrefab: {fileID: 0}
+  minionsPerSummon: 2
+  summonCooldown: 8
+  maxMinionsAlive: 4
+  summonRadius: 2
+  faceTargetWhileIdle: 1

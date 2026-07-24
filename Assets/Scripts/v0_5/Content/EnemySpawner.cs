@@ -39,6 +39,16 @@ public static class EnemySpawner
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";
+
+            // v0.5.4.1：注入战斗专用随机源，确保招式选择同 seed 可复现
+            var enemyCombat = go.GetComponent<EnemyCombat>();
+            if (enemyCombat != null)
+            {
+                // 每个敌人用独立子 seed，避免敌人间招式选择完全同步
+                var combatRng = new System.Random(rng.Next());
+                enemyCombat.SetCombatRng(combatRng);
+            }
+
             room.RegisterEnemy(go.GetComponent<EnemyHealth>());
         }
     }

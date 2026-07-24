@@ -192,6 +192,18 @@ public class WeaponController : MonoBehaviour
         weaponSprite.localPosition = new Vector3(length * 0.5f, 0f, 0f);
     }
 
+    /// <summary>
+    /// 运行时切换攻击配置（v0.5.4.1 多招系统）。
+    /// 更新 attackData 引用并立即刷新武器视觉（长度/宽度匹配新招）。
+    /// 攻击期间调用则由调用方负责时机正确性（通常在 EnterWindup 阶段调用）。
+    /// </summary>
+    public void SetAttackData(AttackData data)
+    {
+        if (data == null) return;
+        attackData = data;
+        RefreshWeaponVisual();
+    }
+
     private void ApplyAimRotation()
     {
         if (weaponPivot == null) return;

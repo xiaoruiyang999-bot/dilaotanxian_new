@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1001 &4960957667729649068
+--- !u!1001 &1000000000000000000
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -8,10 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 562794154036049862, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackData
-      value: 
-      objectReference: {fileID: 11400000, guid: 6970107ed5f57344ab9570b3a94e7449, type: 2}
+    - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Name
+      value: Enemy_Elite
+      objectReference: {fileID: 0}
     - target: {fileID: 1048759183800617251, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
       value: 6
@@ -26,11 +26,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2233445566778899001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackData
-      value: 
+      value:
       objectReference: {fileID: 11400000, guid: 6970107ed5f57344ab9570b3a94e7449, type: 2}
     - target: {fileID: 3344556677889900112, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackData
-      value: 
+      value:
       objectReference: {fileID: 11400000, guid: 6970107ed5f57344ab9570b3a94e7449, type: 2}
     - target: {fileID: 3942204860829104876, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_LocalScale.x
@@ -81,24 +81,16 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Color.b
-      value: 0.1
+      propertyPath: m_Color.r
+      value: 0.6
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_Color.g
       value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Color.r
-      value: 0.6
-      objectReference: {fileID: 0}
-    - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackData
-      value: 
-      objectReference: {fileID: 11400000, guid: 6970107ed5f57344ab9570b3a94e7449, type: 2}
-    - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Name
-      value: Enemy_Elite
+      propertyPath: m_Color.b
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
@@ -113,8 +105,28 @@ PrefabInstance:
       value: 9
       objectReference: {fileID: 0}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackDataSet.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackDataSet.Array.data[0]
+      value:
+      objectReference: {fileID: 11400000, guid: b1a2c3d4e5f6a7b8c9d0e1f2a3b4c5d6, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackDataSet.Array.data[1]
+      value:
+      objectReference: {fileID: 11400000, guid: c2b3d4e5f6a7b8c9d0e1f2a3b4c5d6e7, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackDataSet.Array.data[2]
+      value:
+      objectReference: {fileID: 11400000, guid: d3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: selectionMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackData
-      value: 
+      value:
       objectReference: {fileID: 11400000, guid: 6970107ed5f57344ab9570b3a94e7449, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

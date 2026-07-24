@@ -71,6 +71,43 @@ public class AttackData : ScriptableObject
     [Range(0f, 1f)]
     [SerializeField] private float activeMomentRatio = 0.5f;
 
+    [Header("招式选择（v0.5.4.1 多招系统）")]
+    [Tooltip("Distance 策略：目标在此距离范围内可选用此招。x=最小距离，y=最大距离。0~0=不限距离。")]
+    [SerializeField] private Vector2 distanceRange = Vector2.zero;
+
+    [Tooltip("Weighted 策略：此招式的权重（0 = 不会被权重随机选中，但 MinCount 保底仍生效）。")]
+    [SerializeField] private int weight = 1;
+
+    [Header("特殊攻击类型（v0.5.4.2）")]
+    [Tooltip("是否为投射物攻击（远程/游击用）。true时Active阶段发射投射物而非近战矩形检测。")]
+    [SerializeField] private bool isProjectile;
+
+    [Tooltip("投射物 prefab（isProjectile=true时需要）")]
+    [SerializeField] private GameObject projectilePrefab;
+
+    [Tooltip("投射物飞行速度")]
+    [SerializeField] private float projectileSpeed = 8f;
+
+    [Tooltip("是否为冲锋攻击（Charger用）。true时Active阶段敌人自身会向前移动。")]
+    [SerializeField] private bool isCharge;
+
+    [Tooltip("冲锋速度倍率（相对于 MoveSpeed）")]
+    [Range(1f, 5f)]
+    [SerializeField] private float chargeSpeedMultiplier = 3f;
+
+    [Tooltip("是否为召唤攻击（Summoner用）。true时Active阶段实例化summonPrefab。")]
+    [SerializeField] private bool isSummon;
+
+    [Tooltip("召唤的敌人 prefab（isSummon=true时需要）")]
+    [SerializeField] private GameObject summonPrefab;
+
+    [Tooltip("每次召唤数量")]
+    [Range(1, 5)]
+    [SerializeField] private int summonCount = 2;
+
+    [Tooltip("召唤半径（小兵出生在以自身为中心的此半径内）")]
+    [SerializeField] private float summonRadius = 2f;
+
     public AttackShape AttackShape => attackShape;
 
     public float WindupTime => windupTime;
@@ -87,6 +124,37 @@ public class AttackData : ScriptableObject
     public Ease AttackEase => attackEase;
     public float ActiveMomentRatio => activeMomentRatio;
 
+    /// <summary>Distance 策略：目标在此距离范围内可选用此招。x=min, y=max。0~0=不限距离。</summary>
+    public Vector2 DistanceRange => distanceRange;
+    public float MinDistance => distanceRange.x;
+    public float MaxDistance => distanceRange.y;
+
+    /// <summary>Weighted 策略：此招式的权重。0 = 不会被权重随机选中。</summary>
+    public int Weight => weight;
+
+    /// <summary>Distance 策略：检查目标距离是否在此招式的适用范围内。</summary>
+    public bool IsInDistanceRange(float distToTarget)
+    {
+        if (distanceRange.x <= 0f && distanceRange.y <= 0f) return true;  // 0~0 = 不限
+        if (distToTarget < distanceRange.x) return false;
+        if (distanceRange.y > 0f && distToTarget > distanceRange.y) return false;
+        return true;
+    }
+
+    // --- v0.5.4.2 特殊攻击类型属性 ---
+
+    public bool IsProjectile => isProjectile;
+    public GameObject ProjectilePrefab => projectilePrefab;
+    public float ProjectileSpeed => projectileSpeed;
+
+    public bool IsCharge => isCharge;
+    public float ChargeSpeedMultiplier => chargeSpeedMultiplier;
+
+    public bool IsSummon => isSummon;
+    public GameObject SummonPrefab => summonPrefab;
+    public int SummonCount => summonCount;
+    public float SummonRadius => summonRadius;
+
     void OnValidate()
     {
         attackAngle = Mathf.Clamp(attackAngle, 0f, 360f);
@@ -96,5 +164,9 @@ public class AttackData : ScriptableObject
         recoveryTime = Mathf.Max(0.001f, recoveryTime);
         attackRange = Mathf.Max(0.01f, attackRange);
         attackCooldown = Mathf.Max(0f, attackCooldown);
+        weight = Mathf.Max(0, weight);
+        projectileSpeed = Mathf.Max(0.1f, projectileSpeed);
+        chargeSpeedMultiplier = Mathf.Max(1f, chargeSpeedMultiplier);
+        summonCount = Mathf.Max(1, summonCount);
     }
 }

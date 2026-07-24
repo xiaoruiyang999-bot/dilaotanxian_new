@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45b7e7a30eb4449eb588746bd464d01a, type: 3}
+  m_Name: EnemyElite_HeavyChop
+  m_EditorClassIdentifier:
+  attackShape: 0
+  windupTime: 0.4
+  activeDuration: 0.3
+  recoveryTime: 0.5
+  attackRange: 1.7
+  attackAngle: 60
+  attackDamage: 3
+  attackCooldown: 2
+  targetLayer:
+    serializedVersion: 2
+    m_Bits: 129
+  animationType: 0
+  attackEase: 6
+  activeMomentRatio: 0.5
+  distanceRange: {x: 1, y: 3}
+  weight: 1
