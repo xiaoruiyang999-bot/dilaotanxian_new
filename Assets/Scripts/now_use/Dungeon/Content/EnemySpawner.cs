@@ -8,7 +8,9 @@ using UnityEngine;
 /// </summary>
 public static class EnemySpawner
 {
-    public static void Spawn(Room room, SpawnTable table, System.Random rng)
+    /// <summary>按权重表在房间内随机放敌人。v0.5.4：floorNumber&gt;1 时注入楼层难度
+    ///（数量 +enemyCountBonusPerFloor×(floor-1) 封顶 8，HP ×(1+hpMultiplierPerFloor×(floor-1))）。</summary>
+    public static void Spawn(Room room, SpawnTable table, System.Random rng, int floorNumber = 1, DungeonConfig config = null)
     {
         if (room == null || table == null) return;
 
@@ -19,6 +21,9 @@ public static class EnemySpawner
                 for (int k = 0; k < e.minCount; k++) picks.Add(e);
 
         int count = Mathf.Max(table.RollCount(rng), picks.Count);
+        // v0.5.4 楼层数量递增（封顶 8/房）
+        if (config != null && floorNumber > 1)
+            count = Mathf.Max(Mathf.Min(count + config.enemyCountBonusPerFloor * (floorNumber - 1), 8), picks.Count);
         while (picks.Count < count)
         {
             SpawnTable.Entry e = table.PickEntry(rng);
@@ -39,6 +44,9 @@ public static class EnemySpawner
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";
+            // v0.5.4 楼层 HP 缩放（dmgMul 预留恒 1，见 EnemyStats.ApplyFloorScale 注释）
+            if (config != null && floorNumber > 1)
+                go.GetComponent<EnemyStats>()?.ApplyFloorScale(1f + config.hpMultiplierPerFloor * (floorNumber - 1), 1f);
             room.RegisterEnemy(go.GetComponent<EnemyHealth>());
         }
     }

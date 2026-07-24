@@ -24,6 +24,20 @@ public class DungeonManager : MonoBehaviour
     public DungeonLayout Layout { get; private set; }
     /// <summary>本层实际使用的种子。</summary>
     public int ActiveSeed { get; private set; }
+    /// <summary>当前楼层数（v0.5.4：由 RunManager 写入，仅作难度注入透传，默认 1）。</summary>
+    public int FloorNumber { get; set; } = 1;
+
+    /// <summary>当前楼层的 Boss 房（v0.5.4 RunManager 结算监听用）；未生成时返回 null。</summary>
+    public Room BossRoom
+    {
+        get
+        {
+            if (builder == null) return null;
+            foreach (KeyValuePair<int, Room> kv in builder.Rooms)
+                if (kv.Value.Type == RoomType.Boss) return kv.Value;
+            return null;
+        }
+    }
 
     private void Start()
     {
@@ -31,7 +45,10 @@ public class DungeonManager : MonoBehaviour
     }
 
     /// <summary>生成一层地牢：布局 → 实例化 → 玩家传送至起始房 + 相机瞬移。</summary>
-    public void Generate()
+    public void Generate() => Generate(0);
+
+    /// <summary>v0.5.4：指定 seed 生成（RunManager 楼层 seed / 死亡重开用）；0 = 按 Inspector seed 规则。</summary>
+    public void Generate(int seedOverride)
     {
         if (config == null || builder == null)
         {
@@ -39,9 +56,9 @@ public class DungeonManager : MonoBehaviour
             return;
         }
 
-        ActiveSeed = seed != 0 ? seed : System.Environment.TickCount;
+        ActiveSeed = seedOverride != 0 ? seedOverride : (seed != 0 ? seed : System.Environment.TickCount);
         Layout = DungeonGenerator.Generate(config, ActiveSeed);
-        Vector3 spawnPos = builder.Build(Layout, config, ActiveSeed);
+        Vector3 spawnPos = builder.Build(Layout, config, ActiveSeed, FloorNumber);
 
         if (player == null)
         {
@@ -56,6 +73,14 @@ public class DungeonManager : MonoBehaviour
         }
 
         Debug.Log($"[Dungeon] 生成完成 seed={ActiveSeed} rooms={Layout.rooms.Count} connections={Layout.connections.Count} bossRoom=#{Layout.bossRoom.id} bossDist={Layout.bossRoom.distanceFromStart}");
+    }
+
+    /// <summary>v0.5.4 楼层切换清理：销毁 dungeonRoot 全部生成物 + 清两块 Tilemap（Builder.ClearAll 收口）。</summary>
+    public void Cleanup()
+    {
+        if (builder == null) return;
+        builder.ClearAll();
+        Layout = null;
     }
 
     // ---------- 离线自检 ----------

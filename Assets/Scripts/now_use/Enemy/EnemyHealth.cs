@@ -52,6 +52,14 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         OnDeath?.Invoke();
     }
 
+    /// <summary>楼层 HP 缩放（v0.5.4）：上限倍乘并刷新当前血量（Awake 已初始化，必须同步刷新）。</summary>
+    public void ScaleMaxHealth(float mul)
+    {
+        maxHealth *= mul;
+        CurrentHealth = maxHealth;
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+    }
+
     public void ResetHealth()
     {
         CurrentHealth = maxHealth;

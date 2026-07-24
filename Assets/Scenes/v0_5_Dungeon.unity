@@ -866,6 +866,7 @@ GameObject:
   - component: {fileID: 1357356018}
   - component: {fileID: 1357356019}
   - component: {fileID: 1357356020}
+  - component: {fileID: 1357356021}
   m_Layer: 0
   m_Name: DungeonSystem
   m_TagString: Untagged
@@ -932,6 +933,22 @@ MonoBehaviour:
   builder: {fileID: 1357356019}
   player: {fileID: 1474215305}
   drawGizmos: 1
+--- !u!114 &1357356021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1357356017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e0012b16c65ca24c8900b966b58dd77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RunManager
+  dungeonManager: {fileID: 1357356020}
+  rewardChestPrefab: {fileID: 6358551137603142388, guid: aa0f79463f13b324c93fe34b6346b1ed, type: 3}
+  portalPrefab: {fileID: 2406936545735521585, guid: 8c98270872baf6d408c9ca9c7fec7de5, type: 3}
+  restartDelay: 2
 --- !u!4 &1474215305 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}

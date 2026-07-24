@@ -82,13 +82,14 @@ public class WeaponAnimator : MonoBehaviour
                     onActiveMoment?.Invoke();
                 }
                 momentTween = null;
-            });
+            }).SetLink(gameObject);   // 攻击者死亡销毁时自动 kill，避免回调打进已销毁对象
         }
 
         // 旋转动画：基准 + 结束偏移
         rotationTween = weaponPivot
             .DOLocalRotate(new Vector3(0f, 0f, baseAngle + endAngle), duration, rotateMode)
             .SetEase(ease)
+            .SetLink(weaponPivot.gameObject)   // 目标（敌人/玩家）销毁时自动 kill，避免 DOTween safe mode 报 missing target
             .OnComplete(() => rotationTween = null);
     }
 

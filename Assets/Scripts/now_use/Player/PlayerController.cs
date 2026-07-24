@@ -18,6 +18,9 @@ public class PlayerController : MonoBehaviour
     // 输入
     private Vector2 moveInput;
 
+    // 初始颜色缓存（死亡变灰后 Respawn 恢复用，v0.5.4）
+    private Color initialColor;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -25,6 +28,8 @@ public class PlayerController : MonoBehaviour
         health = GetComponent<Health>();
         combat = GetComponent<PlayerCombat>();
         playerInput = GetComponent<PlayerInput>();
+
+        if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
         // 监听死亡事件
         health.OnDeath += OnPlayerDeath;
@@ -104,6 +109,14 @@ public class PlayerController : MonoBehaviour
         // 变灰表现
         if (TryGetComponent<SpriteRenderer>(out var sr))
             sr.color = new Color(0.3f, 0.3f, 0.3f, 1f);
+    }
+
+    /// <summary>死亡重开状态恢复（v0.5.4 死亡重开流程）：颜色还原 + 速度清零（IsDead 由 Health.ResetHealth 解除）。</summary>
+    public void Respawn()
+    {
+        if (TryGetComponent<SpriteRenderer>(out var sr)) sr.color = initialColor;
+        rb.linearVelocity = Vector2.zero;
+        moveInput = Vector2.zero;
     }
 
     // 外部访问接口
