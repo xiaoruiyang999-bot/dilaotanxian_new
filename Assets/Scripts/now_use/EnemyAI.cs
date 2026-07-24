@@ -20,7 +20,7 @@ public class EnemyAI : MonoBehaviour
 
     [Header("行为配置（v0.5.4.2）")]
     [Tooltip("怪物战斗行为配置。为空时默认 Melee 行为。")]
-    [SerializeField] private EnemyBehaviorConfig behaviorConfig;
+    public EnemyBehaviorConfig behaviorConfig;
 
     // 组件引用
     private EnemyController controller;

@@ -63,6 +63,15 @@ public class EnemyController : MonoBehaviour
         if (rb != null) rb.linearVelocity = Vector2.zero;
     }
 
+    /// <summary>
+    /// v0.5.4.2：设置冲锋速度（由 EnemyCombat 在 isCharge Active 阶段调用）。
+    /// 直接操作 Rigidbody2D.velocity，绕过 StopMoving 后的零速限制。
+    /// </summary>
+    public void SetChargeVelocity(Vector2 velocity)
+    {
+        if (rb != null) rb.linearVelocity = velocity;
+    }
+
     /// <summary>面向指定方向</summary>
     public void FaceTowards(Vector2 direction)
     {

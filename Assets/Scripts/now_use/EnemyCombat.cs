@@ -25,10 +25,11 @@ public class EnemyCombat : MonoBehaviour
 
     [Header("攻击配置（v0.5.4.1 多招系统）")]
     [Tooltip("多招数组。非空时按 selectionMode 选择招式；为空时回退使用 attackData 单招。")]
-    [SerializeField] private AttackData[] attackDataSet;
-
+    public AttackData[] attackDataSet;
+    [Tooltip("兼容旧版单招：attackDataSet 为空时使用此字段。")]
+    public AttackData attackData;
     [Tooltip("招式选择策略。Random=完全随机 / Distance=按距离匹配 / Sequence=轮换 / Weighted=权重随机。")]
-    [SerializeField] private AttackSelectionMode selectionMode = AttackSelectionMode.Random;
+    public AttackSelectionMode selectionMode = AttackSelectionMode.Random;
 
     [Tooltip("兼容旧版单招：attackDataSet 为空时使用此字段。")]
     [SerializeField] private AttackData attackData;
@@ -312,7 +313,8 @@ public class EnemyCombat : MonoBehaviour
         if (weaponHitbox != null)
             weaponHitbox.SetAttackData(currentAttackData);
 
-        if (attackIndicator != null)
+        // 投射物和召唤类型的攻击不需要扇形预警指示器
+        if (attackIndicator != null && !currentAttackData.IsProjectile && !currentAttackData.IsSummon)
         {
             attackIndicator.SetRadius(currentAttackData.AttackRange);
             attackIndicator.SetAngle(currentAttackData.AttackAngle);
@@ -362,8 +364,8 @@ public class EnemyCombat : MonoBehaviour
             weaponHitbox?.BeginSwing();
         }
 
-        // Active 阶段将指示器切换为危险色
-        if (attackIndicator != null)
+        // Active 阶段将指示器切换为危险色（投射物/召唤不需要）
+        if (attackIndicator != null && !currentAttackData.IsProjectile && !currentAttackData.IsSummon)
             attackIndicator.SetColor(attackIndicator.DangerColor);
 
         if (weaponAnimator != null && weaponController != null)
@@ -394,8 +396,7 @@ public class EnemyCombat : MonoBehaviour
             float speed = controller != null
                 ? controller.GetStats().MoveSpeed * currentAttackData.ChargeSpeedMultiplier
                 : 3f * currentAttackData.ChargeSpeedMultiplier;
-            Vector2 moveDelta = currentChargeDirection * speed * Time.deltaTime;
-            transform.Translate(moveDelta, Space.World);
+            controller.SetChargeVelocity(currentChargeDirection * speed);
         }
 
         if (activeTimer <= 0f)
