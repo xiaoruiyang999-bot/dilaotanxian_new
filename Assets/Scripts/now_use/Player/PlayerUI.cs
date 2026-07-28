@@ -3,13 +3,15 @@ using UnityEngine.UI;
 
 /// <summary>
 /// 玩家固定 UI（屏幕左下角）。
-/// 负责显示玩家 HP、护甲与体力（v0.6.0），并监听 Health / PlayerStats 的事件实时刷新。
+/// 负责显示玩家 HP、护甲、体力（v0.6.0）与法力（v0.6.2），并监听 Health / PlayerStats 的事件实时刷新。
 ///
 /// 设计要点：
 /// 1. Inspector 手动配置优先，符合 Unity 常规工作流。
 /// 2. 当 Inspector 引用丢失时，Awake() 会自动恢复引用，避免重新挂载脚本、
 ///    重新打开场景或版本控制合并后导致引用断裂。
 /// 3. 所有关键引用都有空值检查，运行时不应出现 NullReferenceException。
+/// 4. 布局归场景编辑：代码只在场景缺失条时兜底创建（创建时给整齐默认布局），
+///    创建后永不改任何已存在条的 Transform（自检清单 #15）。
 /// </summary>
 public class PlayerUI : MonoBehaviour
 {
@@ -22,6 +24,9 @@ public class PlayerUI : MonoBehaviour
 
     [Tooltip("体力条 Image（Filled，v0.6.0）。为空时自动查找 Canvas/PlayerStatsPanel/StaminaBar；场景里没有则运行时克隆护甲条自动创建（HP 条下方）。")]
     [SerializeField] private Image staminaBar;
+
+    [Tooltip("法力条 Image（Filled，v0.6.2）。为空时自动查找 Canvas/PlayerStatsPanel/ManaBar；场景里没有则运行时克隆体力条自动创建（体力条下方）。")]
+    [SerializeField] private Image manaBar;
 
     [Header("角色引用")]
     [Tooltip("玩家控制器。为空时优先使用 FindAnyObjectByType，其次按 Tag 'Player' 查找。")]
@@ -64,9 +69,6 @@ public class PlayerUI : MonoBehaviour
         health.OnHealthChanged += OnHealthChanged;
         stats.OnStatsChanged += OnStatsChanged;
 
-        // 体力条位置统一强制到 HP 条正下方（无论来自场景 YAML 还是运行时克隆）
-        RepositionStaminaBar();
-
         // 立即刷新一次，避免事件触发顺序问题导致初始显示不正确
         OnHealthChanged(health.CurrentHealth, health.MaxHealth);
         OnStatsChanged();
@@ -87,6 +89,7 @@ public class PlayerUI : MonoBehaviour
         RecoverHPBar();
         RecoverArmorBar();
         RecoverStaminaBar();
+        RecoverManaBar();
     }
 
     private void RecoverPlayerController()
@@ -155,61 +158,63 @@ public class PlayerUI : MonoBehaviour
             staminaBar = staminaTransform.GetComponent<Image>();
         }
 
-        // 场景里没有 StaminaBar 时（v0_5 及更早场景），运行时按现有条样式自动创建一个，
+        // 场景里没有 StaminaBar 时（v0_5 及更早场景），运行时兜底创建一条（默认整齐布局），
         // 不依赖场景 YAML，保证任何场景打开都有体力条
         if (staminaBar == null)
         {
-            staminaBar = CreateStaminaBarAtRuntime();
+            staminaBar = CreateBarBelow(armorBar, hpBar, "StaminaBar",
+                new Color(0.9569f, 0.8157f, 0.2471f));   // #F4D03F
+        }
+    }
+
+    private void RecoverManaBar()
+    {
+        if (manaBar != null) return;
+
+        Transform manaTransform = transform.Find("PlayerStatsPanel/ManaBar");
+        if (manaTransform != null)
+        {
+            manaBar = manaTransform.GetComponent<Image>();
+        }
+
+        // 场景里没有 ManaBar 时，运行时兜底创建一条（默认整齐布局）
+        if (manaBar == null)
+        {
+            manaBar = CreateBarBelow(staminaBar != null ? staminaBar : armorBar,
+                staminaBar != null ? staminaBar : hpBar,
+                "ManaBar", new Color(0.2039f, 0.5961f, 0.8588f));   // #3498DB
         }
     }
 
     /// <summary>
-    /// 运行时创建体力条：克隆护甲条（同为 Filled 横条），改黄色、改窄。
-    /// 位置统一由 RepositionStaminaBar() 在 Start 阶段强制设置，此处不摆位置。
+    /// 运行时兜底创建状态条：克隆模板条，创建时给整齐的默认布局
+    /// （与上方条同宽同锚点、左缘对齐、间距 2、5px 窄条）。
+    /// 创建后不再触碰其 Transform——布局归场景编辑，代码永不改已存在条的位置（自检清单 #15）。
     /// </summary>
-    private Image CreateStaminaBarAtRuntime()
+    private Image CreateBarBelow(Image templateBar, Image aboveBar, string name, Color color)
     {
-        if (armorBar == null || hpBar == null) return null;
+        if (templateBar == null || aboveBar == null) return null;
 
-        GameObject go = Instantiate(armorBar.gameObject, armorBar.transform.parent);
-        go.name = "StaminaBar";
+        GameObject go = Instantiate(templateBar.gameObject, templateBar.transform.parent);
+        go.name = name;
 
         Image img = go.GetComponent<Image>();
-        img.color = new Color(0.9569f, 0.8157f, 0.2471f);   // #F4D03F
+        img.color = color;
         img.fillAmount = 1f;
 
         RectTransform rect = (RectTransform)go.transform;
-        rect.sizeDelta = new Vector2(rect.sizeDelta.x, 5f);   // 窄条，比护甲条（10）更窄
+        RectTransform aboveRect = (RectTransform)aboveBar.transform;
+        const float height = 5f;
+        const float spacing = 2f;
+        rect.anchorMin = aboveRect.anchorMin;
+        rect.anchorMax = aboveRect.anchorMax;
+        rect.pivot = aboveRect.pivot;
+        rect.sizeDelta = new Vector2(aboveRect.sizeDelta.x, height);
+        rect.anchoredPosition = new Vector2(
+            aboveRect.anchoredPosition.x,
+            aboveRect.anchoredPosition.y - aboveRect.sizeDelta.y * 0.5f - spacing - height * 0.5f);
 
         return img;
-    }
-
-    /// <summary>
-    /// 无论体力条来自场景 YAML 还是运行时创建，统一强制摆到 HP 条正下方。
-    /// 间距参考护甲条与 HP 条的间距（5px）；HP 条下方空间不足时收紧到面板底边内。
-    /// </summary>
-    private void RepositionStaminaBar()
-    {
-        if (staminaBar == null || hpBar == null) return;
-
-        RectTransform rect = (RectTransform)staminaBar.transform;
-        RectTransform hpRect = (RectTransform)hpBar.transform;
-
-        // 与 HP 条同一参考系，避免来源不同（场景/克隆）导致锚点不一致
-        rect.anchorMin = hpRect.anchorMin;
-        rect.anchorMax = hpRect.anchorMax;
-        rect.pivot = hpRect.pivot;
-
-        const float spacing = 5f;   // 与护甲条/HP 条间距一致
-        float height = rect.sizeDelta.y;
-        float y = hpRect.anchoredPosition.y - hpRect.sizeDelta.y * 0.5f - spacing - height * 0.5f;
-
-        // 不超出面板底边（子条锚点在面板纵向中心，底边 anchored y = -面板高/2）
-        RectTransform panel = hpRect.parent as RectTransform;
-        float panelBottom = panel != null ? -panel.sizeDelta.y * 0.5f : -25f;
-        y = Mathf.Max(y, panelBottom + height * 0.5f);
-
-        rect.anchoredPosition = new Vector2(hpRect.anchoredPosition.x, y);
     }
 
     private void OnHealthChanged(float current, float max)
@@ -228,5 +233,8 @@ public class PlayerUI : MonoBehaviour
 
         if (staminaBar != null)
             staminaBar.fillAmount = stats.MaxStamina > 0 ? stats.CurrentStamina / stats.MaxStamina : 0f;
+
+        if (manaBar != null)
+            manaBar.fillAmount = stats.MaxMana > 0 ? stats.CurrentMana / stats.MaxMana : 0f;
     }
 }

@@ -24,7 +24,7 @@ public class PlayerWorldStatusBar : MonoBehaviour
     [SerializeField] private Sprite barSprite;
     [SerializeField] private Color backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);
     [SerializeField] private Color hpColor = new Color(0.9f, 0.1f, 0.1f, 1f);
-    [SerializeField] private Color armorColor = new Color(0.2f, 0.5f, 0.95f, 1f);
+    [SerializeField] private Color armorColor = new Color(0.4392f, 0.502f, 0.5647f, 1f);   // 钢灰 #708090
     [SerializeField] private Color staminaColor = new Color(0.9569f, 0.8157f, 0.2471f, 1f);   // #F4D03F
 
     [Header("Canvas 设置（UI 像素）")]

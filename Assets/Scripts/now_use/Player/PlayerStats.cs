@@ -16,12 +16,20 @@ public class PlayerStats : MonoBehaviour
     [SerializeField] private float staminaRegenRate = 30f;      // 每秒回复30点
     [SerializeField] private float staminaRegenDelay = 0.8f;    // 停止消耗0.8秒后开始回复
 
+    [Header("法力（v0.6.2，不可自动回复）")]
+    [SerializeField] private float maxMana = 0f;                // 未选职业时为 0（旧场景兼容），回复只能靠法力瓶/击杀法力球/技能宠物
+
     public float MaxHP => maxHP;
     public float MaxArmor => maxArmor;
     public float MoveSpeed => moveSpeed;
     public float CurrentArmor { get; private set; }
     public float MaxStamina => maxStamina;
     public float CurrentStamina { get; private set; }
+    public float MaxMana => maxMana;
+    public float CurrentMana { get; private set; }
+
+    /// <summary>当前职业（v0.6.2；未选择时为 null，旧场景保持现状）。</summary>
+    public ClassData CurrentClass { get; private set; }
 
     public System.Action OnStatsChanged;
 
@@ -35,6 +43,7 @@ public class PlayerStats : MonoBehaviour
     {
         CurrentArmor = maxArmor;
         CurrentStamina = maxStamina;
+        CurrentMana = maxMana;
     }
 
     void Update()
@@ -113,6 +122,52 @@ public class PlayerStats : MonoBehaviour
     public void ModifyArmor(float delta)
     {
         CurrentArmor = Mathf.Clamp(CurrentArmor + delta, 0, maxArmor);
+        OnStatsChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 回复法力（不超上限）。法力不可自动回复，来源仅：法力瓶 / 击杀法力球 / 技能宠物（计划书 4.4）。
+    /// </summary>
+    public void AddMana(float amount)
+    {
+        if (amount <= 0f || CurrentMana >= maxMana) return;
+
+        CurrentMana = Mathf.Min(CurrentMana + amount, maxMana);
+        OnStatsChanged?.Invoke();
+    }
+
+    /// <summary>尝试消耗法力（技能用）。不足时不扣减并返回 false。</summary>
+    public bool TryConsumeMana(float amount)
+    {
+        if (amount <= 0f) return true;
+        if (CurrentMana < amount) return false;
+
+        CurrentMana -= amount;
+        OnStatsChanged?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// 应用职业配置（v0.6.2）：写入 HP/护甲/法力三属性上限并回满当前值，记录 CurrentClass。
+    /// HP 上限经 Health.Initialize 写入（Health 是 HP 唯一数据源）并回满；
+    /// 体力上限与职业无关，顺带回满。全部变更走 OnStatsChanged 刷新 UI。
+    /// </summary>
+    public void ApplyClass(ClassData classData)
+    {
+        if (classData == null) return;
+
+        CurrentClass = classData;
+        maxHP = classData.MaxHP;
+        maxArmor = classData.MaxArmor;
+        maxMana = classData.MaxMana;
+
+        CurrentArmor = maxArmor;
+        CurrentStamina = maxStamina;
+        CurrentMana = maxMana;
+
+        if (TryGetComponent<Health>(out var h))
+            h.Initialize(classData.MaxHP);
+
         OnStatsChanged?.Invoke();
     }
 }

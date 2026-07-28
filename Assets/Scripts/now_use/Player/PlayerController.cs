@@ -76,6 +76,12 @@ public class PlayerController : MonoBehaviour
         string actionName = context.action?.name;
         if (string.IsNullOrEmpty(actionName)) return;
 
+        // 职业选择 UI 打开期间（v0.6.2）：屏蔽攻击/技能/交互/闪避输入——
+        // 鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；移动不受限（出生房安全）
+        if (ClassSelectUI.IsOpen &&
+            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "Dash"))
+            return;
+
         if (actionName == "Move")
         {
             moveInput = context.ReadValue<Vector2>();
@@ -104,7 +110,16 @@ public class PlayerController : MonoBehaviour
         }
         else if (actionName == "Cancel" && context.performed)
         {
-            interactor.OnCancelPressed();
+            // 职业选择 UI 打开时 Esc 优先关 UI（未确认不生效，可再开），否则关拾取列表
+            if (ClassSelectUI.IsOpen)
+                ClassSelectUI.Close();
+            else
+                interactor.OnCancelPressed();
+        }
+        else if (actionName == "Skill" && context.performed)
+        {
+            // TODO(v0.6.4)：接 SkillExecutor（旋风斩/后跃射击/奥术法阵），此处仅占位
+            Debug.Log("[Skill] 技能键占位（v0.6.4 接 SkillExecutor）");
         }
     }
 

@@ -377,6 +377,7 @@ MonoBehaviour:
   maxStamina: 100
   staminaRegenRate: 30
   staminaRegenDelay: 0.8
+  maxMana: 0
 --- !u!114 &8476436258134989188
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -514,7 +515,7 @@ MonoBehaviour:
   barSprite: {fileID: 0}
   backgroundColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
   hpColor: {r: 0.9, g: 0.1, b: 0.1, a: 1}
-  armorColor: {r: 0.2, g: 0.5, b: 0.95, a: 1}
+  armorColor: {r: 0.4392, g: 0.502, b: 0.5647, a: 1}
   staminaColor: {r: 0.9569, g: 0.8157, b: 0.2471, a: 1}
   canvasSize: {x: 84, y: 20}
   canvasScale: 0.014
@@ -560,9 +561,9 @@ MonoBehaviour:
   highlightScale: 1.25
   highlightDuration: 0.6
   hintHeightOffset: 0.9
-  hintFontSize: 40
-  hintPanelSize: {x: 20, y: 10}
-  hintWorldScale: 0.09
+  hintFontSize: 16
+  hintPanelSize: {x: 40, y: 30}
+  hintWorldScale: 0.03
   listCloseDistance: 2.5
 --- !u!1 &5830396728039968300
 GameObject:

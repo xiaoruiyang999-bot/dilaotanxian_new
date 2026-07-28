@@ -1,4 +1,4 @@
-# now_use — 当前版本实际在用脚本（v0.6.1）
+# now_use — 当前版本实际在用脚本（v0.6.2）
 
 > 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` / `v0_6_ClassWeapon.unity` 地牢）实际运行所需的脚本**。
 > 历史/弃用脚本保留在原版本文件夹（`v0_2` / `v0_3` / `v0_4` / `Framework`）作为档案，不删除。
@@ -19,7 +19,9 @@ now_use/
 ├── Player/      玩家侧（9）
 ├── Combat/      武器/攻击框架，Player/Enemy 共用（7）
 ├── Enemy/       敌人侧 + 巡逻/血条（8）
-├── Common/      通用（相机、可破坏障碍物）（3）
+├── Common/      通用（相机、可破坏障碍物、TMP 字体）（4）
+├── Class/       职业系统 + 准备房间（9，v0.6.2）
+├── Weapon/      武器框架（5，v0.6.2 阶段 A，行为完整实现留 v0.6.3）
 └── Dungeon/     地牢系统（27，保留原 v0_5 子目录）
     ├── Core/        门面/构建/配置/楼层循环（5）
     ├── Generation/  纯 C# 布局数据层（4）
@@ -28,20 +30,20 @@ now_use/
     └── Interaction/ E 键交互物 + 拾取框架（7）
 ```
 
-## 清单（54 个，按目录分组）
+## 清单（69 个，按目录分组）
 
 ### Player/ — 玩家侧
 | 脚本 | 职责 |
 |------|------|
-| PlayerController | 输入接收（Move/Attack/Dash/Sprint/Interact/Cancel 分发，v0.6.1）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement |
+| PlayerController | 输入接收（Move/Attack/Dash/Sprint/Interact/Cancel/Skill 分发，Skill 为 v0.6.4 占位）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement |
 | PlayerMovement | 移动执行层（v0.6.0）：常规移动/奔跑（×1.6，耗体力）/闪避（冲刺+无敌+残影），FixedUpdate 统一写速度 |
 | PlayerInteractor | E 键交互 + 两段式拾取（v0.6.1）：候选探测/呼吸高亮/"按 E"标签/纯文字拾取列表 |
-| PlayerStats | HP/护甲/体力上限（v0.6.0）、护甲脱战恢复、体力延迟回复、护甲吸收伤害 |
+| PlayerStats | HP/护甲/体力/法力上限（法力 v0.6.2 不可自动回复）、护甲脱战恢复、体力延迟回复、护甲吸收伤害、ApplyClass(ClassData) |
 | Health | 玩家生命值（IDamageable），事件通知；无敌标记 SetInvincible/IsInvincible（v0.6.0） |
-| PlayerCombat | 攻击三阶段状态机，Active 驱动 WeaponHitbox |
+| PlayerCombat | 攻击三阶段状态机，Active 驱动 WeaponHitbox；SetAttackData 为近战武器换装挂点 |
 | PlayerAimController | 鼠标瞄准方向输入层 |
-| PlayerUI | 屏幕左下角固定 HP/护甲/体力条（体力条 v0.6.0） |
-| PlayerWorldStatusBar | 头顶世界空间状态条（蓝护甲 + 红 HP） |
+| PlayerUI | 屏幕左下角固定 HP/护甲/体力/法力条（法力条 v0.6.2，面板不足自动向下扩展） |
+| PlayerWorldStatusBar | 头顶世界空间状态条（蓝护甲 + 红 HP + 黄体力） |
 
 ### Combat/ — 武器 / 攻击框架（Player/Enemy 共用）
 | 脚本 | 职责 |
@@ -72,6 +74,29 @@ now_use/
 | CameraFollow | 相机平滑跟随 + SnapToTarget（楼层切换/出生瞬移） |
 | ObstacleHealth | 可破坏障碍物生命（IDamageable，HP=刀数，v0.5.2） |
 | DestructibleObstacle | 可破坏障碍物表现（闪白/变深/销毁，v0.5.2） |
+| TMPFontProvider | 全局 TMP 字体（v0.6.2：运行时微软雅黑动态 TMP_FontAsset，全局缓存） |
+
+### Class/ — 职业系统 + 准备房间（v0.6.2）
+| 脚本 | 职责 |
+|------|------|
+| ClassType | 职业枚举（Warrior/Archer/Mage） |
+| ClassData | 职业配置 SO：三属性上限/职业色/可用武器列表；资产在 Assets/Data/Class/ |
+| ClassCatalog | 职业资产目录（编辑器 AssetDatabase 加载，构建需 Resources/Class/） |
+| PrepPedestal | 准备房间展台（职业选择台/武器展示台，运行时多色块视觉，E 交互；名签参数序列化可调） |
+| PrepRoomPlacer | 三展台布置 + 武器展台刷新 + 初始武器自动归位（仅供准备场景，阶段 C 重构签名） |
+| ClassSelectUI | 职业选择界面（TMP 屏幕空间）：选择→高亮→确认闪烁→ApplyClass→展台刷新 |
+| RunStateCarrier | 跨场景配置载体（DontDestroyOnLoad）：LastChosenClass/LastWeapon/HasLoadout |
+| PrepRoomManager | 独立准备场景总控：房间视觉/展台/传送门/出生位/换武器归位订阅 |
+| PrepPortalInteractable | 准备场景进入地牢传送门：校验 HasLoadout → LoadScene |
+
+### Weapon/ — 武器框架（v0.6.2 阶段 A）
+| 脚本 | 职责 |
+|------|------|
+| WeaponData | 武器配置 SO（职业/行为类型/攻击引用/蓄力/弹夹射速/染色/图标）；资产在 Assets/Data/Weapon/ |
+| WeaponInstance | 武器运行时状态（弹夹/换弹/蓄力计时），纯 C# 类 |
+| WeaponBehavior | 行为基类 + 分发骨架（近战转 PlayerCombat 链路；远程/自身留 v0.6.3） |
+| PlayerWeaponHolder | 玩家武器持有与装备入口：换武器旧武器原地掉落（dropOldWeaponOnEquip 可关）；OnWeaponChanged 事件（准备场景归位订阅） |
+| WeaponPickup | 武器拾取物（IPickupable）：职业校验"职业不符"拒绝，符合则 Equip |
 
 ### Dungeon/Core/ — 地牢门面与楼层循环
 | 脚本 | 职责 |
@@ -80,7 +105,7 @@ now_use/
 | DungeonBuilder | 读布局画 Tilemap、开门洞、建 Room/Door/RoomTrigger、调 Spawner 填内容 |
 | DungeonConfig | 地牢配置 SO（房间数/尺寸/门宽/特殊房/楼层缩放参数） |
 | RoomTypeConfig | 房间类型配置 SO（地板着色/清房条件/内容 Profile，v0.5.3） |
-| RunManager | 楼层循环总控（v0.5.4）：Boss 结算、NextFloor、死亡重开、楼层 seed |
+| RunManager | 楼层循环总控（v0.5.4）：Boss 结算、NextFloor；阶段 C（R4）：Start 应用 RunStateCarrier 职业/武器，死亡 → 加载准备场景 |
 
 ### Dungeon/Generation/ — 布局数据层（纯 C#，可离线自检）
 | 脚本 | 职责 |

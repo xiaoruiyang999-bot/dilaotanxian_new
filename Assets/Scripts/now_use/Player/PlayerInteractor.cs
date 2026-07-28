@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
+using TMPro;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -23,9 +24,9 @@ public class PlayerInteractor : MonoBehaviour
     [SerializeField] private float highlightScale = 1.1f;
     [SerializeField] private float highlightDuration = 0.6f;
     [SerializeField] private float hintHeightOffset = 0.9f;     // "按 E"标签相对候选中心的抬升
-    [SerializeField] private int hintFontSize = 40;             // "按 E"字号
-    [SerializeField] private Vector2 hintPanelSize = new Vector2(20f, 10f); // "按 E"底框尺寸（用户调定：20×10 + 世界缩放 0.09）
-    [SerializeField] private float hintWorldScale = 0.09f;      // "按 E"标签整体世界缩放（等比例放大用这项）
+    [SerializeField] private int hintFontSize = 16;             // "按 E"字号
+    [SerializeField] private Vector2 hintPanelSize = new Vector2(40f, 30f); // "按 E"底框尺寸（用户调定：40×30 + 缩放 0.03 + 字号 16）
+    [SerializeField] private float hintWorldScale = 0.03f;      // "按 E"标签整体世界缩放（等比例放大用这项）
 
     [Header("拾取列表")]
     [SerializeField] private float listCloseDistance = 2.5f;    // 玩家与最近物品超过该距离自动关列表
@@ -44,7 +45,6 @@ public class PlayerInteractor : MonoBehaviour
     private Health health;
     private Collider2D playerCollider;
     private Camera mainCamera;
-    private Font uiFont;
     private float detectTimer;
 
     // 候选（Interactable 与 IPickupable 互斥持有）
@@ -57,12 +57,16 @@ public class PlayerInteractor : MonoBehaviour
     // "按 E" 世界空间提示
     private GameObject hintCanvasGo;
     private Transform hintTransform;
-    private Text hintText;
+    private TMP_Text hintText;
+
+    // 临时提示（如"职业不符"）：优先于"按 E"显示，计时结束自动恢复
+    private string tempHintText;
+    private float tempHintTimer;
 
     // 拾取列表（屏幕空间，纯文字）
     private readonly List<IPickupable> listItems = new List<IPickupable>();
-    private readonly List<Text> listRows = new List<Text>();
-    private Text listFooter;
+    private readonly List<TMP_Text> listRows = new List<TMP_Text>();
+    private TMP_Text listFooter;
     private GameObject listCanvasGo;
     private RectTransform listPanelRect;
     private int listIndex;
@@ -95,15 +99,29 @@ public class PlayerInteractor : MonoBehaviour
             RefreshCandidate();
         }
 
+        // 临时提示计时结束 → 恢复候选提示
+        if (tempHintTimer > 0f)
+        {
+            tempHintTimer -= Time.deltaTime;
+            if (tempHintTimer <= 0f)
+                UpdateHintVisibility();
+        }
+
         if (listOpen) UpdateList();
     }
 
     void LateUpdate()
     {
-        // "按 E" 标签跟随候选，只平移不旋转（与 PlayerWorldStatusBar 同模式）
-        if (hintCanvasGo != null && hintCanvasGo.activeSelf && candidateTransform != null)
+        // "按 E"/临时提示标签跟随目标，只平移不旋转（与 PlayerWorldStatusBar 同模式）
+        if (hintCanvasGo != null && hintCanvasGo.activeSelf)
         {
-            hintTransform.position = candidateTransform.position + Vector3.up * hintHeightOffset;
+            if (tempHintTimer > 0f)
+                hintTransform.position = transform.position + Vector3.up * hintHeightOffset;
+            else if (candidateTransform != null)
+                hintTransform.position = candidateTransform.position + Vector3.up * hintHeightOffset;
+            else
+                return;
+
             // 每帧应用字号/底框/缩放，保证 Inspector 调整即时生效（标签创建后被缓存复用）
             if (hintText != null)
             {
@@ -246,10 +264,27 @@ public class PlayerInteractor : MonoBehaviour
 
     // ========== "按 E" 世界空间标签 ==========
 
+    /// <summary>
+    /// 临时提示（v0.6.2，如 WeaponPickup 的"职业不符"）：
+    /// 优先于"按 E"显示在玩家头顶，duration 秒后自动恢复候选提示。
+    /// </summary>
+    public void ShowTemporaryHint(string text, float duration = 1.2f)
+    {
+        tempHintText = text;
+        tempHintTimer = duration;
+        UpdateHintVisibility();
+    }
+
     private void UpdateHintVisibility()
     {
-        bool show = candidateTransform != null && !listOpen;
-        if (show) EnsureHintCanvas();
+        bool temp = tempHintTimer > 0f;
+        bool show = temp || (candidateTransform != null && !listOpen);
+        if (show)
+        {
+            EnsureHintCanvas();
+            if (hintText != null)
+                hintText.text = temp ? tempHintText : "按 E";
+        }
         if (hintCanvasGo != null) hintCanvasGo.SetActive(show);
     }
 
@@ -274,12 +309,12 @@ public class PlayerInteractor : MonoBehaviour
 
         GameObject textGo = new GameObject("Text");
         textGo.transform.SetParent(hintCanvasGo.transform, false);
-        Text text = textGo.AddComponent<Text>();
+        TMP_Text text = textGo.AddComponent<TextMeshProUGUI>();
         text.text = "按 E";
-        text.font = GetUIFont();
+        text.font = TMPFontProvider.Font;
         text.fontSize = hintFontSize;
         text.color = Color.white;                 // 白字
-        text.alignment = TextAnchor.MiddleCenter;
+        text.alignment = TextAlignmentOptions.Center;
         hintText = text;
         RectTransform textRect = (RectTransform)textGo.transform;
         textRect.anchorMin = Vector2.zero;
@@ -365,7 +400,7 @@ public class PlayerInteractor : MonoBehaviour
 
     private void RebuildListRows()
     {
-        foreach (Text row in listRows)
+        foreach (TMP_Text row in listRows)
             if (row != null) Destroy(row.gameObject);
         listRows.Clear();
         if (listFooter != null) Destroy(listFooter.gameObject);
@@ -377,7 +412,7 @@ public class PlayerInteractor : MonoBehaviour
 
         for (int i = 0; i < listItems.Count; i++)
         {
-            Text row = CreateListText(listPanelRect, $"Item{i}", listItems[i].DisplayName, 16);
+            TMP_Text row = CreateListText(listPanelRect, $"Item{i}", listItems[i].DisplayName, 16);
             RectTransform r = (RectTransform)row.transform;
             r.anchorMin = new Vector2(0f, 1f);
             r.anchorMax = new Vector2(1f, 1f);
@@ -399,15 +434,15 @@ public class PlayerInteractor : MonoBehaviour
         RefreshListHighlight();
     }
 
-    private Text CreateListText(RectTransform parent, string name, string content, int fontSize)
+    private TMP_Text CreateListText(RectTransform parent, string name, string content, int fontSize)
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
-        Text text = go.AddComponent<Text>();
+        TMP_Text text = go.AddComponent<TextMeshProUGUI>();
         text.text = content;
-        text.font = GetUIFont();
+        text.font = TMPFontProvider.Font;
         text.fontSize = fontSize;
-        text.alignment = TextAnchor.MiddleLeft;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
         return text;
     }
 
@@ -501,18 +536,6 @@ public class PlayerInteractor : MonoBehaviour
     }
 
     // ========== 工具 ==========
-
-    private Font GetUIFont()
-    {
-        if (uiFont == null)
-        {
-            // 计划书已确认：Legacy Text + 系统动态字体"微软雅黑"
-            uiFont = Font.CreateDynamicFontFromOSFont(new[] { "Microsoft YaHei", "Arial" }, 16);
-            if (uiFont == null)
-                uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        }
-        return uiFont;
-    }
 
     /// <summary>获取或创建全局 WorldUIRoot（与 PlayerWorldStatusBar 同一模式）。</summary>
     private static Transform EnsureWorldUIRoot()

@@ -58,6 +58,15 @@
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
+        },
+        {
+          "name": "Skill",
+          "type": "Button",
+          "id": "65e02a82-d24d-4eb0-9fcd-53979cf0b0ff",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
         }
       ],
       "bindings": [
@@ -168,6 +177,17 @@
           "processors": "",
           "groups": "",
           "action": "Cancel",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "d933dbcf-8974-486f-9e7f-43aeab93db4a",
+          "path": "<Keyboard>/f",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Skill",
           "isComposite": false,
           "isPartOfComposite": false
         }

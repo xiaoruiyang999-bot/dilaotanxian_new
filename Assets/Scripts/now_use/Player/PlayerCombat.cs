@@ -207,11 +207,12 @@ public class PlayerCombat : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 外部切换攻击配置（用于 v0.5 技能/武器切换）。
-    /// </summary>
+    /// <summary>外部切换攻击配置（用于 v0.5 技能/武器切换）。</summary>
     public void SetAttackData(AttackData data)
     {
         attackData = data;
     }
+
+    /// <summary>当前攻击配置（v0.6.2：PlayerWeaponHolder 缓存默认近战用）。</summary>
+    public AttackData CurrentAttackData => attackData;
 }
