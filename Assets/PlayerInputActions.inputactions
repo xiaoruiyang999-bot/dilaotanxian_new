@@ -22,6 +22,42 @@
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
+        },
+        {
+          "name": "Dash",
+          "type": "Button",
+          "id": "76ea7f4e-e4d4-45e9-bf27-6b966925a91f",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "Sprint",
+          "type": "Button",
+          "id": "66e08737-dd5d-47ab-b0d3-e256419032a6",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "Interact",
+          "type": "Button",
+          "id": "55c94636-90a8-4042-8a38-07c41edd5782",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "Cancel",
+          "type": "Button",
+          "id": "55994c4c-4a54-4049-847b-fb31979a7c4b",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
         }
       ],
       "bindings": [
@@ -88,6 +124,50 @@
           "processors": "",
           "groups": "",
           "action": "Attack",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "53cb8e6c-e26a-49d3-9911-a83c819b4d21",
+          "path": "<Keyboard>/space",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Dash",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "5581b053-84de-4de1-8faa-6bf6909fb2f7",
+          "path": "<Keyboard>/leftShift",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Sprint",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "1b6f4b13-5452-4f00-8537-7f048b32c830",
+          "path": "<Keyboard>/e",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Interact",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "7e0eef50-480d-453d-bda8-86aa59f63c9d",
+          "path": "<Keyboard>/escape",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Cancel",
           "isComposite": false,
           "isPartOfComposite": false
         }

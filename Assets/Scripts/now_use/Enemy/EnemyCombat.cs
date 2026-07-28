@@ -12,6 +12,9 @@ public class EnemyCombat : MonoBehaviour
     [Header("攻击配置")]
     [SerializeField] private AttackData attackData;
 
+    [Tooltip("进入攻击触发范围的额外缓冲距离（v0.6.0）：触发判定 = AttackData.AttackRange + 该缓冲，避免敌人在范围边缘继续贴近才出手")]
+    [SerializeField] private float attackRangeBuffer = 0.3f;
+
     [Header("组件引用")]
     [SerializeField] private WeaponController weaponController;
     [SerializeField] private WeaponAnimator weaponAnimator;
@@ -101,13 +104,18 @@ public class EnemyCombat : MonoBehaviour
         currentTarget = target;
     }
 
+    /// <summary>当前 AttackData 的攻击范围（供 EnemyAI 等外部决策读取）。</summary>
+    public float CurrentAttackRange => attackData != null ? attackData.AttackRange : 0f;
+
     /// <summary>
     /// 检查目标是否在攻击范围内（距离判定，供 EnemyAI 决策使用）。
+    /// v0.6.0：判定距离 = 当前 AttackData.AttackRange + attackRangeBuffer，
+    /// 保证精英/Boss 等大范围攻击在玩家进入打击圈后即触发，不再继续贴近。
     /// </summary>
     public bool IsInAttackRange(Transform target)
     {
         if (target == null || attackData == null) return false;
-        return Vector2.Distance(transform.position, target.position) <= attackData.AttackRange;
+        return Vector2.Distance(transform.position, target.position) <= attackData.AttackRange + attackRangeBuffer;
     }
 
     /// <summary>

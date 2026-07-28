@@ -2,14 +2,12 @@ using DG.Tweening;
 using UnityEngine;
 
 /// <summary>
-/// 宝箱（v0.5.4 三段式：暗盒身 + 亮金上下两片盖）：walk-over → 盖片上下分开（拉开后仍与盒身保持重合区）
-/// → 缺口中央刷新道具占位（pop-in）→ 结算奖励（+2 HP 占位）→ 道具展示后淡出，箱子保持开启态。
-/// 奖励从占位变真货的挂点即 ApplyEffect（未来接技能/装备系统）。
+/// 宝箱（v0.5.4 三段式：暗盒身 + 亮金上下两片盖）：按 E（v0.6.1）→ 盖片上下分开（拉开后仍与盒身保持重合区）
+/// → 缺口中央刷新治疗球道具（pop-in）→ 道具留在原地成为可拾取物（v0.6.1 两段式拾取：
+/// 不再展示后淡出，+2HP 结算由 HealPickup.OnPickedUp 在玩家按 E 拾取时执行）。
 /// </summary>
 public class ChestInteractable : Interactable
 {
-    [SerializeField] private float healAmount = 2f;
-
     [Header("开箱动画")]
     [SerializeField] private Transform lidTop;
     [SerializeField] private Transform lidBottom;
@@ -42,15 +40,17 @@ public class ChestInteractable : Interactable
             Vector3 targetScale = itemPrefab.transform.localScale;
             item.transform.localScale = Vector3.zero;
             item.transform.DOScale(targetScale, 0.25f).SetEase(Ease.OutBack).SetLink(item);   // pop-in 弹出
-            if (item.TryGetComponent(out SpriteRenderer sr))
-                sr.DOFade(0f, 0.5f).SetDelay(0.8f).SetLink(item).OnComplete(() => Destroy(item));   // 展示后淡出
+            // v0.6.1 两段式拾取：道具留在原地成为可拾取物（不再展示后淡出销毁），
+            // +2HP 结算改由 HealPickup.OnPickedUp 在玩家按 E 拾取时执行
+            item.AddComponent<HealPickup>();
         }
-        ApplyEffect(player);   // 结算：+2 HP（占位奖励）+ 日志
+        Debug.Log("[Dungeon] 宝箱开启：掉落治疗球（走近按 E 拾取）");
     }
 
     protected override void ApplyEffect(Collider2D player)
     {
-        if (player.TryGetComponent(out Health hp)) hp.Heal(healAmount);
-        Debug.Log($"[Dungeon] 宝箱开启：HP +{healAmount}（占位奖励）");
+        // v0.6.1：+2HP 奖励已转移至开箱掉落的 HealPickup（拾取时结算）。
+        // 本方法仅在 lidTop/lidBottom 未接线的防御路径被 OnConsumed 调用。
+        Debug.Log("[Dungeon] 宝箱开启（盖片未接线，未掉落道具）");
     }
 }

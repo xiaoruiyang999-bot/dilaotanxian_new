@@ -5,7 +5,7 @@ public enum SupplyType { Heal, Armor }
 
 /// <summary>
 /// 商店补给基座（免费占位，计划书五-D 范围声明：不做货币/购买结算）：
-/// walk-over 拾取，治疗球 +HP / 护甲球 +护甲。货币系统落地时的挂点即本类。
+/// 按 E 拾取（v0.6.1），治疗球 +HP / 护甲球 +护甲。货币系统落地时的挂点即本类。
 /// </summary>
 public class SupplyInteractable : Interactable
 {

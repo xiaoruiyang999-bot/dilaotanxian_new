@@ -1,6 +1,6 @@
-# now_use — 当前版本实际在用脚本（v0.5.4）
+# now_use — 当前版本实际在用脚本（v0.6.1）
 
-> 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` 地牢）实际运行所需的脚本**。
+> 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` / `v0_6_ClassWeapon.unity` 地牢）实际运行所需的脚本**。
 > 历史/弃用脚本保留在原版本文件夹（`v0_2` / `v0_3` / `v0_4` / `Framework`）作为档案，不删除。
 >
 > **维护约定（每个新版本必须执行）**：
@@ -16,29 +16,31 @@
 
 ```
 now_use/
-├── Player/      玩家侧（7）
+├── Player/      玩家侧（9）
 ├── Combat/      武器/攻击框架，Player/Enemy 共用（7）
 ├── Enemy/       敌人侧 + 巡逻/血条（8）
 ├── Common/      通用（相机、可破坏障碍物）（3）
-└── Dungeon/     地牢系统（25，保留原 v0_5 子目录）
+└── Dungeon/     地牢系统（27，保留原 v0_5 子目录）
     ├── Core/        门面/构建/配置/楼层循环（5）
     ├── Generation/  纯 C# 布局数据层（4）
     ├── Runtime/     房间运行时（4）
     ├── Content/     内容生成（7）
-    └── Interaction/ walk-over 交互物（5）
+    └── Interaction/ E 键交互物 + 拾取框架（7）
 ```
 
-## 清单（50 个，按目录分组）
+## 清单（54 个，按目录分组）
 
 ### Player/ — 玩家侧
 | 脚本 | 职责 |
 |------|------|
-| PlayerController | 输入接收、移动、死亡处理、Respawn（死亡重开恢复，v0.5.4），组件门面 |
-| PlayerStats | HP/护甲上限、护甲脱战恢复、护甲吸收伤害 |
-| Health | 玩家生命值（IDamageable），事件通知 |
+| PlayerController | 输入接收（Move/Attack/Dash/Sprint/Interact/Cancel 分发，v0.6.1）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement |
+| PlayerMovement | 移动执行层（v0.6.0）：常规移动/奔跑（×1.6，耗体力）/闪避（冲刺+无敌+残影），FixedUpdate 统一写速度 |
+| PlayerInteractor | E 键交互 + 两段式拾取（v0.6.1）：候选探测/呼吸高亮/"按 E"标签/纯文字拾取列表 |
+| PlayerStats | HP/护甲/体力上限（v0.6.0）、护甲脱战恢复、体力延迟回复、护甲吸收伤害 |
+| Health | 玩家生命值（IDamageable），事件通知；无敌标记 SetInvincible/IsInvincible（v0.6.0） |
 | PlayerCombat | 攻击三阶段状态机，Active 驱动 WeaponHitbox |
 | PlayerAimController | 鼠标瞄准方向输入层 |
-| PlayerUI | 屏幕左下角固定 HP/护甲条 |
+| PlayerUI | 屏幕左下角固定 HP/护甲/体力条（体力条 v0.6.0） |
 | PlayerWorldStatusBar | 头顶世界空间状态条（蓝护甲 + 红 HP） |
 
 ### Combat/ — 武器 / 攻击框架（Player/Enemy 共用）
@@ -58,8 +60,8 @@ now_use/
 | EnemyController | 移动/朝向门面、受伤闪烁、死亡处理 |
 | EnemyStats | 敌人属性（部分攻击字段已迁移 AttackData）+ ApplyFloorScale 楼层缩放（v0.5.4） |
 | EnemyHealth | 敌人生命值（IDamageable），受击通知 AI + ScaleMaxHealth（v0.5.4） |
-| EnemyCombat | 敌人攻击状态机 + 冷却 |
-| EnemyAI | Patrol/Chase/Attack/ReturnToPatrol 状态机 |
+| EnemyCombat | 敌人攻击状态机 + 冷却；攻击触发判定 = AttackData.AttackRange + 0.3 缓冲（v0.6.0） |
+| EnemyAI | Patrol/Chase/Attack/ReturnToPatrol 状态机；Update 决策 + FixedUpdate 统一写速度（v0.6.0 抖动修复），无用的 attackData 字段已移除 |
 | TrainingDummy | 伤害测试木桩（v0_4 场景在用） |
 | PatrolSystem | 巡逻点生成（EnemyAI 使用） |
 | WorldSpaceHealthBar | 敌人头顶血条 |
@@ -107,14 +109,16 @@ now_use/
 | InteractableSpawner | 交互物生成（散点冲突重试 / Row 一列陈列） |
 | SpawnPositionHelper | 生成位置合法性（距墙/距门/防重叠/重试上限） |
 
-### Dungeon/Interaction/ — walk-over 交互物
+### Dungeon/Interaction/ — E 键交互物 + 拾取框架
 | 脚本 | 职责 |
 |------|------|
-| Interactable | 交互基类：一次性触发 + OnConsumed 钩子（v0.5.4）+ 压暗已消耗态 |
-| ChestInteractable | 宝箱：三段式开箱动画（盖片分开 → 道具 pop-in → 结算，v0.5.4） |
+| Interactable | 交互基类（v0.6.1：walk-over → E 键 Interact()）：一次性触发 + OnConsumed 钩子 + 压暗已消耗态 |
+| IPickupable | 可拾取物接口（v0.6.1 两段式拾取框架）：DisplayName + OnPickedUp |
+| HealPickup | 治疗球拾取物（v0.6.1）：宝箱落物，按 E 拾取 +2HP，运行时补触发器 |
+| ChestInteractable | 宝箱：三段式开箱动画 → 掉落 HealPickup（v0.6.1，奖励改拾取结算） |
 | ShrineInteractable | 事件祭坛：随机 ±（治疗/受伤，运行时事件不进种子流） |
 | SupplyInteractable | 商店补给：治疗球/护甲球（免费占位） |
-| PortalInteractable | 传送门（v0.5.4）：石块漩涡动效，踩门 → RunManager.NextFloor |
+| PortalInteractable | 传送门（v0.5.4）：石块漩涡动效，按 E → RunManager.NextFloor |
 
 ## 明确不在用（留在档案目录）
 - `v0_2/CharacterInput.cs`、`v0_2/WarriorCharacter.cs` — v0.2 旧场景专用

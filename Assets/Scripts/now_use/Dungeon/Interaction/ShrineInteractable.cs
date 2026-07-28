@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 事件祭坛（占位，计划书五-D）：walk-over 触发，随机 ±（治疗 2 / 受伤 1），日志提示。
+/// 事件祭坛（占位，计划书五-D）：按 E 触发（v0.6.1），随机 ±（治疗 2 / 受伤 1），日志提示。
 /// ± 结果属运行时事件（同 v0.5.2 第十章 DropEffect 先例），不进种子流，用 UnityEngine.Random。
 /// 受伤走 Health.TakeDamage → 护甲优先吸收：满护甲时祭坛惩罚会被护甲挡下，占位阶段接受。
 /// </summary>

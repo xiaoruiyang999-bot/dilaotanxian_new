@@ -9,6 +9,9 @@ public class Health : MonoBehaviour, IDamageable
     public float HealthRatio => maxHealth > 0 ? CurrentHealth / maxHealth : 0f;
     public bool IsDead { get; private set; }
 
+    /// <summary>无敌标记（v0.6.0 闪避用）：无敌期间 TakeDamage 直接忽略。</summary>
+    public bool IsInvincible { get; private set; }
+
     public System.Action<float, float> OnHealthChanged;
     public System.Action OnDeath;
 
@@ -28,6 +31,7 @@ public class Health : MonoBehaviour, IDamageable
     public void TakeDamage(float damage)
     {
         if (IsDead) return;
+        if (IsInvincible) return;   // 无敌期间不扣血、不触发受伤事件
         if (damage <= 0) return;
 
         float damageToHealth = damage;
@@ -46,9 +50,13 @@ public class Health : MonoBehaviour, IDamageable
             OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
         }
 
-        Debug.Log($"[Health] TakeDamage raw={damage}, damageToHealth={damageToHealth}, CurrentHealth={CurrentHealth}/{maxHealth}, OnHealthChanged listeners={OnHealthChanged?.GetInvocationList().Length ?? 0}");
-
         if (CurrentHealth <= 0f) Die();
+    }
+
+    /// <summary>设置无敌状态（v0.6.0 闪避期间为 true）。</summary>
+    public void SetInvincible(bool value)
+    {
+        IsInvincible = value;
     }
 
     public void Heal(float amount)

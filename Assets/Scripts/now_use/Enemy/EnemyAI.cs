@@ -13,9 +13,6 @@ public class EnemyAI : MonoBehaviour
     [SerializeField] private float patrolRadius = 2f;       // 巡逻半径
     [SerializeField] private float patrolWaitTime = 2f;     // 巡逻点间等待时间
 
-    [Header("攻击配置")]
-    [SerializeField] private AttackData attackData;         // 攻击阶段与动画配置
-
     // 组件引用
     private EnemyController controller;
     private EnemyStats stats;
@@ -28,6 +25,11 @@ public class EnemyAI : MonoBehaviour
     private State currentState;
     private float patrolWaitTimer = 0f;
     private Vector3 currentPatrolTarget;
+
+    // 移动意图（v0.6.0）：Update 只做决策并记录意图，FixedUpdate 统一写入速度，
+    // 避免在渲染帧直接写 rb.linearVelocity 与物理步不同步导致移动"一闪一闪"
+    private Vector2 moveIntent;
+    private bool hasMoveIntent;
 
     void Awake()
     {
@@ -80,6 +82,34 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    // ========== 移动意图（FixedUpdate 统一写入） ==========
+
+    private void SetMoveIntent(Vector2 direction)
+    {
+        moveIntent = direction;
+        hasMoveIntent = true;
+    }
+
+    private void SetStopIntent()
+    {
+        moveIntent = Vector2.zero;
+        hasMoveIntent = false;
+    }
+
+    void FixedUpdate()
+    {
+        if (controller == null) return;
+
+        // 意图每物理帧消费一次：Update 没有重新设置意图时默认停止
+        if (hasMoveIntent)
+            controller.MoveTowards(moveIntent);
+        else
+            controller.StopMoving();
+
+        moveIntent = Vector2.zero;
+        hasMoveIntent = false;
+    }
+
     // ========== 被攻击回调 ==========
     private void OnDamaged()
     {
@@ -93,7 +123,7 @@ public class EnemyAI : MonoBehaviour
     // ========== Patrol（巡逻） ==========
     private void UpdatePatrol(float distToTarget)
     {
-        controller.StopMoving();
+        SetStopIntent();
 
         // 等待计时
         patrolWaitTimer -= Time.deltaTime;
@@ -109,7 +139,7 @@ public class EnemyAI : MonoBehaviour
         Vector2 dir = (currentPatrolTarget - transform.position).normalized;
         if (Vector2.Distance(transform.position, currentPatrolTarget) > 0.2f)
         {
-            controller.MoveTowards(dir);
+            SetMoveIntent(dir);
             controller.FaceTowards(dir);
         }
 
@@ -124,7 +154,7 @@ public class EnemyAI : MonoBehaviour
     private void UpdateChase(float distToTarget)
     {
         Vector2 dir = (target.position - transform.position).normalized;
-        controller.MoveTowards(dir);
+        SetMoveIntent(dir);
         controller.FaceTowards(dir);
 
         // 传递目标给 EnemyCombat，用于普通状态武器朝向
@@ -150,7 +180,7 @@ public class EnemyAI : MonoBehaviour
     private void UpdateAttack(float distToTarget)
     {
         // 攻击期间保持静止，避免扇形指示器与判定方向因位移/旋转而错位。
-        controller.StopMoving();
+        SetStopIntent();
 
         // 攻击流程由 EnemyCombat 内部管理。
         if (combat.CanAttack)
@@ -163,13 +193,13 @@ public class EnemyAI : MonoBehaviour
     private void UpdateReturnToPatrol(float distToOrigin)
     {
         Vector2 dir = (patrolOrigin - transform.position).normalized;
-        controller.MoveTowards(dir);
+        SetMoveIntent(dir);
         controller.FaceTowards(dir);
 
         // 回到原点
         if (distToOrigin <= 0.3f)
         {
-            controller.StopMoving();
+            SetStopIntent();
             ChangeState(State.Patrol);
         }
 
@@ -214,7 +244,7 @@ public class EnemyAI : MonoBehaviour
             case State.Chase:
                 break;
             case State.Attack:
-                controller.StopMoving();
+                SetStopIntent();
                 break;
             case State.ReturnToPatrol:
                 combat.SetTarget(null);

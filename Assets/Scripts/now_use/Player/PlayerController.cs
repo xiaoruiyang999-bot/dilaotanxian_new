@@ -6,13 +6,15 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PlayerStats))]
 [RequireComponent(typeof(Health))]
 [RequireComponent(typeof(PlayerCombat))]
+[RequireComponent(typeof(PlayerMovement))]
 public class PlayerController : MonoBehaviour
 {
     // 子组件
-    private Rigidbody2D rb;
     private PlayerStats stats;
     private Health health;
     private PlayerCombat combat;
+    private PlayerMovement movement;
+    private PlayerInteractor interactor;
     private PlayerInput playerInput;
 
     // 输入
@@ -23,11 +25,16 @@ public class PlayerController : MonoBehaviour
 
     void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
         stats = GetComponent<PlayerStats>();
         health = GetComponent<Health>();
         combat = GetComponent<PlayerCombat>();
+        movement = GetComponent<PlayerMovement>();
         playerInput = GetComponent<PlayerInput>();
+
+        // v0.6.1：交互器运行时挂载（编辑器运行期间不改 prefab YAML；prefab 已挂则直接用）
+        interactor = GetComponent<PlayerInteractor>();
+        if (interactor == null)
+            interactor = gameObject.AddComponent<PlayerInteractor>();
 
         if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
@@ -58,8 +65,8 @@ public class PlayerController : MonoBehaviour
         if (playerInput != null)
             playerInput.onActionTriggered -= OnActionTriggered;
 
-        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
+        if (movement != null) movement.StopImmediately();
     }
 
     // ========== Input System 回调 ==========
@@ -72,11 +79,32 @@ public class PlayerController : MonoBehaviour
         if (actionName == "Move")
         {
             moveInput = context.ReadValue<Vector2>();
+            movement.SetMoveInput(moveInput);
         }
         else if (actionName == "Attack" && context.performed)
         {
             if (!health.IsDead)
                 combat.TryAttack();
+        }
+        else if (actionName == "Dash" && context.performed)
+        {
+            movement.TryDash();
+        }
+        else if (actionName == "Sprint")
+        {
+            // 按住生效：performed 按下，canceled 松开
+            if (context.performed)
+                movement.SetSprintHeld(true);
+            else if (context.canceled)
+                movement.SetSprintHeld(false);
+        }
+        else if (actionName == "Interact" && context.performed)
+        {
+            interactor.OnInteractPressed();
+        }
+        else if (actionName == "Cancel" && context.performed)
+        {
+            interactor.OnCancelPressed();
         }
     }
 
@@ -86,25 +114,15 @@ public class PlayerController : MonoBehaviour
     {
         // 鼠标瞄准与武器朝向由 PlayerAimController + WeaponController 负责，
         // PlayerController 不再直接旋转角色，避免与 WeaponPivot 叠加导致武器转得比鼠标快。
-    }
-
-    void FixedUpdate()
-    {
-        if (health.IsDead)
-        {
-            rb.linearVelocity = Vector2.zero;
-            return;
-        }
-
-        rb.linearVelocity = moveInput.normalized * stats.MoveSpeed;
+        // 移动速度写入已迁移至 PlayerMovement（v0.6.0），本类不再持有 FixedUpdate。
     }
 
     // ========== 死亡处理 ==========
 
     private void OnPlayerDeath()
     {
-        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
+        if (movement != null) movement.StopImmediately();
 
         // 变灰表现
         if (TryGetComponent<SpriteRenderer>(out var sr))
@@ -115,8 +133,8 @@ public class PlayerController : MonoBehaviour
     public void Respawn()
     {
         if (TryGetComponent<SpriteRenderer>(out var sr)) sr.color = initialColor;
-        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
+        if (movement != null) movement.StopImmediately();
     }
 
     // 外部访问接口
