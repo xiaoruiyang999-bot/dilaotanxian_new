@@ -87,6 +87,34 @@ public class AttackData : ScriptableObject
     public Ease AttackEase => attackEase;
     public float ActiveMomentRatio => activeMomentRatio;
 
+    /// <summary>
+    /// 创建运行时副本（v0.6.3 蓄力系统：近战装备武器的参数缩放只作用于副本）。
+    /// 仅供运行时副本使用，禁止改磁盘资产。
+    /// </summary>
+    public AttackData CreateRuntimeCopy()
+    {
+        AttackData copy = Instantiate(this);
+        copy.name += "_Runtime";
+        return copy;
+    }
+
+    /// <summary>
+    /// 设置攻击范围与扇形角度。仅供运行时副本使用，禁止改磁盘资产。
+    /// </summary>
+    public void SetRangeAngle(float range, float angle)
+    {
+        attackRange = Mathf.Max(0.01f, range);
+        attackAngle = Mathf.Clamp(angle, 0f, 360f);
+    }
+
+    /// <summary>
+    /// 设置攻击伤害。仅供运行时副本使用，禁止改磁盘资产。
+    /// </summary>
+    public void SetDamage(float damage)
+    {
+        attackDamage = damage;
+    }
+
     void OnValidate()
     {
         attackAngle = Mathf.Clamp(attackAngle, 0f, 360f);

@@ -26,6 +26,10 @@ public class AttackIndicator : MonoBehaviour
     [Header("形状")]
     [SerializeField] private ShapeType shape = ShapeType.Sector;
 
+    [Header("显示行为")]
+    [Tooltip("显示时脱离父物体、保持世界位置（敌人预警=true）；玩家近战范围显示=false（跟随玩家，v0.6.3）")]
+    public bool detachOnShow = true;
+
     [Header("位置偏移")]
     [SerializeField] private Vector3 localOffset = Vector3.zero;
 
@@ -48,6 +52,7 @@ public class AttackIndicator : MonoBehaviour
     private float currentRadius = 1f;
     private float currentAngle = 360f;
     private Vector2 currentDirection = Vector2.right;
+    private float boxWidth = 0.2f;   // Box 形状的宽度（v0.6.3）
 
     public Color WarningColor => warningColor;
     public Color DangerColor => dangerColor;
@@ -147,7 +152,8 @@ public class AttackIndicator : MonoBehaviour
     public void Show()
     {
         // 显示时脱离父物体，保持当前世界位置与旋转，避免跟随 Enemy 移动/旋转。
-        if (!isDetached && transform.parent != null)
+        // detachOnShow = false（玩家近战范围显示）时保持父子关系，指示器跟随玩家（v0.6.3）。
+        if (detachOnShow && !isDetached && transform.parent != null)
         {
             originalParent = transform.parent;
             originalLocalPosition = transform.localPosition;
@@ -235,6 +241,18 @@ public class AttackIndicator : MonoBehaviour
         RebuildMesh();
     }
 
+    /// <summary>
+    /// 设置为矩形（Box，v0.6.3 枪矛戳击判定显示）：
+    /// 从原点沿 currentDirection 伸出 length、宽 width 的矩形，实时跟随戳击伸展。
+    /// </summary>
+    public void SetBox(float length, float width)
+    {
+        shape = ShapeType.Box;
+        currentRadius = Mathf.Max(0.01f, length);   // 复用 radius 字段存长度
+        boxWidth = Mathf.Max(0.01f, width);
+        RebuildMesh();
+    }
+
     /// <summary>设置透明度（0~1）。</summary>
     public void SetAlpha(float alpha)
     {
@@ -294,11 +312,34 @@ public class AttackIndicator : MonoBehaviour
             case ShapeType.Sector:
                 BuildSectorMesh();
                 break;
+            case ShapeType.Box:
+                BuildBoxMesh();
+                break;
             case ShapeType.Circle:
             default:
                 BuildCircleMesh();
                 break;
         }
+    }
+
+    /// <summary>矩形 Mesh（v0.6.3）：从原点沿 currentDirection 伸出 currentRadius 长、boxWidth 宽。</summary>
+    private void BuildBoxMesh()
+    {
+        if (indicatorMesh == null) return;
+
+        float halfW = boxWidth * 0.5f;
+        Vector2 dir = currentDirection.normalized;
+        Vector2 perp = new Vector2(-dir.y, dir.x) * halfW;
+        Vector2 tip = dir * currentRadius;
+
+        indicatorMesh.Clear();
+        indicatorMesh.vertices = new Vector3[]
+        {
+            -perp, perp, tip + perp, tip - perp
+        };
+        indicatorMesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+        indicatorMesh.RecalculateNormals();
+        indicatorMesh.RecalculateBounds();
     }
 
     private void UpdateSpriteVisual()

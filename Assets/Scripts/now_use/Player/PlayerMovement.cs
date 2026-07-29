@@ -15,6 +15,9 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float sprintSpeedMultiplier = 1.6f;    // 奔跑移速倍率
     [SerializeField] private float sprintStaminaPerSec = 20f;       // 奔跑体力消耗（点/秒）
 
+    [Header("蓄力（v0.6.3）")]
+    [SerializeField] private float chargeMoveSpeedMultiplier = 0.5f; // 蓄力期间移速倍率（计划书 4.6）
+
     [Header("闪避")]
     [SerializeField] private float dashDistance = 3f;               // 冲刺距离
     [SerializeField] private float dashDuration = 0.18f;            // 冲刺时长（速度 = 距离/时长）
@@ -32,6 +35,9 @@ public class PlayerMovement : MonoBehaviour
     // 输入状态（由 PlayerController 转发）
     private Vector2 moveInput;
     private bool sprintHeld;
+
+    // 蓄力状态（v0.6.3，由 PlayerCombat 设置）
+    private bool chargeSlowing;
 
     // 闪避状态
     private bool isDashing;
@@ -85,9 +91,13 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        // 奔跑：持续消耗体力，体力耗尽自动恢复常速
+        // 蓄力减速优先（v0.6.3，计划书 4.6）：蓄力中不叠加奔跑提速与体力消耗，直接 ×0.5 减速
         float speed = stats.MoveSpeed;
-        if (IsSprinting)
+        if (chargeSlowing)
+        {
+            speed *= chargeMoveSpeedMultiplier;
+        }
+        else if (IsSprinting)
         {
             stats.ConsumeStaminaOverTime(sprintStaminaPerSec);
             speed *= sprintSpeedMultiplier;
@@ -108,6 +118,12 @@ public class PlayerMovement : MonoBehaviour
     public void SetSprintHeld(bool held)
     {
         sprintHeld = held;
+    }
+
+    /// <summary>设置蓄力减速状态（v0.6.3，PlayerCombat 蓄力开始/结束时调用，计划书 4.6）。</summary>
+    public void SetChargeSlow(bool on)
+    {
+        chargeSlowing = on;
     }
 
     /// <summary>

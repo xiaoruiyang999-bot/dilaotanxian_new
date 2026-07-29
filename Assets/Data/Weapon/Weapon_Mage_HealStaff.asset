@@ -12,11 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec09dd718dba9fd1519df413559c4d52, type: 3}
   m_Name: Weapon_Mage_HealStaff
   m_EditorClassIdentifier: 
-  displayName: 治疗法杖
+  displayName: 新手回复法杖
   requiredClass: 2
   behaviorType: 2
   attackData: {fileID: 0}
+  projectileData: {fileID: 0}
+  healAmount: 2
   chargeRule: 0
+  chargeMaxTime: 1.2
+  chargeRangeMul: 1.8
+  chargeAngleMul: 1.8
+  chargeLengthMul: 2
+  chargeWidthMul: 1.2
+  chargeDamageMul: 2
+  chargeSpeedMul: 2
   clipSize: 1
   reloadTime: 1
   autoReloadIdleTime: 0

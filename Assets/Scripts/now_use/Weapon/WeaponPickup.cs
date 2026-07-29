@@ -1,10 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// 武器拾取物（v0.6.2 阶段 A，实现 v0.6.1 IPickupable）。
+/// 武器拾取物（v0.6.2 阶段 A，实现 v0.6.1 IPickupable；v0.6.3 升级掉落视觉）。
 /// 拾取时校验玩家当前职业 == WeaponData.requiredClass：
 /// 不符 → 提示"职业不符"并拒绝（物品留在原地）；符合 → PlayerWeaponHolder.Equip 装备。
-/// 地图掉落形态：缩小 0.7× + weaponColor 染色（mapIcon 可空，空则白块染色）。
+/// 地图掉落形态：WeaponVisualBuilder.BuildMapIcon 运行时多色块小图标 + 职业色底板（缩放 0.7 内置在图标根）。
 /// </summary>
 public class WeaponPickup : MonoBehaviour, IPickupable
 {
@@ -30,8 +30,9 @@ public class WeaponPickup : MonoBehaviour, IPickupable
     }
 
     /// <summary>
-    /// 原地掉落构建（换武器时旧武器掉落，计划书 4.3）：
-    /// 缩小 0.7× + weaponColor 染色，mapIcon 可空（空则白块）。
+    /// 原地掉落构建（换武器时旧武器掉落，计划书 4.3；v0.6.3 视觉升级）：
+    /// WeaponVisualBuilder.BuildMapIcon 运行时小图标（含职业色底板，0.7 缩放内置在图标根，
+    /// go 本身不再缩放，避免重复缩放）。
     /// </summary>
     public static WeaponPickup Drop(WeaponData data, Vector3 position)
     {
@@ -39,12 +40,9 @@ public class WeaponPickup : MonoBehaviour, IPickupable
 
         GameObject go = new GameObject($"WeaponPickup_{data.DisplayName}");
         go.transform.position = position;
-        go.transform.localScale = Vector3.one * 0.7f;   // 地图掉落略微缩小，与手持形态区分
 
-        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = data.MapIcon;                       // 可空：空则白块染色呈现
-        sr.color = data.WeaponColor;
-        sr.sortingOrder = 1;
+        GameObject icon = WeaponVisualBuilder.BuildMapIcon(data);
+        icon.transform.SetParent(go.transform, false);
 
         WeaponPickup pickup = go.AddComponent<WeaponPickup>();
         pickup.Init(data);

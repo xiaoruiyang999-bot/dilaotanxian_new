@@ -112,6 +112,10 @@ PrefabInstance:
       propertyPath: losePlayerRange
       value: 9
       objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: manaOrbValue
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackData
       value: 

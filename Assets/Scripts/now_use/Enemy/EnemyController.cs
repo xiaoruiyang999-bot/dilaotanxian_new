@@ -107,6 +107,10 @@ public class EnemyController : MonoBehaviour
         if (combat != null) combat.enabled = false;
         if (TryGetComponent<Collider2D>(out var col)) col.enabled = false;
 
+        // v0.6.3 掉落闭环：击杀掉落法力球（walk-over 吸附，数值读 EnemyStats.manaOrbValue，>0 才掉）
+        if (stats != null && stats.ManaOrbValue > 0f)
+            ManaOrb.Spawn(transform.position, stats.ManaOrbValue);
+
         // 延迟销毁
         Destroy(gameObject, 0.5f);
     }

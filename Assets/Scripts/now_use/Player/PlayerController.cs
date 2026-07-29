@@ -87,10 +87,12 @@ public class PlayerController : MonoBehaviour
             moveInput = context.ReadValue<Vector2>();
             movement.SetMoveInput(moveInput);
         }
-        else if (actionName == "Attack" && context.performed)
+        else if (actionName == "Attack")
         {
-            if (!health.IsDead)
-                combat.TryAttack();
+            // v0.6.3：started/canceled 转发按下/松开，支持长按蓄力与连发
+            if (health.IsDead) return;
+            if (context.started) combat.OnAttackPressed();
+            else if (context.canceled) combat.OnAttackReleased();
         }
         else if (actionName == "Dash" && context.performed)
         {

@@ -31,16 +31,23 @@ public class WeaponHitbox : MonoBehaviour
     /// </summary>
     public System.Action<IDamageable, Vector2> OnHit;
 
+    /// <summary>
+    /// 判定长度倍率（v0.6.3 枪矛戳击）：判定长度 = AttackRange × LengthMultiplier。
+    /// 默认 1，戳击动画期间由 PlayerCombat 随伸展进度驱动；BeginSwing/SetAttackData 时复位。
+    /// </summary>
+    public float LengthMultiplier { get; set; } = 1f;
+
     private const int MaxHits = 16;
     private static readonly Collider2D[] hitBuffer = new Collider2D[MaxHits];
 
     private readonly HashSet<Collider2D> hitThisSwing = new HashSet<Collider2D>();
     private bool isSwinging;
+    private WeaponController wc;   // v0.6.3：缓存引用，Tick 实时读其 WeaponWidth（蓄力宽度缩放）
 
     void Awake()
     {
         // 宽度/pivot 单一数据源：存在 WeaponController 时以其为准，序列化值仅作兜底。
-        WeaponController wc = GetComponent<WeaponController>();
+        wc = GetComponent<WeaponController>();
         if (wc != null)
         {
             weaponWidth = wc.WeaponWidth;
@@ -60,6 +67,7 @@ public class WeaponHitbox : MonoBehaviour
     public void BeginSwing()
     {
         hitThisSwing.Clear();
+        LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
         isSwinging = true;
     }
 
@@ -74,8 +82,9 @@ public class WeaponHitbox : MonoBehaviour
         if (attackData == null || weaponPivot == null) return;
 
         float scale = weaponPivot.lossyScale.x;
-        float length = attackData.AttackRange * scale;
-        float width = weaponWidth * scale;
+        float length = attackData.AttackRange * LengthMultiplier * scale;
+        // v0.6.3：宽度实时读 WeaponController.WeaponWidth（含蓄力宽度倍率），判定逻辑其余零改动
+        float width = (wc != null ? wc.WeaponWidth : weaponWidth) * scale;
         Vector2 dir = weaponPivot.right;
         Vector2 center = (Vector2)weaponPivot.position + dir * (length * 0.5f);
         float angle = weaponPivot.eulerAngles.z;

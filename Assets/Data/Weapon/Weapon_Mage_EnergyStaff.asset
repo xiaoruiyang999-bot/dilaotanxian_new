@@ -12,14 +12,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec09dd718dba9fd1519df413559c4d52, type: 3}
   m_Name: Weapon_Mage_EnergyStaff
   m_EditorClassIdentifier: 
-  displayName: 能量法杖
+  displayName: 新手伤害法杖
   requiredClass: 2
   behaviorType: 1
   attackData: {fileID: 0}
+  projectileData: {fileID: 11400000, guid: 07fa79e3377c4ba191394f359e615f04, type: 2}
+  healAmount: 0
   chargeRule: 0
+  chargeMaxTime: 1.2
+  chargeRangeMul: 1.8
+  chargeAngleMul: 1.8
+  chargeLengthMul: 2
+  chargeWidthMul: 1.2
+  chargeDamageMul: 2
+  chargeSpeedMul: 2
   clipSize: 1
   reloadTime: 0.8
   autoReloadIdleTime: 0
-  fireInterval: 0
+  fireInterval: 0.3
   weaponColor: {r: 0.6078, g: 0.349, b: 0.7137, a: 1}
   mapIcon: {fileID: 0}

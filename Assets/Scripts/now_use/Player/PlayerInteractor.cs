@@ -126,7 +126,16 @@ public class PlayerInteractor : MonoBehaviour
             if (hintText != null)
             {
                 hintText.fontSize = hintFontSize;
-                ((RectTransform)hintCanvasGo.transform).sizeDelta = hintPanelSize;
+                // 可拾取物名签（两行）：底框按名字长度加宽、加高一行（v0.6.3）
+                Vector2 panelSize = hintPanelSize;
+                if (IsPickupNameHint)
+                {
+                    float nameWidth = candidatePickupable.DisplayName.Length * hintFontSize + 12f;
+                    panelSize = new Vector2(
+                        Mathf.Max(hintPanelSize.x, nameWidth),
+                        hintPanelSize.y + hintFontSize + 4f);
+                }
+                ((RectTransform)hintCanvasGo.transform).sizeDelta = panelSize;
                 hintCanvasGo.transform.localScale = Vector3.one * hintWorldScale;
             }
         }
@@ -283,10 +292,21 @@ public class PlayerInteractor : MonoBehaviour
         {
             EnsureHintCanvas();
             if (hintText != null)
-                hintText.text = temp ? tempHintText : "按 E";
+            {
+                if (temp)
+                    hintText.text = tempHintText;
+                else if (candidatePickupable != null)
+                    // 可拾取物（武器/法力瓶等）：第一行物品名，第二行"按 E"（v0.6.3）
+                    hintText.text = candidatePickupable.DisplayName + "\n按 E";
+                else
+                    hintText.text = "按 E";
+            }
         }
         if (hintCanvasGo != null) hintCanvasGo.SetActive(show);
     }
+
+    /// <summary>当前提示是否为可拾取物名签（两行，需要更宽更高的底框）。</summary>
+    private bool IsPickupNameHint => tempHintTimer <= 0f && candidatePickupable != null;
 
     private void EnsureHintCanvas()
     {

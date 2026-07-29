@@ -15,6 +15,10 @@ public class EnemyStats : MonoBehaviour
     [SerializeField] private float detectionRange = 5f;     // 发现玩家的距离
     [SerializeField] private float losePlayerRange = 8f;    // 丢失玩家的距离（需大于detectionRange）
 
+    [Header("掉落（v0.6.3）")]
+    [Tooltip("击杀掉落法力球回复量，0=不掉")]
+    [SerializeField] private float manaOrbValue = 3f;
+
     [Header("攻击（已弃用：请使用 AttackData）")]
     [SerializeField] private float attackRange = 1.2f;      // 已迁移至 AttackData
     [SerializeField] private float attackDamage = 1f;       // 已迁移至 AttackData
@@ -25,6 +29,8 @@ public class EnemyStats : MonoBehaviour
     public float MoveSpeed => moveSpeed;
     public float DetectionRange => detectionRange;
     public float LosePlayerRange => losePlayerRange;
+    /// <summary>击杀掉落法力球回复量（v0.6.3），0=不掉。</summary>
+    public float ManaOrbValue => manaOrbValue;
 
     [System.Obsolete("攻击距离已迁移至 AttackData，请通过 EnemyCombat / EnemyAI 配置 AttackData。", false)]
     public float AttackRange => attackRange;

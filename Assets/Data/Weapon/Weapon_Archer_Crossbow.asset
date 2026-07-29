@@ -12,11 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec09dd718dba9fd1519df413559c4d52, type: 3}
   m_Name: Weapon_Archer_Crossbow
   m_EditorClassIdentifier: 
-  displayName: 连弩
+  displayName: 新手弩
   requiredClass: 1
   behaviorType: 1
   attackData: {fileID: 0}
+  projectileData: {fileID: 11400000, guid: 8987708314a8495e9607e163a077f1cb, type: 2}
+  healAmount: 0
   chargeRule: 0
+  chargeMaxTime: 1.2
+  chargeRangeMul: 1.8
+  chargeAngleMul: 1.8
+  chargeLengthMul: 2
+  chargeWidthMul: 1.2
+  chargeDamageMul: 2
+  chargeSpeedMul: 2
   clipSize: 12
   reloadTime: 2.5
   autoReloadIdleTime: 3

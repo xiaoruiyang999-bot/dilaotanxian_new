@@ -12,11 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec09dd718dba9fd1519df413559c4d52, type: 3}
   m_Name: Weapon_Warrior_Spear
   m_EditorClassIdentifier: 
-  displayName: 枪矛
+  displayName: 新手长枪
   requiredClass: 0
   behaviorType: 0
-  attackData: {fileID: 11400000, guid: 523190e3772aa284983fab3c0f033c99, type: 2}
+  attackData: {fileID: 11400000, guid: 5e972b97d2504d06b97e3ee25c238b49, type: 2}
+  projectileData: {fileID: 0}
+  healAmount: 0
   chargeRule: 2
+  chargeMaxTime: 1.2
+  chargeRangeMul: 1.8
+  chargeAngleMul: 1.8
+  chargeLengthMul: 2
+  chargeWidthMul: 1.2
+  chargeDamageMul: 2
+  chargeSpeedMul: 2
   clipSize: 0
   reloadTime: 0
   autoReloadIdleTime: 0

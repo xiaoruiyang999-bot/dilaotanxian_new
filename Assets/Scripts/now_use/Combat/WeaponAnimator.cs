@@ -68,7 +68,8 @@ public class WeaponAnimator : MonoBehaviour
         }
 
         // 设置起始角度：基准 + 偏移
-        weaponPivot.localRotation = Quaternion.Euler(0f, 0f, baseAngle + startAngle);
+        float startZ = baseAngle + startAngle;
+        weaponPivot.localRotation = Quaternion.Euler(0f, 0f, startZ);
 
         // 命中时刻回调
         if (onActiveMoment != null)
@@ -85,9 +86,15 @@ public class WeaponAnimator : MonoBehaviour
             }).SetLink(gameObject);   // 攻击者死亡销毁时自动 kill，避免回调打进已销毁对象
         }
 
-        // 旋转动画：基准 + 结束偏移
-        rotationTween = weaponPivot
-            .DOLocalRotate(new Vector3(0f, 0f, baseAngle + endAngle), duration, rotateMode)
+        // 旋转动画：浮点 tween 每帧直接写 localRotation（startZ → startZ+扫幅）。
+        // v0.6.3 修复：欧拉角 tween 会被 Unity 归一化到 [0,360)，起始角为负时方向翻转
+        // （瞄准右上方时普通/蓄力挥击从背后扫过）；浮点直写彻底绕开归一化，
+        // 任何瞄准方向、任何扫幅（含蓄力 >180°）都按挥击方向正向扫满。
+        // rotateMode 参数保留兼容调用方，实际路径由扫幅符号唯一决定。
+        float sweep = endAngle - startAngle;
+        rotationTween = DOVirtual
+            .Float(0f, sweep, duration,
+                v => { if (weaponPivot != null) weaponPivot.localRotation = Quaternion.Euler(0f, 0f, startZ + v); })
             .SetEase(ease)
             .SetLink(weaponPivot.gameObject)   // 目标（敌人/玩家）销毁时自动 kill，避免 DOTween safe mode 报 missing target
             .OnComplete(() => rotationTween = null);

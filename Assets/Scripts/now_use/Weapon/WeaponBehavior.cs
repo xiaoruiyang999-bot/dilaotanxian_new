@@ -1,9 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// 武器行为基类 / 分发骨架（v0.6.2 阶段 A：只立结构）。
-/// 近战分支转发现有 PlayerCombat 三件套链路（SetAttackData）；
-/// 远程 / 自身施法分支为 v0.6.3 挂点，本阶段不实现。
+/// 武器行为基类 / 分发（v0.6.3：三分支全部接入）。
+/// 近战 → PlayerCombat.SetMeleeWeapon（AttackData 运行时副本 + 蓄力规则）；
+/// 远程 → PlayerCombat.SetRangedWeapon（Projectile.Launch + 弹夹/换弹）；
+/// 自身施法 → PlayerCombat.SetSelfCastWeapon（治疗法杖等自身效果）。
 /// </summary>
 public abstract class WeaponBehavior
 {
@@ -26,18 +27,20 @@ public abstract class WeaponBehavior
         {
             case WeaponBehaviorType.Melee:
                 return new MeleeWeaponBehavior(inst);
-            // TODO(v0.6.3): Ranged → RangedWeaponBehavior（Projectile/ProjectileData，子弹引用补进 WeaponData）
-            // TODO(v0.6.3): SelfCast → SelfCastWeaponBehavior（治疗法杖等自身效果）
+            case WeaponBehaviorType.Ranged:
+                return new RangedWeaponBehavior(inst);
+            case WeaponBehaviorType.SelfCast:
+                return new SelfCastWeaponBehavior(inst);
             default:
-                Debug.LogWarning($"[Weapon] {inst.Data.DisplayName} 的行为类型 {inst.Data.BehaviorType} 尚未实现（v0.6.3），暂按近战链路处理。");
+                Debug.LogWarning($"[Weapon] {inst.Data.DisplayName} 的行为类型 {inst.Data.BehaviorType} 未知，暂按近战链路处理。");
                 return new MeleeWeaponBehavior(inst);
         }
     }
 }
 
 /// <summary>
-/// 近战武器行为：把 WeaponData.attackData 接入现有 PlayerCombat 三件套
-/// （WeaponController / WeaponAnimator / WeaponHitbox 链路不变）。
+/// 近战武器行为：WeaponData.attackData 经运行时副本接入 PlayerCombat 三件套
+/// （WeaponController / WeaponAnimator / WeaponHitbox 链路不变，v0.6.3 支持蓄力缩放）。
 /// </summary>
 public class MeleeWeaponBehavior : WeaponBehavior
 {
@@ -46,6 +49,34 @@ public class MeleeWeaponBehavior : WeaponBehavior
     public override void Apply(PlayerCombat combat)
     {
         if (combat == null || instance.Data.AttackData == null) return;
-        combat.SetAttackData(instance.Data.AttackData);
+        combat.SetMeleeWeapon(instance);
+    }
+}
+
+/// <summary>
+/// 远程武器行为（v0.6.3）：Projectile.Launch 开火 + 弹夹/换弹，不碰近战三件套链路。
+/// </summary>
+public class RangedWeaponBehavior : WeaponBehavior
+{
+    public RangedWeaponBehavior(WeaponInstance instance) : base(instance) { }
+
+    public override void Apply(PlayerCombat combat)
+    {
+        if (combat == null || instance.Data.ProjectileData == null) return;
+        combat.SetRangedWeapon(instance);
+    }
+}
+
+/// <summary>
+/// 自身施法武器行为（v0.6.3：治疗法杖）：Heal + 绿环特效 + 弹夹/换弹。
+/// </summary>
+public class SelfCastWeaponBehavior : WeaponBehavior
+{
+    public SelfCastWeaponBehavior(WeaponInstance instance) : base(instance) { }
+
+    public override void Apply(PlayerCombat combat)
+    {
+        if (combat == null) return;
+        combat.SetSelfCastWeapon(instance);
     }
 }
