@@ -6,7 +6,8 @@ using UnityEngine;
 ///   + Projectile + ProjectileVisualBuilder 视觉子物体（根旋转 = 飞行方向 Atan2 角度）；
 /// - Update 直线移动 dir × Speed×speedMul，lifetime 到期自毁（兜底）；
 /// - OnTriggerEnter2D：跳过 owner 及其同根（防生成瞬间自伤）、跳过其他 trigger（敌人探测圈）；
-///   命中 TargetLayer 内 IDamageable → TakeDamage(Damage×damageMul) + 命中特效 + 销毁；
+///   命中 TargetLayer 内 IDamageable → 结算伤害（v0.7.0：玩家子弹走 DamageResolver 新管线，
+///   敌人子弹 TakeDamage(Damage×damageMul) 原路径）+ 命中特效 + 销毁；
 ///   命中 Default 层非触发器（墙/关闭的门）→ 命中特效 + 销毁（子弹撞墙销毁，硬性要求）。
 /// 对象池不做（技术债，计划书第七章）。
 /// </summary>
@@ -15,6 +16,7 @@ public class Projectile : MonoBehaviour
     private ProjectileData data;
     private Vector2 direction;
     private GameObject owner;
+    private PlayerStats ownerStats;   // v0.7.0：owner 根上的 PlayerStats；非空 = 玩家子弹（走新管线），空 = 敌人子弹（原路径）
     private float damageMul = 1f;
     private float speedMul = 1f;
     private float lifetime;
@@ -60,6 +62,9 @@ public class Projectile : MonoBehaviour
         this.damageMul = damageMul;
         this.speedMul = speedMul;
         lifetime = data.Lifetime;
+
+        // v0.7.0：玩家发射的子弹走 DamageResolver（owner 根查 PlayerStats，敌人根无此组件）
+        ownerStats = owner != null ? owner.GetComponentInParent<PlayerStats>() : null;
     }
 
     private void Update()
@@ -91,7 +96,22 @@ public class Projectile : MonoBehaviour
         if (((1 << other.gameObject.layer) & data.TargetLayer.value) != 0
             && other.TryGetComponent(out IDamageable damageable))
         {
-            damageable.TakeDamage(data.Damage * damageMul);
+            // v0.7.0：玩家子弹走新管线（角色攻击+子弹伤害）×damageMul(蓄力)×暴击；敌人子弹原路径
+            if (ownerStats != null)
+            {
+                DamageContext ctx = new DamageContext
+                {
+                    baseAttack = ownerStats.Attack + data.Damage,
+                    multiplier = damageMul,
+                    critRate = ownerStats.CritRate,
+                    critDamage = ownerStats.CritDamage
+                };
+                DamageResolver.Deal(damageable, ctx);
+            }
+            else
+            {
+                damageable.TakeDamage(data.Damage * damageMul);
+            }
             ProjectileVisualBuilder.SpawnHitEffect(hitPoint, data.BodyColor);
             Destroy(gameObject);
             return;

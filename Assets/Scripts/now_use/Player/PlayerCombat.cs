@@ -47,7 +47,6 @@ public class PlayerCombat : MonoBehaviour
     private AttackData meleeRuntimeCopy;        // 近战装备武器的 AttackData 运行时副本（磁盘资产不动）
     private float meleeBaseRange;               // 副本基准值缓存（蓄力还原用）
     private float meleeBaseAngle;
-    private float meleeBaseDamage;              // 副本基准伤害（满蓄伤害加成还原用）
 
     // ===== v0.6.3：蓄力状态 =====
     private bool isCharging;
@@ -287,7 +286,6 @@ public class PlayerCombat : MonoBehaviour
             meleeRuntimeCopy = inst.Data.AttackData.CreateRuntimeCopy();
             meleeBaseRange = meleeRuntimeCopy.AttackRange;
             meleeBaseAngle = meleeRuntimeCopy.AttackAngle;
-            meleeBaseDamage = meleeRuntimeCopy.AttackDamage;
             ApplyAttackDataToChain(meleeRuntimeCopy);
         }
 
@@ -489,7 +487,7 @@ public class PlayerCombat : MonoBehaviour
     }
 
     // ============================================================
-    // v0.6.3：蓄力状态机（计划书 4.6；闪避不打断，Dash 全程不触碰本状态）
+    // v0.6.3：蓄力状态机（计划书 4.6；v0.7.0 起闪避已下线，本状态机无外部打断方）
     // ============================================================
 
     private void BeginCharge()
@@ -567,10 +565,11 @@ public class PlayerCombat : MonoBehaviour
 
         float t = CurrentChargeT();
 
-        // 近战满蓄（v0.6.3）：当次攻击伤害 ×ChargeFullDamageMul（一次性，挥击结束 RestoreMeleeChargeBase 还原）
-        if (t >= 0.999f && meleeRuntimeCopy != null
+        // 近战满蓄（v0.7.0 蓄力倍率归位）：倍率走 WeaponHitbox.DamageMultiplier（挥击结束随 BeginSwing 复位），
+        // 不再 SetDamage 改副本——倍率区独立于基础攻击，避免角色攻击力被一起放大（伤害计算公式文档 §2.1）
+        if (t >= 0.999f && weaponHitbox != null
             && (weapon.Data.ChargeRule == ChargeRule.FanScale || weapon.Data.ChargeRule == ChargeRule.RectScale))
-            meleeRuntimeCopy.SetDamage(meleeBaseDamage * weapon.Data.ChargeFullDamageMul);
+            weaponHitbox.DamageMultiplier = weapon.Data.ChargeFullDamageMul;
 
         switch (weapon.Data.ChargeRule)
         {
@@ -642,13 +641,12 @@ public class PlayerCombat : MonoBehaviour
                 chargeGlowRenderers[i].color = chargeGlowColors[i];
     }
 
-    /// <summary>近战挥击结束后（subPhase 回 None）：副本参数/宽度倍率/视觉缩放/戳击位移还原基准值。</summary>
+    /// <summary>近战挥击结束后（subPhase 回 None）：副本参数/宽度倍率/视觉缩放/戳击位移还原基准值；伤害倍率随下次 BeginSwing 复位（v0.7.0）。</summary>
     private void RestoreMeleeChargeBase()
     {
         if (meleeRuntimeCopy != null)
         {
             meleeRuntimeCopy.SetRangeAngle(meleeBaseRange, meleeBaseAngle);
-            meleeRuntimeCopy.SetDamage(meleeBaseDamage);
         }
         if (weaponController != null)
         {

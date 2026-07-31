@@ -76,10 +76,11 @@ public class PlayerController : MonoBehaviour
         string actionName = context.action?.name;
         if (string.IsNullOrEmpty(actionName)) return;
 
-        // 职业选择 UI 打开期间（v0.6.2）：屏蔽攻击/技能/交互/闪避输入——
+        // 职业选择 UI 打开期间（v0.6.2）：屏蔽攻击/技能/交互输入——
         // 鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；移动不受限（出生房安全）
+        // （v0.7.0：Dash/Sprint 已下线，分发分支移除，.inputactions 中 action 保留备用）
         if (ClassSelectUI.IsOpen &&
-            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "Dash"))
+            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact"))
             return;
 
         if (actionName == "Move")
@@ -93,18 +94,6 @@ public class PlayerController : MonoBehaviour
             if (health.IsDead) return;
             if (context.started) combat.OnAttackPressed();
             else if (context.canceled) combat.OnAttackReleased();
-        }
-        else if (actionName == "Dash" && context.performed)
-        {
-            movement.TryDash();
-        }
-        else if (actionName == "Sprint")
-        {
-            // 按住生效：performed 按下，canceled 松开
-            if (context.performed)
-                movement.SetSprintHeld(true);
-            else if (context.canceled)
-                movement.SetSprintHeld(false);
         }
         else if (actionName == "Interact" && context.performed)
         {

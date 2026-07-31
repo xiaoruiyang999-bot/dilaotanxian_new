@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public class PrepRoomManager : MonoBehaviour
 {
-    [SerializeField] private string dungeonSceneName = "v0_6_ClassWeapon";
+    [SerializeField] private string dungeonSceneName = "v0_7_ClassWeapon";
     [SerializeField] private Vector2 roomSize = new Vector2(16f, 12f);
     [SerializeField] private Vector3 playerSpawn = new Vector3(0f, -2.2f, 0f);   // 三展台下方，面向展台
 

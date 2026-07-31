@@ -398,7 +398,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 36762ebbe85a056acd35845be21e5f0a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dungeonSceneName: v0_6_ClassWeapon
+  dungeonSceneName: v0_7_ClassWeapon
   roomSize: {x: 16, y: 12}
   playerSpawn: {x: 0, y: -2.2, z: 0}
 --- !u!1 &806071364

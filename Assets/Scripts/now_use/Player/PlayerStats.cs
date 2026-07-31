@@ -11,10 +11,12 @@ public class PlayerStats : MonoBehaviour
     [SerializeField] private float armorRegenRate = 0.5f;       // 每秒恢复0.5点
     [SerializeField] private float armorRegenDelay = 3f;        // 脱战3秒后开始恢复
 
-    [Header("体力（v0.6.0）")]
-    [SerializeField] private float maxStamina = 100f;
-    [SerializeField] private float staminaRegenRate = 30f;      // 每秒回复30点
-    [SerializeField] private float staminaRegenDelay = 0.8f;    // 停止消耗0.8秒后开始回复
+    [Header("六维（v0.7.0，决策 6；占位数值待设计 D 定稿）")]
+    [SerializeField] private float attack = 5f;                 // 角色攻击力（基础攻击区的一半，另一半为武器攻击）
+    [SerializeField, Range(0f, 1f)] private float critRate = 0.2f;  // 暴击率
+    [SerializeField] private float critDamage = 1.5f;           // 暴击伤害倍率
+    [SerializeField] private float armorReduceMul = 0.3f;       // 护甲免伤率 R（v0.7.1 接线结算）
+    [SerializeField] private float armorLossMul = 1.0f;         // 护甲扣减率 L（v0.7.1 接线结算）
 
     [Header("法力（v0.6.2，不可自动回复）")]
     [SerializeField] private float maxMana = 0f;                // 未选职业时为 0（旧场景兼容），回复只能靠法力瓶/击杀法力球/技能宠物
@@ -23,10 +25,14 @@ public class PlayerStats : MonoBehaviour
     public float MaxArmor => maxArmor;
     public float MoveSpeed => moveSpeed;
     public float CurrentArmor { get; private set; }
-    public float MaxStamina => maxStamina;
-    public float CurrentStamina { get; private set; }
     public float MaxMana => maxMana;
     public float CurrentMana { get; private set; }
+
+    public float Attack => attack;
+    public float CritRate => critRate;
+    public float CritDamage => critDamage;
+    public float ArmorReduceMul => armorReduceMul;
+    public float ArmorLossMul => armorLossMul;
 
     /// <summary>当前职业（v0.6.2；未选择时为 null，旧场景保持现状）。</summary>
     public ClassData CurrentClass { get; private set; }
@@ -36,29 +42,18 @@ public class PlayerStats : MonoBehaviour
     private float lastDamageTime = -999f;  // 上次受伤时间（负值表示开局未受伤）
     private bool isOutOfCombat => Time.time - lastDamageTime >= armorRegenDelay;
 
-    private float lastStaminaConsumeTime = -999f;  // 上次体力消耗时间（负值表示开局未消耗）
-    private bool canRegenStamina => Time.time - lastStaminaConsumeTime >= staminaRegenDelay;
-
     void Awake()
     {
         CurrentArmor = maxArmor;
-        CurrentStamina = maxStamina;
         CurrentMana = maxMana;
     }
 
     void Update()
     {
-        // 脱战3秒后，护甲开始自动恢复
+        // 脱战3秒后，护甲开始自动恢复（v0.7.1 计划删除，本版保留）
         if (CurrentArmor < maxArmor && isOutOfCombat)
         {
             CurrentArmor = Mathf.Min(CurrentArmor + armorRegenRate * Time.deltaTime, maxArmor);
-            OnStatsChanged?.Invoke();
-        }
-
-        // 停止消耗0.8秒后，体力开始自动回复（回复满为止）
-        if (CurrentStamina < maxStamina && canRegenStamina)
-        {
-            CurrentStamina = Mathf.Min(CurrentStamina + staminaRegenRate * Time.deltaTime, maxStamina);
             OnStatsChanged?.Invoke();
         }
     }
@@ -85,38 +80,9 @@ public class PlayerStats : MonoBehaviour
         if (absorbed > 0)
         {
             OnStatsChanged?.Invoke();
-            Debug.Log($"[PlayerStats] Armor absorbed {absorbed}, remainingArmor={CurrentArmor}/{maxArmor}");
         }
 
         return damage - absorbed;
-    }
-
-    /// <summary>
-    /// 尝试一次性消耗体力（如闪避）。体力不足时不扣减并返回 false。
-    /// 任何消耗都会重置体力回复延迟计时。
-    /// </summary>
-    public bool TryConsumeStamina(float amount)
-    {
-        if (amount <= 0f) return true;
-        if (CurrentStamina < amount) return false;
-
-        CurrentStamina -= amount;
-        lastStaminaConsumeTime = Time.time;
-        OnStatsChanged?.Invoke();
-        return true;
-    }
-
-    /// <summary>
-    /// 按速率持续消耗体力（如奔跑，在 Update/FixedUpdate 中每帧调用）。
-    /// 消耗到 0 为止；任何消耗都会重置体力回复延迟计时。
-    /// </summary>
-    public void ConsumeStaminaOverTime(float ratePerSec)
-    {
-        if (ratePerSec <= 0f || CurrentStamina <= 0f) return;
-
-        CurrentStamina = Mathf.Max(CurrentStamina - ratePerSec * Time.deltaTime, 0f);
-        lastStaminaConsumeTime = Time.time;
-        OnStatsChanged?.Invoke();
     }
 
     public void ModifyArmor(float delta)
@@ -148,9 +114,9 @@ public class PlayerStats : MonoBehaviour
     }
 
     /// <summary>
-    /// 应用职业配置（v0.6.2）：写入 HP/护甲/法力三属性上限并回满当前值，记录 CurrentClass。
-    /// HP 上限经 Health.Initialize 写入（Health 是 HP 唯一数据源）并回满；
-    /// 体力上限与职业无关，顺带回满。全部变更走 OnStatsChanged 刷新 UI。
+    /// 应用职业配置（v0.6.2 / v0.7.0 六维）：写入 HP/护甲/法力上限与攻击/暴击/暴伤/护甲双倍率，
+    /// 回满当前值，记录 CurrentClass。HP 上限经 Health.Initialize 写入（Health 是 HP 唯一数据源）。
+    /// 全部变更走 OnStatsChanged 刷新 UI。
     /// </summary>
     public void ApplyClass(ClassData classData)
     {
@@ -161,8 +127,13 @@ public class PlayerStats : MonoBehaviour
         maxArmor = classData.MaxArmor;
         maxMana = classData.MaxMana;
 
+        attack = classData.Attack;
+        critRate = classData.CritRate;
+        critDamage = classData.CritDamage;
+        armorReduceMul = classData.ArmorReduceMul;
+        armorLossMul = classData.ArmorLossMul;
+
         CurrentArmor = maxArmor;
-        CurrentStamina = maxStamina;
         CurrentMana = maxMana;
 
         if (TryGetComponent<Health>(out var h))

@@ -1,4 +1,4 @@
-# now_use — 当前版本实际在用脚本（v0.6.3）
+# now_use — 当前版本实际在用脚本（v0.7.0）
 
 > 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` / `v0_6_ClassWeapon.unity` 地牢）实际运行所需的脚本**。
 > 历史/弃用脚本保留在原版本文件夹（`v0_2` / `v0_3` / `v0_4` / `Framework`）作为档案，不删除。
@@ -17,10 +17,10 @@
 ```
 now_use/
 ├── Player/      玩家侧（10）
-├── Combat/      武器/攻击框架 + 子弹系统，Player/Enemy 共用（9）
+├── Combat/      武器/攻击框架 + 子弹系统 + 伤害管线（v0.7.0），Player/Enemy 共用（11）
 ├── Enemy/       敌人侧 + 巡逻/血条（8）
 ├── Common/      通用（相机、可破坏障碍物、TMP 字体）（4）
-├── Class/       职业系统 + 准备房间（9，v0.6.2）
+├── Class/       职业系统 + 准备房间（9，v0.6.2；六维字段 v0.7.0）
 ├── Weapon/      武器框架 + 运行时视觉（7，v0.6.3 行为完整实现）
 └── Dungeon/     地牢系统（29，保留原 v0_5 子目录）
     ├── Core/        门面/构建/配置/楼层循环（5）
@@ -30,20 +30,20 @@ now_use/
     └── Interaction/ E 键交互物 + 拾取框架 + 法力掉落（9）
 ```
 
-## 清单（76 个，按目录分组）
+## 清单（78 个，按目录分组）
 
 ### Player/ — 玩家侧
 | 脚本 | 职责 |
 |------|------|
-| PlayerController | 输入接收（Move/Attack/Dash/Sprint/Interact/Cancel/Skill 分发，Skill 为 v0.6.4 占位）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement；v0.6.3 Attack 改 started/canceled 转发（按下/松开，支持蓄力与连发） |
-| PlayerMovement | 移动执行层（v0.6.0）：常规移动/奔跑（×1.6，耗体力）/闪避（冲刺+无敌+残影），FixedUpdate 统一写速度；v0.6.3 +蓄力减速 ×0.5（SetChargeSlow，蓄力优先不叠加奔跑） |
+| PlayerController | 输入接收（Move/Attack/Interact/Cancel/Skill 分发，Skill 为 v0.6.4 占位；Dash/Sprint 分发 v0.7.0 下线，action 保留在 .inputactions 备用）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement；v0.6.3 Attack 改 started/canceled 转发（按下/松开，支持蓄力与连发） |
+| PlayerMovement | 移动执行层（v0.7.0 重写为纯移动）：常规移动 + 蓄力减速 ×0.5（SetChargeSlow），FixedUpdate 统一写速度；闪避/奔跑/体力已下线 |
 | PlayerInteractor | E 键交互 + 两段式拾取（v0.6.1）：候选探测/呼吸高亮/"按 E"标签/纯文字拾取列表 |
-| PlayerStats | HP/护甲/体力/法力上限（法力 v0.6.2 不可自动回复）、护甲脱战恢复、体力延迟回复、护甲吸收伤害、ApplyClass(ClassData) |
+| PlayerStats | HP/护甲/法力上限（法力 v0.6.2 不可自动回复）+ 六维（v0.7.0：攻击/暴击率/暴伤/护甲双倍率 R·L，R/L 结算 v0.7.1 接线）、护甲脱战恢复（v0.7.1 删）、护甲吸收伤害、ApplyClass(ClassData)；体力系统 v0.7.0 下线 |
 | Health | 玩家生命值（IDamageable），事件通知；无敌标记 SetInvincible/IsInvincible（v0.6.0） |
-| PlayerCombat | 近战三阶段状态机 + v0.6.3 三模式（Melee/Ranged/SelfCast）：蓄力状态机（闪避保留、移动×0.5、AttackData 运行时副本缩放）、弹夹/换弹/闲置自动换弹计时、Projectile 开火、治疗自施法；弹药/换弹/武器展示事件供 AmmoUI 订阅 |
+| PlayerCombat | 近战三阶段状态机 + v0.6.3 三模式（Melee/Ranged/SelfCast）：蓄力状态机（移动×0.5、AttackData 运行时副本缩放范围/角度）、弹夹/换弹/闲置自动换弹计时、Projectile 开火、治疗自施法；弹药/换弹/武器展示事件供 AmmoUI 订阅；v0.7.0 满蓄倍率归位 WeaponHitbox.DamageMultiplier（不再 SetDamage 改副本） |
 | PlayerAimController | 鼠标瞄准方向输入层 |
-| PlayerUI | 屏幕左下角固定 HP/护甲/体力/法力条（法力条 v0.6.2，面板不足自动向下扩展） |
-| PlayerWorldStatusBar | 头顶世界空间状态条（蓝护甲 + 红 HP + 黄体力） |
+| PlayerUI | 屏幕左下角固定 HP/护甲/法力条（法力条 v0.6.2）；v0.7.0 体力条下线，场景残留 StaminaBar 对象运行时 SetActive(false) 兜底隐藏 |
+| PlayerWorldStatusBar | 头顶世界空间状态条（钢灰护甲 + 红 HP；黄体力条 v0.7.0 下线） |
 | AmmoUI | 弹药面板（v0.6.3）：武器色块+名 + 弹夹 x/y + 换弹进度细条（运行时构建，订阅 PlayerCombat 事件；无弹夹/默认近战隐藏） |
 
 ### Combat/ — 武器 / 攻击框架（Player/Enemy 共用）
@@ -52,12 +52,14 @@ now_use/
 | AttackData | 攻击配置 SO（时长/范围/角度/伤害/冷却/目标层/动画），唯一数据源；v0.6.3 +CreateRuntimeCopy/运行时副本 setter（近战蓄力缩放只作用于副本） |
 | WeaponController | WeaponPivot 朝向、WeaponSprite 视觉、攻击方向锁定；v0.6.3 +SetAttackData/+宽度倍率（枪矛蓄力）/+自定义视觉挂载（模块化手持视觉替换默认色块） |
 | WeaponAnimator | DOTween 挥动动画（纯视觉；tween 均 SetLink，v0.5.4 修复） |
-| WeaponHitbox | Active 阶段武器矩形命中检测与伤害结算；v0.6.3 宽度改实时读 WeaponController + LengthMultiplier 长度倍率（戳击伸展用，判定逻辑零改动） |
+| WeaponHitbox | Active 阶段武器矩形命中检测与伤害结算；v0.6.3 宽度改实时读 WeaponController + LengthMultiplier 长度倍率（戳击伸展用）；v0.7.0 +DamageMultiplier 伤害倍率（蓄力归位，BeginSwing 复位）+ 玩家/敌人结算分流（根上 PlayerStats 判定：玩家走 DamageResolver 新管线，敌人直扣原路径） |
 | AttackIndicator | 扇形/圆形/矩形（Box，v0.6.3）预警 Mesh（纯视觉）；detachOnShow 控制脱离父物体（敌人=true 原地预警，玩家=false 跟随） |
 | AttackQuery | 瞬时范围查询工具（无调用方，挂在 prefab 上留待技能系统） |
 | IDamageable | 统一伤害接口 |
+| DamageContext | 伤害上下文 struct（v0.7.0）：baseAttack（角色攻击+武器攻击）/multiplier（倍率区）/critRate/critDamage；Roll() 一次暴击判定返回最终伤害，IsCrit 外露供表现层 |
+| DamageResolver | 伤害结算静态入口（v0.7.0）：Deal(target, ctx) 单点收口；v0.7.1 在此分流 Health 减伤甲结算 |
 | ProjectileData | 子弹配置 SO（v0.6.3）：速度/伤害/存活/半径/视觉类型/配色/目标层；资产在 Assets/Data/ |
-| Projectile | 子弹（v0.6.3）：直线飞行 + Trigger 命中 IDamageable + 撞墙（Default 层）销毁 + 存活兜底 + 通用命中特效 |
+| Projectile | 子弹（v0.6.3）：直线飞行 + Trigger 命中 IDamageable + 撞墙（Default 层）销毁 + 存活兜底 + 通用命中特效；v0.7.0 玩家子弹走 DamageResolver（owner 根查 PlayerStats，damageMul 映射 ctx.multiplier），敌人子弹原路径 |
 
 ### Enemy/ — 敌人侧
 | 脚本 | 职责 |
@@ -83,11 +85,11 @@ now_use/
 | 脚本 | 职责 |
 |------|------|
 | ClassType | 职业枚举（Warrior/Archer/Mage） |
-| ClassData | 职业配置 SO：三属性上限/职业色/可用武器列表；资产在 Assets/Data/Class/ |
+| ClassData | 职业配置 SO：三属性上限 + 六维字段（v0.7.0：攻击/暴击率/暴伤/护甲双倍率 R·L，占位默认值同 PlayerStats）/职业色/可用武器列表；资产在 Assets/Data/Class/ |
 | ClassCatalog | 职业资产目录（编辑器 AssetDatabase 加载，构建需 Resources/Class/） |
 | PrepPedestal | 准备房间展台（职业选择台/武器展示台，运行时多色块视觉，E 交互；名签参数序列化可调） |
 | PrepRoomPlacer | 三展台布置 + 武器展台刷新 + 初始武器自动归位（仅供准备场景，阶段 C 重构签名） |
-| ClassSelectUI | 职业选择界面（TMP 屏幕空间）：选择→高亮→确认闪烁→ApplyClass→展台刷新 |
+| ClassSelectUI | 职业选择界面（TMP 屏幕空间）：选择→高亮→确认闪烁→ApplyClass→展台刷新；v0.7.0 职业按钮描述改六维数值行（HP/护甲/攻击/魔力/暴击%/暴伤×） |
 | RunStateCarrier | 跨场景配置载体（DontDestroyOnLoad）：LastChosenClass/LastWeapon/HasLoadout |
 | PrepRoomManager | 独立准备场景总控：房间视觉/展台/传送门/出生位/换武器归位订阅 |
 | PrepPortalInteractable | 准备场景进入地牢传送门：校验 HasLoadout → LoadScene |

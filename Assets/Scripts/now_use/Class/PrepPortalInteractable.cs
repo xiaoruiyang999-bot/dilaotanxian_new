@@ -15,7 +15,7 @@ public class PrepPortalInteractable : Interactable
 
     private static Sprite whiteSprite;
 
-    [SerializeField] private string dungeonSceneName = "v0_6_ClassWeapon";
+    [SerializeField] private string dungeonSceneName = "v0_7_ClassWeapon";
 
     /// <summary>运行时构建传送门（PrepRoomManager 调用）。</summary>
     public static PrepPortalInteractable Create(Vector3 position, Transform parent, string dungeonScene)

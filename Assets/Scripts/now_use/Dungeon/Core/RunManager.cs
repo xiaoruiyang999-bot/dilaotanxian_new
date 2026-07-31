@@ -20,7 +20,7 @@ public class RunManager : MonoBehaviour
     [Header("死亡重开")]
     [SerializeField] private float restartDelay = 2f;
     [Tooltip("死亡后加载的准备场景名（需在 Build Settings 中）")]
-    [SerializeField] private string prepSceneName = "v0_6_PrepRoom";
+    [SerializeField] private string prepSceneName = "v0_7_PrepRoom";
 
     public int FloorNumber { get; private set; } = 1;
     public int MainSeed { get; private set; }

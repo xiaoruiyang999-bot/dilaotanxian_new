@@ -3,7 +3,9 @@ using UnityEngine.UI;
 
 /// <summary>
 /// 玩家固定 UI（屏幕左下角）。
-/// 负责显示玩家 HP、护甲、体力（v0.6.0）与法力（v0.6.2），并监听 Health / PlayerStats 的事件实时刷新。
+/// 负责显示玩家 HP、护甲与法力（v0.6.2），并监听 Health / PlayerStats 的事件实时刷新。
+/// v0.7.0：体力条下线——代码不再创建/更新体力条；场景 YAML 里残留的 StaminaBar 对象运行时隐藏
+/// （布局归场景编辑，代码不删场景对象）。
 ///
 /// 设计要点：
 /// 1. Inspector 手动配置优先，符合 Unity 常规工作流。
@@ -22,10 +24,7 @@ public class PlayerUI : MonoBehaviour
     [Tooltip("护甲条 Image（Filled）。为空时自动查找 Canvas/PlayerStatsPanel/ArmorBar。")]
     [SerializeField] private Image armorBar;
 
-    [Tooltip("体力条 Image（Filled，v0.6.0）。为空时自动查找 Canvas/PlayerStatsPanel/StaminaBar；场景里没有则运行时克隆护甲条自动创建（HP 条下方）。")]
-    [SerializeField] private Image staminaBar;
-
-    [Tooltip("法力条 Image（Filled，v0.6.2）。为空时自动查找 Canvas/PlayerStatsPanel/ManaBar；场景里没有则运行时克隆体力条自动创建（体力条下方）。")]
+    [Tooltip("法力条 Image（Filled，v0.6.2）。为空时自动查找 Canvas/PlayerStatsPanel/ManaBar；场景里没有则运行时克隆护甲条自动创建（护甲条下方）。")]
     [SerializeField] private Image manaBar;
 
     [Header("角色引用")]
@@ -41,6 +40,7 @@ public class PlayerUI : MonoBehaviour
     void Awake()
     {
         RecoverReferences();
+        HideLegacyStaminaBar();
     }
 
     void Start()
@@ -88,8 +88,18 @@ public class PlayerUI : MonoBehaviour
         RecoverPlayerController();
         RecoverHPBar();
         RecoverArmorBar();
-        RecoverStaminaBar();
         RecoverManaBar();
+    }
+
+    /// <summary>
+    /// v0.7.0：体力条已下线。场景 YAML 里残留的 StaminaBar 对象运行时隐藏
+    /// （代码不删场景对象，用户可在编辑器方便时手动删除，见 v0.7.0 计划书 §五）。
+    /// </summary>
+    private void HideLegacyStaminaBar()
+    {
+        Transform t = transform.Find("PlayerStatsPanel/StaminaBar");
+        if (t != null)
+            t.gameObject.SetActive(false);
     }
 
     private void RecoverPlayerController()
@@ -148,25 +158,6 @@ public class PlayerUI : MonoBehaviour
         }
     }
 
-    private void RecoverStaminaBar()
-    {
-        if (staminaBar != null) return;
-
-        Transform staminaTransform = transform.Find("PlayerStatsPanel/StaminaBar");
-        if (staminaTransform != null)
-        {
-            staminaBar = staminaTransform.GetComponent<Image>();
-        }
-
-        // 场景里没有 StaminaBar 时（v0_5 及更早场景），运行时兜底创建一条（默认整齐布局），
-        // 不依赖场景 YAML，保证任何场景打开都有体力条
-        if (staminaBar == null)
-        {
-            staminaBar = CreateBarBelow(armorBar, hpBar, "StaminaBar",
-                new Color(0.9569f, 0.8157f, 0.2471f));   // #F4D03F
-        }
-    }
-
     private void RecoverManaBar()
     {
         if (manaBar != null) return;
@@ -180,8 +171,7 @@ public class PlayerUI : MonoBehaviour
         // 场景里没有 ManaBar 时，运行时兜底创建一条（默认整齐布局）
         if (manaBar == null)
         {
-            manaBar = CreateBarBelow(staminaBar != null ? staminaBar : armorBar,
-                staminaBar != null ? staminaBar : hpBar,
+            manaBar = CreateBarBelow(armorBar, armorBar,
                 "ManaBar", new Color(0.2039f, 0.5961f, 0.8588f));   // #3498DB
         }
     }
@@ -230,9 +220,6 @@ public class PlayerUI : MonoBehaviour
 
         if (armorBar != null)
             armorBar.fillAmount = stats.MaxArmor > 0 ? stats.CurrentArmor / stats.MaxArmor : 0f;
-
-        if (staminaBar != null)
-            staminaBar.fillAmount = stats.MaxStamina > 0 ? stats.CurrentStamina / stats.MaxStamina : 0f;
 
         if (manaBar != null)
             manaBar.fillAmount = stats.MaxMana > 0 ? stats.CurrentMana / stats.MaxMana : 0f;

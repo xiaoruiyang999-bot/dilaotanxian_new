@@ -11,8 +11,8 @@ using UnityEngine.UI;
 /// 屏幕空间 Overlay + TMP，全部运行时代码构建（纯色块 + 文字，无图片资源）。
 /// 流程：E 交互职业选择台 → Open() → 点职业按钮（职业色边框高亮，其余熄灭）
 /// → 点确认（边框 DOTween 闪烁 ≈0.3s）→ 关闭 → ApplyClass → 刷新两个武器展台。
-/// 默认高亮 RunManager.LastChosenClass（死亡重开默认上次职业）；Esc 关闭（未确认不生效）。
-/// 打开期间 PlayerController 查询 IsOpen 屏蔽 Attack/Skill/Interact/Dash 分发（点击按钮不触发攻击）。
+/// 默认高亮 RunStateCarrier.LastChosenClass（死亡重开默认上次职业）；Esc 关闭（未确认不生效）。
+/// 打开期间 PlayerController 查询 IsOpen 屏蔽 Attack/Skill/Interact 分发（点击按钮不触发攻击）。
 /// </summary>
 public class ClassSelectUI : MonoBehaviour
 {
@@ -164,15 +164,14 @@ public class ClassSelectUI : MonoBehaviour
             TextAlignmentOptions.Center, Color.white);
         PlaceUI((RectTransform)title.transform, new Vector2(0.5f, 1f), new Vector2(0f, -40f), new Vector2(400f, 40f));
 
-        // 三个职业按钮（22pt，各带职业色方块 + 一句话特色）：
+        // 三个职业按钮（22pt，各带职业色方块 + 六维数值行（v0.7.0））：
         // 面板内纵向等距排列（中心锚点，y = +120 / +30 / -60，间距 90，不溢出面板）
-        string[] features = { "近战高生存，技能应急", "远程风筝，技能拉开距离", "法力驱动，法阵控场" };
         var classes = ClassCatalog.All;
         for (int i = 0; i < 3 && i < classes.Count; i++)
         {
             ClassData data = classes[i];
             if (data == null) continue;
-            buttons.Add(BuildClassButton(panel.transform, data, features[i],
+            buttons.Add(BuildClassButton(panel.transform, data, BuildStatLine(data),
                 new Vector2(0f, 120f - i * 90f)));
         }
 
@@ -182,7 +181,13 @@ public class ClassSelectUI : MonoBehaviour
         canvasGo.SetActive(false);
     }
 
-    private ClassButton BuildClassButton(Transform parent, ClassData data, string feature, Vector2 pos)
+    /// <summary>六维数值行（v0.7.0，决策 6）：HP/护甲/攻击/魔力/暴击率%/暴击伤害倍率。</summary>
+    private static string BuildStatLine(ClassData d)
+    {
+        return $"HP {d.MaxHP:0}  护甲 {d.MaxArmor:0}  攻击 {d.Attack:0}  魔力 {d.MaxMana:0}  暴击 {d.CritRate:P0}  暴伤 ×{d.CritDamage:0.##}";
+    }
+
+    private ClassButton BuildClassButton(Transform parent, ClassData data, string statLine, Vector2 pos)
     {
         // 边框（职业色，选中高亮）
         GameObject frame = CreateUIObject($"Btn_{data.ClassType}", parent);
@@ -208,10 +213,10 @@ public class ClassSelectUI : MonoBehaviour
             TextAlignmentOptions.MidlineLeft, Color.white);
         PlaceUI((RectTransform)name.transform, new Vector2(0f, 0.5f), new Vector2(78f, 12f), new Vector2(300f, 30f));
 
-        // 一句话特色（小字灰）
-        TMP_Text feat = CreateText(frame.transform, "Feature", feature, 12,
+        // 六维数值行（小字灰，v0.7.0）
+        TMP_Text feat = CreateText(frame.transform, "StatLine", statLine, 12,
             TextAlignmentOptions.MidlineLeft, new Color(1f, 1f, 1f, 0.6f));
-        PlaceUI((RectTransform)feat.transform, new Vector2(0f, 0.5f), new Vector2(78f, -16f), new Vector2(300f, 20f));
+        PlaceUI((RectTransform)feat.transform, new Vector2(0f, 0.5f), new Vector2(78f, -16f), new Vector2(336f, 20f));
 
         // 点击 → 选中
         Button btn = frame.AddComponent<Button>();

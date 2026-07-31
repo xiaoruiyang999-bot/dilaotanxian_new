@@ -5,7 +5,9 @@ using System.Collections.Generic;
 /// 武器实体命中检测器。
 /// 挥击期间由 Combat（PlayerCombat/EnemyCombat）状态机驱动：BeginSwing → 每帧 Tick → EndSwing。
 /// 每次 Tick 用武器矩形（长 = AttackData.AttackRange，宽 = weaponWidth，
-/// 姿态逐帧取自 weaponPivot）做 OverlapBox 检测，命中即调用 IDamageable.TakeDamage。
+/// 姿态逐帧取自 weaponPivot）做 OverlapBox 检测。
+/// 伤害结算（v0.7.0 分流）：玩家 → DamageResolver.Deal（新管线：基础攻击×倍率×暴击）；
+/// 敌人 → IDamageable.TakeDamage 原路径。
 /// 每次挥击对同一目标只结算一次。
 /// 不控制动画、不读取输入、不管理 AI、不自跑 Update；动画（WeaponAnimator）纯视觉。
 /// </summary>
@@ -27,7 +29,7 @@ public class WeaponHitbox : MonoBehaviour
     /// <summary>
     /// 命中反馈扩展点（特效/音效/未来的击退、HitStop）。
     /// 参数：被命中目标、命中点世界坐标。
-    /// 伤害结算不经过此事件，由本组件直接调用 IDamageable.TakeDamage。
+    /// 伤害结算不经过此事件，由本组件结算（v0.7.0 玩家走 DamageResolver，敌人直扣）。
     /// </summary>
     public System.Action<IDamageable, Vector2> OnHit;
 
@@ -37,12 +39,21 @@ public class WeaponHitbox : MonoBehaviour
     /// </summary>
     public float LengthMultiplier { get; set; } = 1f;
 
+    /// <summary>
+    /// 伤害倍率（v0.7.0 蓄力倍率归位）：玩家侧结算走 DamageContext.multiplier，
+    /// 倍率区独立于基础攻击（伤害计算公式文档 §2.1）。默认 1，满蓄时由 PlayerCombat
+    /// 设为 ChargeFullDamageMul，BeginSwing 复位（LengthMultiplier 同款先例）。
+    /// 仅玩家路径生效；敌人路径保持 AttackData 直扣不受影响。
+    /// </summary>
+    public float DamageMultiplier { get; set; } = 1f;
+
     private const int MaxHits = 16;
     private static readonly Collider2D[] hitBuffer = new Collider2D[MaxHits];
 
     private readonly HashSet<Collider2D> hitThisSwing = new HashSet<Collider2D>();
     private bool isSwinging;
     private WeaponController wc;   // v0.6.3：缓存引用，Tick 实时读其 WeaponWidth（蓄力宽度缩放）
+    private PlayerStats attackerStats;   // v0.7.0：Awake 缓存攻击者根的 PlayerStats；非空 = 玩家（走新管线），空 = 敌人（原路径）
 
     void Awake()
     {
@@ -54,6 +65,9 @@ public class WeaponHitbox : MonoBehaviour
             if (weaponPivot == null)
                 weaponPivot = wc.WeaponPivot;
         }
+
+        // v0.7.0 玩家/敌人结算分流：按攻击者根上 PlayerStats 存在性判定（敌人根无 PlayerStats）
+        attackerStats = GetComponentInParent<PlayerStats>();
 
         if (attackData == null)
             Debug.LogWarning($"[{nameof(WeaponHitbox)}] 未配置 AttackData on {gameObject.name}", this);
@@ -68,6 +82,7 @@ public class WeaponHitbox : MonoBehaviour
     {
         hitThisSwing.Clear();
         LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
+        DamageMultiplier = 1f;   // 蓄力伤害倍率复位（v0.7.0）
         isSwinging = true;
     }
 
@@ -112,7 +127,22 @@ public class WeaponHitbox : MonoBehaviour
 
             if (hit.TryGetComponent<IDamageable>(out var damageable))
             {
-                damageable.TakeDamage(attackData.AttackDamage);
+                // v0.7.0 结算分流：玩家走新管线（角色攻击+武器攻击）×倍率×暴击；敌人保持原路径
+                if (attackerStats != null)
+                {
+                    DamageContext ctx = new DamageContext
+                    {
+                        baseAttack = attackerStats.Attack + attackData.AttackDamage,
+                        multiplier = DamageMultiplier,
+                        critRate = attackerStats.CritRate,
+                        critDamage = attackerStats.CritDamage
+                    };
+                    DamageResolver.Deal(damageable, ctx);
+                }
+                else
+                {
+                    damageable.TakeDamage(attackData.AttackDamage);
+                }
                 OnHit?.Invoke(damageable, hit.ClosestPoint(center));
             }
         }

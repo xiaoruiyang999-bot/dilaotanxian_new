@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 玩家世界空间状态条（头顶：蓝护甲条 + 红 HP 条 + 黄体力条）。
+/// 玩家世界空间状态条（头顶：钢灰护甲条 + 红 HP 条；黄体力条已于 v0.7.0 下线）。
 /// 实现模式与 WorldSpaceHealthBar 相同：运行时自建 World Space Canvas 挂到全局 WorldUIRoot 下，
 /// LateUpdate 跟随锚点、只平移不旋转。
 /// 数据源：Health.OnHealthChanged / PlayerStats.OnStatsChanged，订阅后立即刷新一次，避免时序问题。
@@ -25,7 +25,6 @@ public class PlayerWorldStatusBar : MonoBehaviour
     [SerializeField] private Color backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);
     [SerializeField] private Color hpColor = new Color(0.9f, 0.1f, 0.1f, 1f);
     [SerializeField] private Color armorColor = new Color(0.4392f, 0.502f, 0.5647f, 1f);   // 钢灰 #708090
-    [SerializeField] private Color staminaColor = new Color(0.9569f, 0.8157f, 0.2471f, 1f);   // #F4D03F
 
     [Header("Canvas 设置（UI 像素）")]
     [Tooltip("Canvas 在 UI 像素空间下的宽高")]
@@ -37,14 +36,12 @@ public class PlayerWorldStatusBar : MonoBehaviour
     [Header("条形尺寸（UI 像素）")]
     [SerializeField] private Vector2 hpBarSize = new Vector2(80f, 8f);
     [SerializeField] private Vector2 armorBarSize = new Vector2(80f, 5f);
-    [SerializeField] private Vector2 staminaBarSize = new Vector2(80f, 4f);
     [SerializeField] private float barSpacing = 3f;
 
     private GameObject canvasGo;
     private Transform canvasTransform;
     private Image hpFill;
     private Image armorFill;
-    private Image staminaFill;
     private Vector3 anchorBaseOffset; // 锚点相对玩家中心的世界偏移（已去除初始旋转影响），不随旋转变化
 
     void Awake()
@@ -127,9 +124,6 @@ public class PlayerWorldStatusBar : MonoBehaviour
     {
         if (armorFill != null && stats != null)
             armorFill.fillAmount = stats.MaxArmor > 0 ? stats.CurrentArmor / stats.MaxArmor : 0f;
-
-        if (staminaFill != null && stats != null)
-            staminaFill.fillAmount = stats.MaxStamina > 0 ? stats.CurrentStamina / stats.MaxStamina : 0f;
     }
 
     /// <summary>
@@ -182,12 +176,9 @@ public class PlayerWorldStatusBar : MonoBehaviour
 
         Sprite sprite = barSprite != null ? barSprite : CreateDefaultSprite();
 
-        // 护甲条（上）、HP 条（中）、体力条（下，v0.6.0），均以 Canvas 顶部为基准向下排布
+        // 护甲条（上）、HP 条（下），均以 Canvas 顶部为基准向下排布
         armorFill = CreateBar("ArmorBar", Vector2.zero, armorBarSize, armorColor, sprite);
         hpFill = CreateBar("HPBar", new Vector2(0f, -(armorBarSize.y + barSpacing)), hpBarSize, hpColor, sprite);
-        staminaFill = CreateBar("StaminaBar",
-            new Vector2(0f, -(armorBarSize.y + barSpacing + hpBarSize.y + barSpacing)),
-            staminaBarSize, staminaColor, sprite);
     }
 
     /// <summary>
