@@ -101,6 +101,10 @@ PrefabInstance:
       value: Enemy_Boss
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: maxArmor
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
       value: 20
       objectReference: {fileID: 0}
@@ -109,16 +113,24 @@ PrefabInstance:
       value: 2.5
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: armorLossMul
+      value: 0.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: manaOrbValue
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: armorReduceMul
+      value: 0.35
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: detectionRange
       value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: losePlayerRange
       value: 13
-      objectReference: {fileID: 0}
-    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: manaOrbValue
-      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackData

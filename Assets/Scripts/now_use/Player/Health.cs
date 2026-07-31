@@ -36,11 +36,10 @@ public class Health : MonoBehaviour, IDamageable
 
         float damageToHealth = damage;
 
-        // 玩家（有 PlayerStats）：优先由护甲承受伤害，剩余部分再扣 HP
+        // 玩家（有 PlayerStats）：减伤甲结算（v0.7.1，有甲减伤+扣甲，护甲归零全额扣血）
         if (TryGetComponent<PlayerStats>(out var stats))
         {
-            damageToHealth = stats.AbsorbDamageWithArmor(damage);
-            stats.OnTakeDamage(); // 重置脱战计时
+            damageToHealth = stats.ApplyArmorDamage(damage);
         }
 
         // 应用剩余伤害到生命值

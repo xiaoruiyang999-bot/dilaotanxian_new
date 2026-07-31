@@ -7,10 +7,6 @@ public class PlayerStats : MonoBehaviour
     [SerializeField] private float maxArmor = 5f;
     [SerializeField] private float moveSpeed = 5f;
 
-    [Header("护甲恢复")]
-    [SerializeField] private float armorRegenRate = 0.5f;       // 每秒恢复0.5点
-    [SerializeField] private float armorRegenDelay = 3f;        // 脱战3秒后开始恢复
-
     [Header("六维（v0.7.0，决策 6；占位数值待设计 D 定稿）")]
     [SerializeField] private float attack = 5f;                 // 角色攻击力（基础攻击区的一半，另一半为武器攻击）
     [SerializeField, Range(0f, 1f)] private float critRate = 0.2f;  // 暴击率
@@ -39,50 +35,29 @@ public class PlayerStats : MonoBehaviour
 
     public System.Action OnStatsChanged;
 
-    private float lastDamageTime = -999f;  // 上次受伤时间（负值表示开局未受伤）
-    private bool isOutOfCombat => Time.time - lastDamageTime >= armorRegenDelay;
-
     void Awake()
     {
         CurrentArmor = maxArmor;
         CurrentMana = maxMana;
     }
 
-    void Update()
-    {
-        // 脱战3秒后，护甲开始自动恢复（v0.7.1 计划删除，本版保留）
-        if (CurrentArmor < maxArmor && isOutOfCombat)
-        {
-            CurrentArmor = Mathf.Min(CurrentArmor + armorRegenRate * Time.deltaTime, maxArmor);
-            OnStatsChanged?.Invoke();
-        }
-    }
-
     /// <summary>
-    /// 标记受到伤害（重置脱战计时器）
+    /// 减伤甲结算（v0.7.1，公式文档 §三）：有甲时 扣血=伤害×(1−R)、扣甲=伤害×L（溢出不转嫁）；
+    /// 护甲归零后全额扣血。公式走 DamageResolver.ApplyArmor（玩家/怪物共用一份实现）。
+    /// 护甲变化时触发 OnStatsChanged 刷新 UI。返回应扣 HP 的伤害。
     /// </summary>
-    public void OnTakeDamage()
-    {
-        lastDamageTime = Time.time;
-    }
-
-    /// <summary>
-    /// 优先使用护甲吸收伤害，返回剩余应由生命值承担的伤害。
-    /// 护甲变化时会触发 OnStatsChanged 事件以更新 UI。
-    /// </summary>
-    public float AbsorbDamageWithArmor(float damage)
+    public float ApplyArmorDamage(float damage)
     {
         if (damage <= 0) return 0f;
 
-        float absorbed = Mathf.Min(CurrentArmor, damage);
-        CurrentArmor -= absorbed;
-
-        if (absorbed > 0)
+        float hpDamage = DamageResolver.ApplyArmor(damage, CurrentArmor, armorReduceMul, armorLossMul, out float armorAfter);
+        if (!Mathf.Approximately(armorAfter, CurrentArmor))
         {
+            CurrentArmor = armorAfter;
             OnStatsChanged?.Invoke();
         }
 
-        return damage - absorbed;
+        return hpDamage;
     }
 
     public void ModifyArmor(float delta)
@@ -140,5 +115,12 @@ public class PlayerStats : MonoBehaviour
             h.Initialize(classData.MaxHP);
 
         OnStatsChanged?.Invoke();
+    }
+
+    void OnValidate()
+    {
+        // 减伤甲数值下限（v0.7.1，公式文档 §六-8）：R∈[0,0.9] 防 100% 免伤，L>0
+        armorReduceMul = Mathf.Clamp(armorReduceMul, 0f, 0.9f);
+        armorLossMul = Mathf.Max(armorLossMul, 0.01f);
     }
 }
