@@ -16,6 +16,7 @@ public class PlayerController : MonoBehaviour
     private PlayerMovement movement;
     private PlayerInteractor interactor;
     private PlayerInput playerInput;
+    private ItemInventory itemInventory;
 
     // 输入
     private Vector2 moveInput;
@@ -35,6 +36,11 @@ public class PlayerController : MonoBehaviour
         interactor = GetComponent<PlayerInteractor>();
         if (interactor == null)
             interactor = gameObject.AddComponent<PlayerInteractor>();
+
+        // v0.7.2：道具背包运行时挂载（同交互器模式；ItemPickup 拾取时兜底再查一次）
+        itemInventory = GetComponent<ItemInventory>();
+        if (itemInventory == null)
+            itemInventory = gameObject.AddComponent<ItemInventory>();
 
         if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
@@ -79,8 +85,9 @@ public class PlayerController : MonoBehaviour
         // 职业选择 UI 打开期间（v0.6.2）：屏蔽攻击/技能/交互输入——
         // 鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；移动不受限（出生房安全）
         // （v0.7.0：Dash/Sprint 已下线，分发分支移除，.inputactions 中 action 保留备用）
+        // （v0.7.2：UseItem 一并屏蔽，选职业期间不消耗道具）
         if (ClassSelectUI.IsOpen &&
-            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact"))
+            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"))
             return;
 
         if (actionName == "Move")
@@ -111,6 +118,12 @@ public class PlayerController : MonoBehaviour
         {
             // TODO(v0.6.4)：接 SkillExecutor（旋风斩/后跃射击/奥术法阵），此处仅占位
             Debug.Log("[Skill] 技能键占位（v0.6.4 接 SkillExecutor）");
+        }
+        else if (actionName == "UseItem" && context.performed)
+        {
+            // v0.7.2：使用道具栏激活项（未装备消耗品时无副作用）
+            if (health.IsDead) return;
+            itemInventory.UseActive();
         }
     }
 

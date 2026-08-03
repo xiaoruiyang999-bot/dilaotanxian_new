@@ -1,4 +1,4 @@
-# now_use — 当前版本实际在用脚本（v0.7.1）
+# now_use — 当前版本实际在用脚本（v0.7.2）
 
 > 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` / `v0_6_ClassWeapon.unity` 地牢）实际运行所需的脚本**。
 > 历史/弃用脚本保留在原版本文件夹（`v0_2` / `v0_3` / `v0_4` / `Framework`）作为档案，不删除。
@@ -16,12 +16,13 @@
 
 ```
 now_use/
-├── Player/      玩家侧（10）
+├── Player/      玩家侧（11）
 ├── Combat/      武器/攻击框架 + 子弹系统 + 伤害管线（v0.7.0），Player/Enemy 共用（11）
 ├── Enemy/       敌人侧 + 巡逻/血条（8）
 ├── Common/      通用（相机、可破坏障碍物、TMP 字体）（4）
 ├── Class/       职业系统 + 准备房间（9，v0.6.2；六维字段 v0.7.0）
 ├── Weapon/      武器框架 + 运行时视觉（7，v0.6.3 行为完整实现）
+├── Item/        道具/背包（4，v0.7.2 槽位-背包-拾取链路）
 └── Dungeon/     地牢系统（29，保留原 v0_5 子目录）
     ├── Core/        门面/构建/配置/楼层循环（5）
     ├── Generation/  纯 C# 布局数据层（4）
@@ -30,14 +31,14 @@ now_use/
     └── Interaction/ E 键交互物 + 拾取框架 + 法力掉落（9）
 ```
 
-## 清单（78 个，按目录分组）
+## 清单（83 个，按目录分组）
 
 ### Player/ — 玩家侧
 | 脚本 | 职责 |
 |------|------|
-| PlayerController | 输入接收（Move/Attack/Interact/Cancel/Skill 分发，Skill 为 v0.6.4 占位；Dash/Sprint 分发 v0.7.0 下线，action 保留在 .inputactions 备用）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement；v0.6.3 Attack 改 started/canceled 转发（按下/松开，支持蓄力与连发） |
+| PlayerController | 输入接收（Move/Attack/Interact/Cancel/Skill/UseItem 分发，Skill 为 v0.6.4 占位、UseItem v0.7.2 → ItemInventory.UseActive；Dash/Sprint 分发 v0.7.0 下线，action 保留在 .inputactions 备用）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement；v0.6.3 Attack 改 started/canceled 转发（按下/松开，支持蓄力与连发）；v0.7.2 Awake 运行时挂载 ItemInventory |
 | PlayerMovement | 移动执行层（v0.7.0 重写为纯移动）：常规移动 + 蓄力减速 ×0.5（SetChargeSlow），FixedUpdate 统一写速度；闪避/奔跑/体力已下线 |
-| PlayerInteractor | E 键交互 + 两段式拾取（v0.6.1）：候选探测/呼吸高亮/"按 E"标签/纯文字拾取列表 |
+| PlayerInteractor | E 键交互 + 实时拾取列表（v0.7.2 改版）：普通交互物最近候选（呼吸高亮+"按 E"标签）；可拾取物实时列表——靠近自动进/走远自动出、选中项场景呼吸放大、滚轮/数字键切换、E 拾取选中项 |
 | PlayerStats | HP/护甲/法力上限（法力 v0.6.2 不可自动回复）+ 六维（v0.7.0：攻击/暴击率/暴伤/护甲双倍率 R·L）、减伤甲结算 ApplyArmorDamage（v0.7.1：调 DamageResolver.ApplyArmor，R/L 由 OnValidate 钳制）、ModifyArmor（甲包/护甲球）、ApplyClass(ClassData)；体力系统 v0.7.0 下线、呼吸回甲 v0.7.1 删除 |
 | Health | 玩家生命值（IDamageable），事件通知；无敌标记 SetInvincible/IsInvincible（v0.6.0）；TakeDamage 经 PlayerStats.ApplyArmorDamage 走减伤甲结算（v0.7.1） |
 | PlayerCombat | 近战三阶段状态机 + v0.6.3 三模式（Melee/Ranged/SelfCast）：蓄力状态机（移动×0.5、AttackData 运行时副本缩放范围/角度）、弹夹/换弹/闲置自动换弹计时、Projectile 开火、治疗自施法；弹药/换弹/武器展示事件供 AmmoUI 订阅；v0.7.0 满蓄倍率归位 WeaponHitbox.DamageMultiplier（不再 SetDamage 改副本） |
@@ -45,6 +46,7 @@ now_use/
 | PlayerUI | 屏幕左下角固定 HP/护甲/法力条（法力条 v0.6.2）；v0.7.0 体力条下线，场景残留 StaminaBar 对象运行时 SetActive(false) 兜底隐藏 |
 | PlayerWorldStatusBar | 头顶世界空间状态条（钢灰护甲 + 红 HP；黄体力条 v0.7.0 下线） |
 | AmmoUI | 弹药面板（v0.6.3）：武器色块+名 + 弹夹 x/y + 换弹进度细条（运行时构建，订阅 PlayerCombat 事件；无弹夹/默认近战隐藏） |
+| SlotBarUI | 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏，技能三槽"—"空占位，预留 SetSkillDisplay/SetSkillCooldown 给 v0.7.4）+ 道具栏上方背包 3 格（Button 点击与道具栏互换）；RuntimeInitializeOnLoadMethod 自举运行时构建，订阅 ItemInventory.OnChanged，数量角标 count≥2 显示、超 99 显示 99+ |
 
 ### Combat/ — 武器 / 攻击框架（Player/Enemy 共用）
 | 脚本 | 职责 |
@@ -91,7 +93,7 @@ now_use/
 | PrepRoomPlacer | 三展台布置 + 武器展台刷新 + 初始武器自动归位（仅供准备场景，阶段 C 重构签名） |
 | ClassSelectUI | 职业选择界面（TMP 屏幕空间）：选择→高亮→确认闪烁→ApplyClass→展台刷新；v0.7.0 职业按钮描述改六维数值行（HP/护甲/攻击/魔力/暴击%/暴伤×） |
 | RunStateCarrier | 跨场景配置载体（DontDestroyOnLoad）：LastChosenClass/LastWeapon/HasLoadout |
-| PrepRoomManager | 独立准备场景总控：房间视觉/展台/传送门/出生位/换武器归位订阅 |
+| PrepRoomManager | 独立准备场景总控：房间视觉/展台/传送门/出生位/换武器归位订阅（v0.7.2 改置 storeOldWeaponInSatchel=false）；v0.7.2 地面运行时投放 4 个测试消耗品（Consumable_Test，v0.7.3 删除） |
 | PrepPortalInteractable | 准备场景进入地牢传送门：校验 HasLoadout → LoadScene |
 
 ### Weapon/ — 武器框架（v0.6.2 框架 / v0.6.3 完整实现）
@@ -100,10 +102,18 @@ now_use/
 | WeaponData | 武器配置 SO（职业/行为类型/攻击引用/子弹引用/自疗量/蓄力规则与参数/弹夹射速/染色/图标）；资产在 Assets/Data/Weapon/ |
 | WeaponInstance | 武器运行时状态（弹夹/换弹/蓄力计时），纯 C# 类 |
 | WeaponBehavior | 行为基类 + 三派生分发（v0.6.3）：Melee → PlayerCombat 近战链；Ranged → Projectile 开火；SelfCast → 治疗自施法 |
-| PlayerWeaponHolder | 玩家武器持有与装备入口：换武器旧武器原地掉落（dropOldWeaponOnEquip 可关）；OnWeaponChanged 事件（准备场景归位订阅） |
+| PlayerWeaponHolder | 玩家武器持有与装备入口：v0.7.2 换武器旧武器入 WeaponSatchel（storeOldWeaponInSatchel 可关，包满挤出者原地掉落可捡回）；OnWeaponChanged 事件（准备场景归位订阅）；Unequip 同步清空武器背包 |
 | WeaponPickup | 武器拾取物（IPickupable）：职业校验"职业不符"拒绝，符合则 Equip；v0.6.3 地图掉落视觉 = WeaponVisualBuilder 小图标 + 职业色底板 |
 | WeaponVisualBuilder | 运行时武器视觉（v0.6.3）：六武器模块化多色块手持视觉（含 Effect 蓄力发光部件）+ 地图掉落小图标 |
 | ProjectileVisualBuilder | 运行时子弹视觉（v0.6.3）：箭矢/弩矢/能量弹/精灵弹四种子弹拼接 + 通用命中特效 + 共享白图/圆图 Sprite 缓存 |
+
+### Item/ — 道具与背包（v0.7.2）
+| 脚本 | 职责 |
+|------|------|
+| ConsumableData | 消耗品配置 SO：displayName/effectType(HP/Armor/Mana)/value/iconColor/占位图标；测试资产 Assets/Data/Item/Consumable_Test.asset（仅本版验证，v0.7.3 删除）；效果接线归 v0.7.3 |
+| ItemInventory | 玩家道具背包（纯数据+事件 OnChanged）：道具栏激活位 1 格 + 背包 3 格，同类叠加无上限；Add 分流（栏同类→栏空→包同类→包空位→满 false）；UseActive 扣数清零出槽；SwapWithBackpack 点击互换；PlayerController.Awake 运行时挂载 |
+| ItemPickup | 消耗品拾取物（IPickupable）：E 拾取 → ItemInventory.Add，满则提示"背包已满"不消耗拾取物；运行时色块占位视觉 + Spawn 静态构建 |
+| WeaponSatchel | 武器背包（1 格纯 C# 数据类，PlayerWeaponHolder 持有）：Store 返回被挤出者；死亡重开 Clear；本版无 UI |
 
 ### Dungeon/Core/ — 地牢门面与楼层循环
 | 脚本 | 职责 |

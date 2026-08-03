@@ -6,12 +6,12 @@ using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>
-/// 玩家交互器（v0.6.1，计划书 4.3）：E 键交互统一入口 + 两段式拾取。
-/// 每 0.1s OverlapCircle（Unity 6 ContactFilter2D + 缓冲，零分配风格参照 WeaponHitbox）
-/// 探测周围 Interactable / IPickupable（均在 Default 层、trigger，组件过滤），取最近者为候选。
-/// 候选反馈：呼吸放大 1.1（DOTween，SetLink）+ 头顶"按 E"世界空间标签（复用 WorldUIRoot 模式）。
-/// 按 E：普通交互物直接 Interact()；可拾取物仅 1 个直接拾取，≥2 个弹出纯文字拾取列表
-/// （滚轮/数字键切换，E 确认，Esc 或走远自动关闭）。无候选按 E 无副作用。
+/// 玩家交互器（v0.6.1 起，v0.7.2 实时拾取列表改版）：E 键交互统一入口。
+/// 每 0.1s OverlapCircle（Unity 6 ContactFilter2D + 缓冲，零分配风格参照 WeaponHitbox）探测周围
+/// Interactable / IPickupable（均在 Default 层、trigger，组件过滤）。
+/// 普通交互物（宝箱/祭坛/补给/传送门）：最近者为候选，呼吸放大 1.1 + 头顶"按 E"标签，按 E 直接触发。
+/// 可拾取物：**实时拾取列表**——靠近自动进列表、走远（detectRadius+listRemoveBuffer）自动出列表；
+/// 列表常驻显示（有物品时），滚轮/数字键切换选中；选中项在场景中呼吸放大标识；按 E 拾取选中项。
 /// 本组件由 PlayerController.Awake 运行时挂载（编辑器运行期间不改 prefab YAML）。
 /// </summary>
 public class PlayerInteractor : MonoBehaviour
@@ -20,7 +20,7 @@ public class PlayerInteractor : MonoBehaviour
     [SerializeField] private float detectRadius = 1.2f;
     [SerializeField] private float detectInterval = 0.1f;
 
-    [Header("候选反馈")]
+    [Header("候选反馈（普通交互物）")]
     [SerializeField] private float highlightScale = 1.1f;
     [SerializeField] private float highlightDuration = 0.6f;
     [SerializeField] private float hintHeightOffset = 0.9f;     // "按 E"标签相对候选中心的抬升
@@ -28,8 +28,10 @@ public class PlayerInteractor : MonoBehaviour
     [SerializeField] private Vector2 hintPanelSize = new Vector2(40f, 30f); // "按 E"底框尺寸（用户调定：40×30 + 缩放 0.03 + 字号 16）
     [SerializeField] private float hintWorldScale = 0.03f;      // "按 E"标签整体世界缩放（等比例放大用这项）
 
-    [Header("拾取列表")]
-    [SerializeField] private float listCloseDistance = 2.5f;    // 玩家与最近物品超过该距离自动关列表
+    [Header("实时拾取列表")]
+    [SerializeField] private float listRemoveBuffer = 1.0f;     // 出列表距离 = detectRadius + 该缓冲（滞回防抖）
+    [SerializeField] private float selectedScale = 1.15f;       // 选中项呼吸放大倍率
+    [SerializeField] private float selectedDuration = 0.5f;     // 选中项呼吸周期
 
     private const int BufferSize = 32;
     private const string WorldUIRootName = "WorldUIRoot";
@@ -47,9 +49,8 @@ public class PlayerInteractor : MonoBehaviour
     private Camera mainCamera;
     private float detectTimer;
 
-    // 候选（Interactable 与 IPickupable 互斥持有）
+    // 普通交互物候选
     private Interactable candidateInteractable;
-    private IPickupable candidatePickupable;
     private Transform candidateTransform;
     private Vector3 candidateOriginalScale;
     private Tween highlightTween;
@@ -63,7 +64,7 @@ public class PlayerInteractor : MonoBehaviour
     private string tempHintText;
     private float tempHintTimer;
 
-    // 拾取列表（屏幕空间，纯文字）
+    // 实时拾取列表（屏幕空间，纯文字）
     private readonly List<IPickupable> listItems = new List<IPickupable>();
     private readonly List<TMP_Text> listRows = new List<TMP_Text>();
     private TMP_Text listFooter;
@@ -71,7 +72,12 @@ public class PlayerInteractor : MonoBehaviour
     private RectTransform listPanelRect;
     private int listIndex;
     private float scrollCooldown;
-    private bool listOpen;
+    private bool listVisible;
+
+    // 列表选中项场景反馈（呼吸放大）
+    private Transform selectedTransform;
+    private Vector3 selectedOriginalScale;
+    private Tween selectedTween;
 
     void Awake()
     {
@@ -86,6 +92,7 @@ public class PlayerInteractor : MonoBehaviour
     void OnDestroy()
     {
         ClearCandidateFeedback();
+        ClearSelectedFeedback();
         if (hintCanvasGo != null) Destroy(hintCanvasGo);
         if (listCanvasGo != null) Destroy(listCanvasGo);
     }
@@ -96,7 +103,8 @@ public class PlayerInteractor : MonoBehaviour
         if (detectTimer <= 0f)
         {
             detectTimer = detectInterval;
-            RefreshCandidate();
+            RefreshInteractableCandidate();
+            ReconcilePickupList();
         }
 
         // 临时提示计时结束 → 恢复候选提示
@@ -107,7 +115,7 @@ public class PlayerInteractor : MonoBehaviour
                 UpdateHintVisibility();
         }
 
-        if (listOpen) UpdateList();
+        if (listVisible) UpdateList();
     }
 
     void LateUpdate()
@@ -126,16 +134,7 @@ public class PlayerInteractor : MonoBehaviour
             if (hintText != null)
             {
                 hintText.fontSize = hintFontSize;
-                // 可拾取物名签（两行）：底框按名字长度加宽、加高一行（v0.6.3）
-                Vector2 panelSize = hintPanelSize;
-                if (IsPickupNameHint)
-                {
-                    float nameWidth = candidatePickupable.DisplayName.Length * hintFontSize + 12f;
-                    panelSize = new Vector2(
-                        Mathf.Max(hintPanelSize.x, nameWidth),
-                        hintPanelSize.y + hintFontSize + 4f);
-                }
-                ((RectTransform)hintCanvasGo.transform).sizeDelta = panelSize;
+                ((RectTransform)hintCanvasGo.transform).sizeDelta = hintPanelSize;
                 hintCanvasGo.transform.localScale = Vector3.one * hintWorldScale;
             }
         }
@@ -143,18 +142,10 @@ public class PlayerInteractor : MonoBehaviour
 
     // ========== 输入入口（PlayerController 分发） ==========
 
-    /// <summary>E 键按下：列表打开时拾取高亮项；否则按候选类型分发。</summary>
+    /// <summary>E 键按下：普通交互物优先直接触发；否则拾取列表选中项。</summary>
     public void OnInteractPressed()
     {
         if (health != null && health.IsDead) return;
-
-        if (listOpen)
-        {
-            ConfirmListSelection();
-            return;
-        }
-
-        if (candidateTransform == null) return;   // 无候选按 E 无副作用
 
         // 普通交互物（宝箱/祭坛/补给/传送门）→ 直接触发
         if (candidateInteractable != null)
@@ -164,40 +155,32 @@ public class PlayerInteractor : MonoBehaviour
             return;
         }
 
-        // 可拾取物：统计半径内全部可拾取物
-        CollectPickupables();
-        if (listItems.Count == 0) { ForceRefresh(); return; }
-        if (listItems.Count == 1)
-        {
-            // 单物品直拾，不弹列表
-            listItems[0].OnPickedUp(gameObject);
-            listItems.Clear();
-            ForceRefresh();
-        }
-        else
-        {
-            OpenList();
-        }
+        // 可拾取物：拾取列表当前选中项
+        if (listItems.Count == 0) return;   // 无候选按 E 无副作用
+        listIndex = Mathf.Clamp(listIndex, 0, listItems.Count - 1);
+        IPickupable pick = listItems[listIndex];
+        if (pick != null)
+            pick.OnPickedUp(gameObject);
+        ForceRefresh();
     }
 
-    /// <summary>Esc：关闭拾取列表。</summary>
+    /// <summary>Esc：实时列表自动管理显隐，保留入口备用（当前无副作用）。</summary>
     public void OnCancelPressed()
     {
-        if (listOpen) CloseList();
     }
 
     private void ForceRefresh()
     {
         detectTimer = detectInterval;
-        RefreshCandidate();
+        RefreshInteractableCandidate();
+        ReconcilePickupList();
     }
 
-    // ========== 候选探测与反馈 ==========
+    // ========== 普通交互物候选探测与反馈 ==========
 
-    private void RefreshCandidate()
+    private void RefreshInteractableCandidate()
     {
         Interactable bestInteractable = null;
-        IPickupable bestPickupable = null;
         Transform bestTransform = null;
         float bestDist = float.MaxValue;
         Vector2 selfPos = transform.position;
@@ -217,35 +200,21 @@ public class PlayerInteractor : MonoBehaviour
                 {
                     bestDist = d;
                     bestInteractable = it;
-                    bestPickupable = null;
                     bestTransform = it.transform;
-                }
-            }
-            else if (hit.TryGetComponent(out IPickupable pk))
-            {
-                Transform t = ((Component)pk).transform;
-                float d = ((Vector2)t.position - selfPos).sqrMagnitude;
-                if (d < bestDist)
-                {
-                    bestDist = d;
-                    bestInteractable = null;
-                    bestPickupable = pk;
-                    bestTransform = t;
                 }
             }
         }
 
-        SetCandidate(bestInteractable, bestPickupable, bestTransform);
+        SetCandidate(bestInteractable, bestTransform);
     }
 
-    private void SetCandidate(Interactable it, IPickupable pk, Transform t)
+    private void SetCandidate(Interactable it, Transform t)
     {
         if (t == candidateTransform) return;   // 候选未变
 
         ClearCandidateFeedback();
 
         candidateInteractable = it;
-        candidatePickupable = pk;
         candidateTransform = t;
 
         if (candidateTransform != null)
@@ -271,7 +240,7 @@ public class PlayerInteractor : MonoBehaviour
             candidateTransform.localScale = candidateOriginalScale;
     }
 
-    // ========== "按 E" 世界空间标签 ==========
+    // ========== "按 E" 世界空间标签（仅普通交互物/临时提示） ==========
 
     /// <summary>
     /// 临时提示（v0.6.2，如 WeaponPickup 的"职业不符"）：
@@ -287,26 +256,15 @@ public class PlayerInteractor : MonoBehaviour
     private void UpdateHintVisibility()
     {
         bool temp = tempHintTimer > 0f;
-        bool show = temp || (candidateTransform != null && !listOpen);
+        bool show = temp || candidateInteractable != null;
         if (show)
         {
             EnsureHintCanvas();
             if (hintText != null)
-            {
-                if (temp)
-                    hintText.text = tempHintText;
-                else if (candidatePickupable != null)
-                    // 可拾取物（武器/法力瓶等）：第一行物品名，第二行"按 E"（v0.6.3）
-                    hintText.text = candidatePickupable.DisplayName + "\n按 E";
-                else
-                    hintText.text = "按 E";
-            }
+                hintText.text = temp ? tempHintText : "按 E";
         }
         if (hintCanvasGo != null) hintCanvasGo.SetActive(show);
     }
-
-    /// <summary>当前提示是否为可拾取物名签（两行，需要更宽更高的底框）。</summary>
-    private bool IsPickupNameHint => tempHintTimer <= 0f && candidatePickupable != null;
 
     private void EnsureHintCanvas()
     {
@@ -345,58 +303,98 @@ public class PlayerInteractor : MonoBehaviour
         hintTransform = hintCanvasGo.transform;
     }
 
-    // ========== 拾取列表（屏幕空间纯文字） ==========
+    // ========== 实时拾取列表 ==========
 
-    /// <summary>收集探测半径内全部可拾取物，按距离升序（默认高亮最近项）。</summary>
-    private void CollectPickupables()
+    /// <summary>
+    /// 列表与实际周围物品对账：失效/走远（detectRadius+listRemoveBuffer）的移除，
+    /// 新进入探测半径的按距离升序追加。成员变化才重建行，选中项反馈随之重指。
+    /// </summary>
+    private void ReconcilePickupList()
     {
-        listItems.Clear();
+        bool changed = false;
         Vector2 selfPos = transform.position;
+        float removeSqr = (detectRadius + listRemoveBuffer) * (detectRadius + listRemoveBuffer);
 
+        // 移除：已销毁 或 走远
+        for (int i = listItems.Count - 1; i >= 0; i--)
+        {
+            if (!(listItems[i] is Component c) || c == null ||
+                ((Vector2)c.transform.position - selfPos).sqrMagnitude > removeSqr)
+            {
+                listItems.RemoveAt(i);
+                changed = true;
+            }
+        }
+
+        // 新增：探测半径内且不在列表中的直接追加（不重排既有行，选中不跳；同帧多个新项按探测顺序）
         int count = Physics2D.OverlapCircle(selfPos, detectRadius, detectFilter, hitBuffer);
         for (int i = 0; i < count; i++)
         {
             Collider2D hit = hitBuffer[i];
             if (hit == null) continue;
             if (hit.transform.IsChildOf(transform)) continue;
-            if (hit.TryGetComponent(out IPickupable pk))
+            if (hit.TryGetComponent(out IPickupable pk) && !listItems.Contains(pk))
+            {
                 listItems.Add(pk);
+                changed = true;
+            }
         }
 
-        listItems.Sort((a, b) =>
-            (((Component)a).transform.position - (Vector3)selfPos).sqrMagnitude.CompareTo(
-            (((Component)b).transform.position - (Vector3)selfPos).sqrMagnitude));
+        if (changed)
+        {
+            listIndex = Mathf.Clamp(listIndex, 0, Mathf.Max(listItems.Count - 1, 0));
+            RebuildListRows();
+            SetListVisible(listItems.Count > 0);
+            ApplySelectedFeedback();
+        }
     }
 
-    private void OpenList()
+    private void SetListVisible(bool visible)
     {
-        listOpen = true;
-        listIndex = 0;   // 已按距离排序，默认高亮最近项
-        EnsureListCanvas();
-        RebuildListRows();
-        listCanvasGo.SetActive(true);
-        UpdateHintVisibility();
+        if (listVisible == visible) return;
+        listVisible = visible;
+        if (visible) EnsureListCanvas();
+        if (listCanvasGo != null) listCanvasGo.SetActive(visible);
     }
 
-    private void CloseList()
+    /// <summary>切换选中项（滚轮/数字键）：刷新行高亮 + 场景呼吸反馈重指。</summary>
+    private void SetListIndex(int index)
     {
-        listOpen = false;
-        listItems.Clear();
-        if (listCanvasGo != null) listCanvasGo.SetActive(false);
-        UpdateHintVisibility();
-        ForceRefresh();
+        if (listItems.Count == 0) return;
+        index = Mathf.Clamp(index, 0, listItems.Count - 1);
+        if (index == listIndex) return;
+        listIndex = index;
+        RefreshListHighlight();
+        ApplySelectedFeedback();
     }
 
-    private void ConfirmListSelection()
+    /// <summary>选中项场景反馈：呼吸放大（DOTween Yoyo + SetLink）；切换/移除时还原旧项缩放。</summary>
+    private void ApplySelectedFeedback()
     {
-        if (listItems.Count == 0) { CloseList(); return; }
+        ClearSelectedFeedback();
 
+        if (!listVisible || listItems.Count == 0) return;
         listIndex = Mathf.Clamp(listIndex, 0, listItems.Count - 1);
-        IPickupable pick = listItems[listIndex];
-        if (pick != null)
-            pick.OnPickedUp(gameObject);
+        if (!(listItems[listIndex] is Component c) || c == null) return;
 
-        CloseList();
+        selectedTransform = c.transform;
+        selectedOriginalScale = selectedTransform.localScale;
+        selectedTween = selectedTransform
+            .DOScale(selectedOriginalScale * selectedScale, selectedDuration)
+            .SetLoops(-1, LoopType.Yoyo)
+            .SetLink(selectedTransform.gameObject);
+    }
+
+    private void ClearSelectedFeedback()
+    {
+        if (selectedTween != null)
+        {
+            selectedTween.Kill();
+            selectedTween = null;
+        }
+        if (selectedTransform != null)
+            selectedTransform.localScale = selectedOriginalScale;
+        selectedTransform = null;
     }
 
     private void EnsureListCanvas()
@@ -420,6 +418,17 @@ public class PlayerInteractor : MonoBehaviour
 
     private void RebuildListRows()
     {
+        if (listItems.Count == 0)
+        {
+            foreach (TMP_Text row in listRows)
+                if (row != null) Destroy(row.gameObject);
+            listRows.Clear();
+            if (listFooter != null) Destroy(listFooter.gameObject);
+            return;
+        }
+
+        EnsureListCanvas();
+
         foreach (TMP_Text row in listRows)
             if (row != null) Destroy(row.gameObject);
         listRows.Clear();
@@ -442,7 +451,7 @@ public class PlayerInteractor : MonoBehaviour
             listRows.Add(row);
         }
 
-        listFooter = CreateListText(listPanelRect, "Footer", "E 拾取 / Esc 关闭", 12);
+        listFooter = CreateListText(listPanelRect, "Footer", "E 拾取 / 滚轮切换", 12);
         RectTransform fr = (RectTransform)listFooter.transform;
         fr.anchorMin = new Vector2(0f, 1f);
         fr.anchorMax = new Vector2(1f, 1f);
@@ -471,69 +480,45 @@ public class PlayerInteractor : MonoBehaviour
         for (int i = 0; i < listRows.Count; i++)
         {
             if (listRows[i] == null) continue;
-            // 高亮项用体力黄，其余白
+            // 高亮项用黄色，其余白（">" 前缀标识选中；字体不支持 ▶，已修）
             listRows[i].color = i == listIndex
                 ? new Color(0.9569f, 0.8157f, 0.2471f)
                 : Color.white;
-            listRows[i].text = (i == listIndex ? "▶ " : "　") + listItems[i].DisplayName;
+            listRows[i].text = (i == listIndex ? "> " : "　") + listItems[i].DisplayName;
         }
     }
 
     private void UpdateList()
     {
-        // 玩家死亡 → 关闭
-        if (health != null && health.IsDead) { CloseList(); return; }
-
-        // 剔除已失效物品（被拾取/楼层切换销毁）
-        bool changed = false;
-        for (int i = listItems.Count - 1; i >= 0; i--)
+        // 玩家死亡 → 清空列表
+        if (health != null && health.IsDead)
         {
-            if (!(listItems[i] is Component c) || c == null)
-            {
-                listItems.RemoveAt(i);
-                changed = true;
-            }
-        }
-        if (listItems.Count == 0) { CloseList(); return; }
-        if (changed)
-        {
-            listIndex = Mathf.Clamp(listIndex, 0, listItems.Count - 1);
+            listItems.Clear();
             RebuildListRows();
+            SetListVisible(false);
+            ApplySelectedFeedback();
+            return;
         }
-
-        // 走远自动关闭
-        Vector2 selfPos = transform.position;
-        float nearest = float.MaxValue;
-        foreach (IPickupable item in listItems)
-        {
-            float d = ((Vector2)((Component)item).transform.position - selfPos).sqrMagnitude;
-            if (d < nearest) nearest = d;
-        }
-        if (nearest > listCloseDistance * listCloseDistance) { CloseList(); return; }
 
         // 数字键直选
         if (Keyboard.current != null)
         {
             for (int i = 0; i < digitKeys.Length && i < listItems.Count; i++)
             {
-                if (Keyboard.current[digitKeys[i]].wasPressedThisFrame && listIndex != i)
-                {
-                    listIndex = i;
-                    RefreshListHighlight();
-                }
+                if (Keyboard.current[digitKeys[i]].wasPressedThisFrame)
+                    SetListIndex(i);
             }
         }
 
         // 滚轮切换（节流）
         scrollCooldown -= Time.deltaTime;
-        if (scrollCooldown <= 0f && Mouse.current != null)
+        if (scrollCooldown <= 0f && Mouse.current != null && listItems.Count > 0)
         {
             float scroll = Mouse.current.scroll.ReadValue().y;
             if (scroll != 0f)
             {
                 int step = scroll > 0f ? -1 : 1;
-                listIndex = (listIndex + step + listItems.Count) % listItems.Count;
-                RefreshListHighlight();
+                SetListIndex((listIndex + step + listItems.Count) % listItems.Count);
                 scrollCooldown = 0.15f;
             }
         }

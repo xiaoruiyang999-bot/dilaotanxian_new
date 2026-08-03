@@ -67,6 +67,15 @@
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
+        },
+        {
+          "name": "UseItem",
+          "type": "Button",
+          "id": "73d3eb0f-78ab-4416-92ff-95830297c924",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
         }
       ],
       "bindings": [
@@ -188,6 +197,17 @@
           "processors": "",
           "groups": "",
           "action": "Skill",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "23597a0a-6778-451e-b335-9c616eee9b10",
+          "path": "<Keyboard>/c",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "UseItem",
           "isComposite": false,
           "isPartOfComposite": false
         }

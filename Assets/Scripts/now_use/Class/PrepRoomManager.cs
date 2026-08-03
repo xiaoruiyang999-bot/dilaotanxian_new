@@ -4,9 +4,11 @@ using UnityEngine;
 /// 准备场景管理器（v0.6.2 阶段 C，计划书 R4：独立准备场景）。
 /// Start 时运行时代码构建：准备房间地板与围墙（多色块）→ 三展台（PrepRoomPlacer）
 /// → 进入地牢的传送门（PrepPortalInteractable）→ 玩家摆到展台下方出生位。
-/// 准备场景专属武器规则：PlayerWeaponHolder.dropOldWeaponOnEquip = false，
-/// 订阅 OnWeaponChanged —— 换武器时旧初始武器自动归位原展台（不掉落）。
+/// 准备场景专属武器规则：PlayerWeaponHolder.storeOldWeaponInSatchel = false（v0.7.2 字段换代），
+/// 订阅 OnWeaponChanged —— 换武器时旧初始武器自动归位原展台（不掉落、不入武器背包）。
 /// 死亡回来时（RunStateCarrier 有上次职业）按上次职业立即刷新武器展台。
+/// v0.7.2：地面运行时摆放 4 个测试消耗品 ItemPickup（Consumable_Test，仅本版链路验证用，
+/// v0.7.3 建正式三包后删除，见 v0.7.2_正式计划 §七）。
 /// </summary>
 public class PrepRoomManager : MonoBehaviour
 {
@@ -38,9 +40,12 @@ public class PrepRoomManager : MonoBehaviour
 
             holder = p.GetComponent<PlayerWeaponHolder>();
             if (holder == null) holder = p.AddComponent<PlayerWeaponHolder>();
-            holder.dropOldWeaponOnEquip = false;   // 准备阶段：换武器不掉落，旧武器自动归位展台
+            holder.storeOldWeaponInSatchel = false;   // 准备阶段：换武器不入包不掉落，旧武器自动归位展台
             holder.OnWeaponChanged += OnWeaponChanged;
         }
+
+        // v0.7.2 测试投放：地面 4 个测试消耗品（仅本版链路验证，v0.7.3 删除）
+        SpawnTestItems();
 
         // 死亡回来：职业保留，按上次职业立即摆好武器展台（武器需重新拾取）
         ClassData last = RunStateCarrier.Ensure().LastChosenClass;
@@ -60,6 +65,31 @@ public class PrepRoomManager : MonoBehaviour
     private void OnWeaponChanged(WeaponData oldData, WeaponData newData)
     {
         PrepRoomPlacer.ReturnWeapon(oldData);
+    }
+
+    // ========== v0.7.2 测试道具投放（v0.7.3 建正式三包后删除本块与 Consumable_Test 资产） ==========
+
+    /// <summary>地面横排 4 个测试消耗品（出生位前方），加载走 ClassCatalog 同款编辑器路径分支。</summary>
+    private void SpawnTestItems()
+    {
+        ConsumableData testItem = LoadTestConsumable();
+        if (testItem == null) return;
+
+        for (int i = 0; i < 4; i++)
+            ItemPickup.Spawn(testItem, playerSpawn + new Vector3((i - 1.5f) * 1.2f, -1.2f, 0f));
+    }
+
+    private static ConsumableData LoadTestConsumable()
+    {
+#if UNITY_EDITOR
+        ConsumableData data = UnityEditor.AssetDatabase.LoadAssetAtPath<ConsumableData>(
+            "Assets/Data/Item/Consumable_Test.asset");
+        if (data == null)
+            Debug.LogWarning("[Item] 测试消耗品 Consumable_Test.asset 未找到，跳过测试投放。");
+        return data;
+#else
+        return Resources.Load<ConsumableData>("Item/Consumable_Test");
+#endif
     }
 
     // ========== 房间视觉（程序员美术多色块） ==========
