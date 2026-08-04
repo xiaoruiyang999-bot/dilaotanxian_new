@@ -7,7 +7,8 @@ using UnityEngine.UI;
 /// 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏）+ 道具栏上方背包 3 格。
 /// 全部运行时构建：RuntimeInitializeOnLoadMethod 自举 + sceneLoaded 自检，**自建常驻 Canvas**（DontDestroyOnLoad，
 /// sortingOrder 50，不依附场景 Canvas，场景切换不销毁；切换后 RebindInventory 重绑新场景玩家数据源）；
-/// 技能三槽本版显示"—"空占位（技能内容 v0.7.4 填，预留 SetSkillDisplay/SetSkillCooldown 接口）；
+/// 技能三槽由 SkillExecutor 每帧驱动（v0.7.4：SetSkillDisplay 技能名+技能色 / SetSkillCooldown 文本秒数，
+/// 数据缺失的槽维持"—"；Refresh 写入的"—"会被同帧渲染前的每帧推送覆盖，无闪烁）；
 /// 背包格为 Button，点击 → ItemInventory.SwapWithBackpack 与道具栏互换（无拖拽）。
 /// 数量角标：槽位右下角 14pt，count≥2 才显示，超 99 显示 99+。
 /// 布局边界核算（1920×1080）：面板 274×126 锚 BottomRight 留 20px 边距，
@@ -148,7 +149,7 @@ public class SlotBarUI : MonoBehaviour
         if (inventory != null) inventory.OnChanged -= Refresh;
     }
 
-    // ========== v0.7.4 预留接口（技能三槽内容/CD 扫面，本版仅占位） ==========
+    // ========== 技能三槽接口（v0.7.4 已接线：SkillExecutor 每帧驱动，空槽维持下方 Refresh 的"—"） ==========
 
     /// <summary>设置技能槽显示内容（v0.7.4 技能框架接线；index 0=小技能 1=大招 2=武器技能）。</summary>
     public void SetSkillDisplay(int index, string text, Color color)
@@ -170,7 +171,7 @@ public class SlotBarUI : MonoBehaviour
 
     private void Refresh()
     {
-        // 技能三槽：空占位"—"
+        // 技能三槽：默认"—"空占位（v0.7.4 起由 SkillExecutor 每帧推送技能名/CD 覆盖；数据缺失的槽维持"—"）
         for (int i = 0; i < SkillSlotCount; i++)
             ApplySlot(mainSlots[i], SlotLabels[i], null, 0, "—");
 

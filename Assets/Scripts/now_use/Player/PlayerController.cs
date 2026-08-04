@@ -17,6 +17,7 @@ public class PlayerController : MonoBehaviour
     private PlayerInteractor interactor;
     private PlayerInput playerInput;
     private ItemInventory itemInventory;
+    private SkillExecutor skillExecutor;
 
     // 输入
     private Vector2 moveInput;
@@ -41,6 +42,11 @@ public class PlayerController : MonoBehaviour
         itemInventory = GetComponent<ItemInventory>();
         if (itemInventory == null)
             itemInventory = gameObject.AddComponent<ItemInventory>();
+
+        // v0.7.4：技能执行器运行时挂载（同 ItemInventory 模式；SkillExecutor 无 RequireComponent，补挂安全）
+        skillExecutor = GetComponent<SkillExecutor>();
+        if (skillExecutor == null)
+            skillExecutor = gameObject.AddComponent<SkillExecutor>();
 
         if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
@@ -86,8 +92,10 @@ public class PlayerController : MonoBehaviour
         // 鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；移动不受限（出生房安全）
         // （v0.7.0：Dash/Sprint 已下线，分发分支移除，.inputactions 中 action 保留备用）
         // （v0.7.2：UseItem 一并屏蔽，选职业期间不消耗道具）
+        // （v0.7.4：Ultimate/WeaponSkill 一并屏蔽，与小技能同规则）
         if (ClassSelectUI.IsOpen &&
-            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"))
+            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"
+                || actionName == "Ultimate" || actionName == "WeaponSkill"))
             return;
 
         if (actionName == "Move")
@@ -116,8 +124,21 @@ public class PlayerController : MonoBehaviour
         }
         else if (actionName == "Skill" && context.performed)
         {
-            // TODO(v0.6.4)：接 SkillExecutor（旋风斩/后跃射击/奥术法阵），此处仅占位
-            Debug.Log("[Skill] 技能键占位（v0.6.4 接 SkillExecutor）");
+            // v0.7.4：F = 小技能（分支选中项，SkillExecutor 槽 0）
+            if (health.IsDead) return;
+            skillExecutor.TryCastSlot(0);
+        }
+        else if (actionName == "Ultimate" && context.performed)
+        {
+            // v0.7.4：Q = 大招（SkillExecutor 槽 1，仿 UseItem 分支先判死亡）
+            if (health.IsDead) return;
+            skillExecutor.TryCastSlot(1);
+        }
+        else if (actionName == "WeaponSkill" && context.performed)
+        {
+            // v0.7.4：R = 武器技能（SkillExecutor 槽 2）
+            if (health.IsDead) return;
+            skillExecutor.TryCastSlot(2);
         }
         else if (actionName == "UseItem" && context.performed)
         {

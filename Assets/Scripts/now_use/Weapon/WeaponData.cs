@@ -81,6 +81,9 @@ public class WeaponData : ScriptableObject
     [Tooltip("地图掉落固定图标，可空（空则白块染色呈现）")]
     [SerializeField] private Sprite mapIcon;
 
+    [Header("武器技能（v0.7.4 框架；本版资产未接线，null 时运行时走 SkillCatalog 兜底）")]
+    [SerializeField] private SkillData weaponSkill;
+
     public string DisplayName => displayName;
     public ClassType RequiredClass => requiredClass;
     public WeaponBehaviorType BehaviorType => behaviorType;
@@ -102,4 +105,5 @@ public class WeaponData : ScriptableObject
     public float FireInterval => fireInterval;
     public Color WeaponColor => weaponColor;
     public Sprite MapIcon => mapIcon;
+    public SkillData WeaponSkill => weaponSkill;
 }

@@ -76,6 +76,24 @@
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
+        },
+        {
+          "name": "Ultimate",
+          "type": "Button",
+          "id": "57212f56-5cb2-451c-b156-95fd3314b8ff",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "WeaponSkill",
+          "type": "Button",
+          "id": "1b3dc8aa-d493-4239-9eae-cf2fcd15a01e",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
         }
       ],
       "bindings": [
@@ -208,6 +226,28 @@
           "processors": "",
           "groups": "",
           "action": "UseItem",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "69041f5c-c885-47c1-af5e-135382c95134",
+          "path": "<Keyboard>/q",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Ultimate",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "0d8b91b9-0036-4f32-99b7-733b7ae8b245",
+          "path": "<Keyboard>/r",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "WeaponSkill",
           "isComposite": false,
           "isPartOfComposite": false
         }

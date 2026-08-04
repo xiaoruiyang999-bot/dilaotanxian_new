@@ -19,6 +19,9 @@ public class RunStateCarrier : MonoBehaviour
     /// <summary>职业与武器都已选定（进入地牢的前置条件）。</summary>
     public bool HasLoadout => LastChosenClass != null && LastWeapon != null;
 
+    /// <summary>小技能分支选择索引（v0.7.4，局外切换、局内锁定；死亡保留，与 LastChosenClass 同规则）。</summary>
+    public int ChosenSkillBranchIndex { get; private set; }
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -57,5 +60,11 @@ public class RunStateCarrier : MonoBehaviour
     public void ClearWeapon()
     {
         LastWeapon = null;
+    }
+
+    /// <summary>设置小技能分支索引（v0.7.4：局外大厅写入，局内由 SkillExecutor 装配时读取后锁定；负值钳 0）。</summary>
+    public void SetSkillBranch(int index)
+    {
+        ChosenSkillBranchIndex = Mathf.Max(0, index);
     }
 }

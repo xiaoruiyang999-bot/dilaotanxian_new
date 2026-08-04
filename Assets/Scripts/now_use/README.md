@@ -1,4 +1,4 @@
-# now_use — 当前版本实际在用脚本（v0.7.3）
+# now_use — 当前版本实际在用脚本（v0.7.4）
 
 > 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` / `v0_6_ClassWeapon.unity` 地牢）实际运行所需的脚本**。
 > 历史/弃用脚本保留在原版本文件夹（`v0_2` / `v0_3` / `v0_4` / `Framework`）作为档案，不删除。
@@ -23,6 +23,7 @@ now_use/
 ├── Class/       职业系统 + 准备房间（9，v0.6.2；六维字段 v0.7.0）
 ├── Weapon/      武器框架 + 运行时视觉（7，v0.6.3 行为完整实现）
 ├── Item/        道具/背包（4，v0.7.3 三种正式消耗品：血包/甲包/魔力恢复包）
+├── Skill/       技能框架（5，v0.7.4：SkillData/分支表/资产目录/执行器）
 └── Dungeon/     地牢系统（29，保留原 v0_5 子目录）
     ├── Core/        门面/构建/配置/楼层循环（5）
     ├── Generation/  纯 C# 布局数据层（4）
@@ -31,12 +32,12 @@ now_use/
     └── Interaction/ E 键交互物 + 拾取框架 + 法力掉落（9）
 ```
 
-## 清单（83 个，按目录分组）
+## 清单（88 个，按目录分组）
 
 ### Player/ — 玩家侧
 | 脚本 | 职责 |
 |------|------|
-| PlayerController | 输入接收（Move/Attack/Interact/Cancel/Skill/UseItem 分发，Skill 为 v0.6.4 占位、UseItem v0.7.2 → ItemInventory.UseActive；Dash/Sprint 分发 v0.7.0 下线，action 保留在 .inputactions 备用）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement；v0.6.3 Attack 改 started/canceled 转发（按下/松开，支持蓄力与连发）；v0.7.2 Awake 运行时挂载 ItemInventory |
+| PlayerController | 输入接收（Move/Attack/Interact/Cancel/Skill/Ultimate/WeaponSkill/UseItem 分发；v0.7.4 Skill/Ultimate/WeaponSkill → SkillExecutor.TryCastSlot(0/1/2)，F=小技能 Q=大招 R=武器技能；UseItem v0.7.2 → ItemInventory.UseActive；Dash/Sprint 分发 v0.7.0 下线，action 保留在 .inputactions 备用）、死亡处理、Respawn，组件门面；移动写入已迁移 PlayerMovement；v0.6.3 Attack 改 started/canceled 转发（按下/松开，支持蓄力与连发）；v0.7.2 Awake 运行时挂载 ItemInventory，v0.7.4 同模式挂载 SkillExecutor |
 | PlayerMovement | 移动执行层（v0.7.0 重写为纯移动）：常规移动 + 蓄力减速 ×0.5（SetChargeSlow），FixedUpdate 统一写速度；闪避/奔跑/体力已下线 |
 | PlayerInteractor | E 键交互 + 实时拾取列表（v0.7.2 改版）：普通交互物最近候选（呼吸高亮+"按 E"标签）；可拾取物实时列表——靠近自动进/走远自动出、选中项场景呼吸放大、滚轮/数字键切换、E 拾取选中项 |
 | PlayerStats | HP/护甲/法力上限（法力 v0.6.2 不可自动回复）+ 六维（v0.7.0：攻击/暴击率/暴伤/护甲双倍率 R·L）、减伤甲结算 ApplyArmorDamage（v0.7.1：调 DamageResolver.ApplyArmor，R/L 由 OnValidate 钳制）、ModifyArmor（甲包/护甲球）、ApplyClass(ClassData)；体力系统 v0.7.0 下线、呼吸回甲 v0.7.1 删除 |
@@ -46,7 +47,7 @@ now_use/
 | PlayerUI | 屏幕左下角固定 HP/护甲/法力条（法力条 v0.6.2）；v0.7.0 体力条下线，场景残留 StaminaBar 对象运行时 SetActive(false) 兜底隐藏 |
 | PlayerWorldStatusBar | ~~头顶世界空间状态条~~（钢灰护甲 + 红 HP；黄体力条 v0.7.0 下线）。**已从 Player.prefab 移除组件（2026-08-03）**：屏幕状态条美术到位后头顶条冗余；类文件保留，想恢复在 prefab 重新 AddComponent 即可（HealthBarAnchor 子物体仍在） |
 | AmmoUI | 弹药面板（v0.6.3）：武器色块+名 + 弹夹 x/y + 换弹进度细条（运行时构建，订阅 PlayerCombat 事件；无弹夹/默认近战隐藏） |
-| SlotBarUI | 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏，技能三槽"—"空占位，预留 SetSkillDisplay/SetSkillCooldown 给 v0.7.4）+ 道具栏上方背包 3 格（Button 点击与道具栏互换）；RuntimeInitializeOnLoadMethod 自举运行时构建，订阅 ItemInventory.OnChanged，数量角标 count≥2 显示、超 99 显示 99+；UiScale 常量整体缩放（CanvasScaler.scaleFactor，勿改根 RectTransform，自检 #23）；格子框美术 Assets/Art/UI/SlotFrame（v0.7.3 美术替换，固定路径加载，缺失退回纯色占位；打包需复制到 Resources/Art/UI/） |
+| SlotBarUI | 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏；技能三槽 v0.7.4 起由 SkillExecutor 每帧驱动——SetSkillDisplay 技能名+技能色 / SetSkillCooldown 文本秒数，数据缺失槽维持"—"，红闪提示施放失败）+ 道具栏上方背包 3 格（Button 点击与道具栏互换）；RuntimeInitializeOnLoadMethod 自举运行时构建，订阅 ItemInventory.OnChanged，数量角标 count≥2 显示、超 99 显示 99+；UiScale 常量整体缩放（CanvasScaler.scaleFactor，勿改根 RectTransform，自检 #23）；格子框美术 Assets/Art/UI/SlotFrame（v0.7.3 美术替换，固定路径加载，缺失退回纯色占位；打包需复制到 Resources/Art/UI/） |
 
 ### Combat/ — 武器 / 攻击框架（Player/Enemy 共用）
 | 脚本 | 职责 |
@@ -87,19 +88,19 @@ now_use/
 | 脚本 | 职责 |
 |------|------|
 | ClassType | 职业枚举（Warrior/Archer/Mage） |
-| ClassData | 职业配置 SO：三属性上限 + 六维字段（v0.7.0：攻击/暴击率/暴伤/护甲双倍率 R·L，占位默认值同 PlayerStats）/职业色/可用武器列表；资产在 Assets/Data/Class/ |
+| ClassData | 职业配置 SO：三属性上限 + 六维字段（v0.7.0：攻击/暴击率/暴伤/护甲双倍率 R·L，占位默认值同 PlayerStats）/职业色/可用武器列表；v0.7.4 +技能字段（skillBranches 分支表 / ultimateSkill 大招，本版资产未接线，null 走 SkillCatalog 兜底）；资产在 Assets/Data/Class/ |
 | ClassCatalog | 职业资产目录（编辑器 AssetDatabase 加载，构建需 Resources/Class/） |
 | PrepPedestal | 准备房间展台（职业选择台/武器展示台，运行时多色块视觉，E 交互；名签参数序列化可调） |
 | PrepRoomPlacer | 三展台布置 + 武器展台刷新 + 初始武器自动归位（仅供准备场景，阶段 C 重构签名） |
 | ClassSelectUI | 职业选择界面（TMP 屏幕空间）：选择→高亮→确认闪烁→ApplyClass→展台刷新；v0.7.0 职业按钮描述改六维数值行（HP/护甲/攻击/魔力/暴击%/暴伤×） |
-| RunStateCarrier | 跨场景配置载体（DontDestroyOnLoad）：LastChosenClass/LastWeapon/HasLoadout |
+| RunStateCarrier | 跨场景配置载体（DontDestroyOnLoad）：LastChosenClass/LastWeapon/HasLoadout；v0.7.4 +ChosenSkillBranchIndex 小技能分支索引（SetSkillBranch 局外写入、局内锁定，死亡保留与 LastChosenClass 同规则） |
 | PrepRoomManager | 独立准备场景总控：房间视觉/展台/传送门/出生位/换武器归位订阅（v0.7.2 改置 storeOldWeaponInSatchel=false）；v0.7.3 地面运行时投放三种正式消耗包各 1 个（SpawnDemoItems），三包资产名清单与加载单点收口（ConsumableAssetNames / LoadConsumable / LoadRandomConsumable，宝箱与商店陈列共用） |
 | PrepPortalInteractable | 准备场景进入地牢传送门：校验 HasLoadout → LoadScene |
 
 ### Weapon/ — 武器框架（v0.6.2 框架 / v0.6.3 完整实现）
 | 脚本 | 职责 |
 |------|------|
-| WeaponData | 武器配置 SO（职业/行为类型/攻击引用/子弹引用/自疗量/蓄力规则与参数/弹夹射速/染色/图标）；资产在 Assets/Data/Weapon/ |
+| WeaponData | 武器配置 SO（职业/行为类型/攻击引用/子弹引用/自疗量/蓄力规则与参数/弹夹射速/染色/图标；v0.7.4 +weaponSkill 武器技能引用，本版资产未接线，null 走 SkillCatalog 兜底）；资产在 Assets/Data/Weapon/ |
 | WeaponInstance | 武器运行时状态（弹夹/换弹/蓄力计时），纯 C# 类 |
 | WeaponBehavior | 行为基类 + 三派生分发（v0.6.3）：Melee → PlayerCombat 近战链；Ranged → Projectile 开火；SelfCast → 治疗自施法 |
 | PlayerWeaponHolder | 玩家武器持有与装备入口：v0.7.2 换武器旧武器入 WeaponSatchel（storeOldWeaponInSatchel 可关，包满挤出者原地掉落可捡回）；OnWeaponChanged 事件（准备场景归位订阅）；Unequip 同步清空武器背包 |
@@ -114,6 +115,15 @@ now_use/
 | ItemInventory | 玩家道具背包（纯数据+事件 OnChanged）：道具栏激活位 1 格 + 背包 3 格，同类叠加无上限；Add 分流（栏同类→栏空→包同类→包空位→满 false）；UseActive 扣数清零出槽；SwapWithBackpack 点击互换；PlayerController.Awake 运行时挂载 |
 | ItemPickup | 消耗品拾取物（IPickupable）：E 拾取 → ItemInventory.Add，满则提示"背包已满"不消耗拾取物；运行时色块占位视觉 + Spawn 静态构建 |
 | WeaponSatchel | 武器背包（1 格纯 C# 数据类，PlayerWeaponHolder 持有）：Store 返回被挤出者；死亡重开 Clear；本版无 UI |
+
+### Skill/ — 技能框架（v0.7.4）
+| 脚本 | 职责 |
+|------|------|
+| SkillType | 技能类型枚举（MeleeAoE 本版唯一实现；扩展位预留） |
+| SkillData | 技能配置 SO：displayName/skillType/蓝耗/CD/伤害倍率/AOE 半径/占位色/等级（OnValidate 钳 ≥1）+ 等级数值表 damageMultiplierByLevel（空表=平直，GetDamageMultiplier 按 level 查表、越界回退基值，供 v0.7.6 天赋升级读）；资产在 Assets/Data/Skill/，占位数值【待补充·数值】 |
+| SkillBranchData | 小技能分支表 SO（每职业一份，局外切换、局内锁定）：List<SkillData> branches，GetBranch 越界回退 0；切换入口 UI 未做【待补充】 |
+| SkillCatalog | 技能资产目录（ClassCatalog 同模式：编辑器 AssetDatabase / 构建 Resources.Load("Skill/...")，打包需复制资产到 Resources/Skill/）：资产名清单单点收口；GetBranches/GetUltimate(ClassType) + GetWeaponSkill(WeaponData) 三入口（射手/法师未实装返回 null 并 Warning）；ClassData/WeaponData 接线值优先、null 走本目录兜底 |
+| SkillExecutor | 技能执行器（玩家组件，PlayerController.Awake 运行时 Get-or-Add）：三槽装配（小技能=分支选中 ← RunStateCarrier.ChosenSkillBranchIndex / 大招=职业 / 武器技能=当前武器）、CD 计时、法力校验（TryConsumeMana）、按类型执行（MeleeAoE 旋风斩占位：OverlapCircleAll Enemy 层 → DamageResolver.Deal，baseAttack 只取角色攻击）；每帧推 SlotBarUI 技能名/CD 秒数，CD 中/法力不足红闪；订阅 OnWeaponChanged 武器技能槽整套替换（CD 清零独立）；表现=AttackIndicator 圆形灰显 0.2s + DOTween 缩放缓圈（SetLink） |
 
 ### Dungeon/Core/ — 地牢门面与楼层循环
 | 脚本 | 职责 |

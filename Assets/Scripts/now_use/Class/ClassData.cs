@@ -31,6 +31,10 @@ public class ClassData : ScriptableObject
     [Header("可用武器（本职业可拾取）")]
     [SerializeField] private List<WeaponData> availableWeapons = new List<WeaponData>();
 
+    [Header("技能（v0.7.4 框架；本版资产未接线，null 时运行时走 SkillCatalog 兜底）")]
+    [SerializeField] private SkillBranchData skillBranches;   // 小技能分支表（局外切换、局内锁定）
+    [SerializeField] private SkillData ultimateSkill;         // 职业大招
+
     public ClassType ClassType => classType;
     public string DisplayName => displayName;
     public float MaxHP => maxHP;
@@ -43,4 +47,6 @@ public class ClassData : ScriptableObject
     public float ArmorLossMul => armorLossMul;
     public Color ClassColor => classColor;
     public IReadOnlyList<WeaponData> AvailableWeapons => availableWeapons;
+    public SkillBranchData SkillBranches => skillBranches;
+    public SkillData UltimateSkill => ultimateSkill;
 }
