@@ -5,7 +5,8 @@ using UnityEngine;
 /// 宝箱（v0.5.4 三段式：暗盒身 + 亮金上下两片盖）：按 E（v0.6.1）→ 盖片上下分开（拉开后仍与盒身保持重合区）
 /// → 缺口中央刷新奖励道具（pop-in）→ 道具留在原地成为可拾取物（v0.6.1 两段式拾取）。
 /// v0.6.3 奖励二选一：已选职业 → 本职业随机武器（WeaponPickup.Drop）/ 法力瓶（ManaBottlePickup），
-/// 概率由 manaBottleChance 调（默认 50/50）；无职业（v0_4/v0_5 旧场景）退回原治疗球（HealPickup）。
+/// v0.7.3 扩为三权重：本职业随机武器 40% / 法力瓶 30% / 随机一种消耗包 30%（ItemPickup.Spawn 弹出，
+/// 权重序列化可调）；无职业（v0_4/v0_5 旧场景）退回原治疗球（HealPickup）。
 /// </summary>
 public class ChestInteractable : Interactable
 {
@@ -17,9 +18,13 @@ public class ChestInteractable : Interactable
     [SerializeField] private float lidOffset = 0.25f;
     [SerializeField] private float openDuration = 0.35f;
 
-    [Header("奖励（v0.6.3）")]
-    [Tooltip("已选职业时掉落法力瓶的概率（其余掉本职业随机武器）；无职业退回治疗球")]
-    [SerializeField, Range(0f, 1f)] private float manaBottleChance = 0.5f;
+    [Header("奖励权重（v0.7.3，已选职业时三分支；无职业退回治疗球）")]
+    [Tooltip("掉本职业随机武器的概率")]
+    [SerializeField, Range(0f, 1f)] private float weaponChance = 0.4f;
+    [Tooltip("掉法力瓶的概率")]
+    [SerializeField, Range(0f, 1f)] private float manaBottleChance = 0.3f;
+    [Tooltip("掉随机一种消耗包（血包/甲包/魔力恢复包）的概率；三权重之和 >1 时后段被截断、<1 时余量归消耗包")]
+    [SerializeField, Range(0f, 1f)] private float consumableChance = 0.3f;
 
     protected override void OnConsumed(Collider2D player)
     {
@@ -39,13 +44,21 @@ public class ChestInteractable : Interactable
 
     private void SpawnItem(Collider2D player)
     {
-        // v0.6.3 宝箱奖励二选一：玩家已选职业 → 本职业随机武器 / 法力瓶（默认 50/50，可调）；
+        // v0.7.3 宝箱奖励三权重：已选职业 → 本职业随机武器 / 法力瓶 / 随机消耗包（默认 40/30/30，可调）；
         // 无职业（v0_4/v0_5 旧场景）退回原 itemPrefab + HealPickup 治疗球路径
         PlayerStats stats = player != null ? player.GetComponent<PlayerStats>() : null;
         ClassData cls = stats != null ? stats.CurrentClass : null;
         if (cls != null && cls.AvailableWeapons.Count > 0)
         {
-            if (Random.value < manaBottleChance)
+            float roll = Random.value;
+            if (roll < weaponChance)
+            {
+                WeaponData data = cls.AvailableWeapons[Random.Range(0, cls.AvailableWeapons.Count)];
+                WeaponPickup pickup = WeaponPickup.Drop(data, transform.position);
+                if (pickup != null) PopIn(pickup.transform);
+                Debug.Log($"[Dungeon] 宝箱开启：掉落武器 {(data != null ? data.DisplayName : "?")}（走近按 E 拾取）");
+            }
+            else if (roll < weaponChance + manaBottleChance)
             {
                 ManaBottlePickup bottle = ManaBottlePickup.Spawn(transform.position);
                 PopIn(bottle.transform);
@@ -53,10 +66,21 @@ public class ChestInteractable : Interactable
             }
             else
             {
-                WeaponData data = cls.AvailableWeapons[Random.Range(0, cls.AvailableWeapons.Count)];
-                WeaponPickup pickup = WeaponPickup.Drop(data, transform.position);
-                if (pickup != null) PopIn(pickup.transform);
-                Debug.Log($"[Dungeon] 宝箱开启：掉落武器 {(data != null ? data.DisplayName : "?")}（走近按 E 拾取）");
+                // 消耗包分支：名义概率 consumableChance；三权重和 <1 时余量也归本分支（见字段 Tooltip）
+                ConsumableData pack = PrepRoomManager.LoadRandomConsumable();
+                if (pack != null)
+                {
+                    ItemPickup pickup = ItemPickup.Spawn(pack, transform.position);
+                    if (pickup != null) PopIn(pickup.transform);
+                    Debug.Log($"[Dungeon] 宝箱开启：掉落消耗包 {pack.DisplayName}（名义权重 {consumableChance:P0}，走近按 E 拾取）");
+                }
+                else
+                {
+                    // 防御：消耗包资产缺失时退回法力瓶，不开空箱
+                    ManaBottlePickup bottle = ManaBottlePickup.Spawn(transform.position);
+                    PopIn(bottle.transform);
+                    Debug.LogWarning("[Dungeon] 宝箱消耗包资产缺失，退回法力瓶。");
+                }
             }
             return;
         }

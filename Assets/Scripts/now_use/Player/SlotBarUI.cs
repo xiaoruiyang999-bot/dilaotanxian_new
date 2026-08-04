@@ -12,6 +12,8 @@ using UnityEngine.UI;
 /// 数量角标：槽位右下角 14pt，count≥2 才显示，超 99 显示 99+。
 /// 布局边界核算（1920×1080）：面板 274×126 锚 BottomRight 留 20px 边距，
 /// 占 x∈[1626,1900] y∈[20,146]；AmmoUI 在屏幕左下（PlayerStatsPanel 上方），无交叠。
+/// 格子美术（v0.7.3 美术替换）：SlotFrame 石板框按固定路径加载（编辑器 AssetDatabase / 构建 Resources），
+/// 主槽与背包格共用一张缩放适配；资产缺失时退回"白描边 + 深色底"占位，不留空。
 /// </summary>
 public class SlotBarUI : MonoBehaviour
 {
@@ -21,9 +23,41 @@ public class SlotBarUI : MonoBehaviour
     private const float Gap = 6f;
     private const float Margin = 20f;       // 距屏幕右/下边缘
     private const int SkillSlotCount = 3;   // 小技能/大招/武器技能
+    private const float UiScale = 1.5f;    // 整体缩放（唯一调大小旋钮：1=64px 槽，1.25=80px；走 CanvasScaler.scaleFactor，边距同步缩放）
 
-    private static readonly Color BgColor = new Color(0.12f, 0.12f, 0.12f, 0.9f);   // 深色底（与状态条背景统一）
+    private static readonly Color BgColor = new Color(0.12f, 0.12f, 0.12f, 0.9f);   // 深色底（SlotFrame 缺失时的占位回退）
     private static readonly string[] SlotLabels = { "小技能", "大招", "武器技能", "道具栏" };
+
+    // ========== 格子美术（SlotFrame，v0.7.3） ==========
+
+    /// <summary>SlotFrame 资产路径（美术导入处；构建时需复制到 Resources/Art/UI/）。</summary>
+    private const string SlotFrameEditorPath = "Assets/Art/UI/SlotFrame.jpg";
+    private const string SlotFrameResourcesPath = "Art/UI/SlotFrame";
+    private static Sprite slotFrame;
+
+    /// <summary>加载格子框 Sprite（编辑器 AssetDatabase / 构建 Resources；导入为 Multiple 时取第一张切片）。缺失返回 null。</summary>
+    private static Sprite LoadSlotFrame()
+    {
+        if (slotFrame != null) return slotFrame;
+#if UNITY_EDITOR
+        slotFrame = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(SlotFrameEditorPath);
+        if (slotFrame == null)   // Sprite Mode = Multiple 时主资产不是 Sprite，扫子资产取第一张
+        {
+            foreach (Object o in UnityEditor.AssetDatabase.LoadAllAssetsAtPath(SlotFrameEditorPath))
+                if (o is Sprite s) { slotFrame = s; break; }
+        }
+#else
+        slotFrame = Resources.Load<Sprite>(SlotFrameResourcesPath);
+        if (slotFrame == null)
+        {
+            Sprite[] all = Resources.LoadAll<Sprite>(SlotFrameResourcesPath);
+            if (all.Length > 0) slotFrame = all[0];
+        }
+#endif
+        if (slotFrame == null)
+            Debug.LogWarning("[SlotBarUI] SlotFrame 未找到，格子退回纯色占位。");
+        return slotFrame;
+    }
 
     /// <summary>单个槽位的运行时引用。</summary>
     private class SlotWidget
@@ -68,7 +102,11 @@ public class SlotBarUI : MonoBehaviour
         Canvas canvas = go.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 50;
-        go.AddComponent<CanvasScaler>();
+        // 整体缩放走 CanvasScaler.scaleFactor：ScreenSpaceOverlay 的根 RectTransform 被引擎驱动，
+        // 直写 localScale 每帧被重置（UiScale 曾因此不生效）；该常驻 Canvas 只装槽位条，整画布缩放无副作用
+        CanvasScaler scaler = go.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+        scaler.scaleFactor = UiScale;
         go.AddComponent<GraphicRaycaster>();
         go.AddComponent<SlotBarUI>();
         DontDestroyOnLoad(go);
@@ -155,8 +193,7 @@ public class SlotBarUI : MonoBehaviour
     {
         if (slot == null) return;
 
-        slot.Bg.color = BgColor;
-
+        // 槽位底色在创建时定死（SlotFrame 美术 = 透明露框 / 缺失 = 深色占位），刷新不覆盖
         if (slot.Label != null)
         {
             slot.Label.text = label ?? "";
@@ -195,6 +232,7 @@ public class SlotBarUI : MonoBehaviour
         root.pivot = new Vector2(1f, 0f);
         root.sizeDelta = new Vector2(panelWidth, panelHeight);
         root.anchoredPosition = new Vector2(-Margin, Margin);
+        // 注：不要在 root 上设 localScale——Overlay Canvas 根 RectTransform 被引擎驱动会每帧重置，缩放用 CanvasScaler.scaleFactor（EnsureExists）
 
         // 四槽横排（pivot 右下：从右往左排，slot3 道具栏贴右缘）
         for (int i = 0; i < 4; i++)
@@ -214,14 +252,17 @@ public class SlotBarUI : MonoBehaviour
         }
     }
 
-    /// <summary>创建一个槽位：白描边 1px + 深色底 + 顶部名称 + 中央占位/色块 + 右下数量角标。</summary>
+    /// <summary>创建一个槽位：SlotFrame 石板框（缺失时退回白描边 1px + 深色底）+ 顶部名称 + 中央占位/色块 + 右下数量角标。</summary>
     private SlotWidget CreateSlot(string name, RectTransform parent, Vector2 center,
         float size, bool clickable, int packIndex)
     {
-        // 白描边底层
+        Sprite frame = LoadSlotFrame();
+
+        // 底层：SlotFrame 石板框（整框美术）；缺失时退回纯白（配内缩深色底形成 1px 描边）
         GameObject borderGo = CreateUIObject(name, parent);
         Image border = borderGo.AddComponent<Image>();
         border.color = Color.white;
+        if (frame != null) border.sprite = frame;
         RectTransform borderRect = (RectTransform)borderGo.transform;
         borderRect.anchorMin = new Vector2(1f, 0f);
         borderRect.anchorMax = new Vector2(1f, 0f);
@@ -229,10 +270,10 @@ public class SlotBarUI : MonoBehaviour
         borderRect.sizeDelta = new Vector2(size, size);
         borderRect.anchoredPosition = center;
 
-        // 深色底（内缩 1px 形成描边）
+        // 内底：有框图时透明（露出石板内部），无框图时深色内缩 1px 形成描边占位
         GameObject bgGo = CreateUIObject("Bg", borderRect);
         Image bg = bgGo.AddComponent<Image>();
-        bg.color = BgColor;
+        bg.color = frame != null ? Color.clear : BgColor;
         RectTransform bgRect = (RectTransform)bgGo.transform;
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
@@ -241,11 +282,11 @@ public class SlotBarUI : MonoBehaviour
 
         SlotWidget slot = new SlotWidget { Bg = bg };
 
-        // 背包格：Button 点击 → 与道具栏互换
+        // 背包格：Button 点击 → 与道具栏互换；有框图时点击反馈着色打在框图上（Bg 透明无显示）
         if (clickable)
         {
             Button btn = borderGo.AddComponent<Button>();
-            btn.targetGraphic = bg;
+            btn.targetGraphic = frame != null ? border : bg;
             int index = packIndex;   // 闭包捕获
             btn.onClick.AddListener(() =>
             {

@@ -11,9 +11,9 @@ public enum ConsumableEffectType
 }
 
 /// <summary>
-/// 消耗品配置数据（v0.7.2 槽位/背包链路验证用）。纯数据容器。
-/// 本版只建数据结构与 1 份测试资产（Assets/Data/Item/Consumable_Test.asset）；
-/// 使用效果（HP/Armor/Mana 数值结算）与三种正式道具归 v0.7.3。
+/// 消耗品配置数据（v0.7.2 建结构，v0.7.3 正式三包）。纯数据容器。
+/// 正式资产：Assets/Data/Item/ 下 Item_HealPack（HP+4）/ Item_ArmorPack（Armor+4）/ Item_ManaPack（Mana+40），
+/// 占位数值后续设计定稿只改 SO；使用效果结算在 ItemInventory.UseActive。
 /// </summary>
 [CreateAssetMenu(fileName = "ConsumableData", menuName = "Item/Consumable Data")]
 public class ConsumableData : ScriptableObject

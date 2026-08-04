@@ -37,7 +37,7 @@ public class ItemPickup : MonoBehaviour, IPickupable
         itemData = data;
     }
 
-    /// <summary>运行时构建一个消耗品拾取物（测试投放用，正式投放归 v0.7.3）。</summary>
+    /// <summary>运行时构建一个消耗品拾取物（准备场景投放 / 宝箱奖励池用）。</summary>
     public static ItemPickup Spawn(ConsumableData data, Vector3 pos)
     {
         if (data == null) return null;

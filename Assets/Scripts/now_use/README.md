@@ -1,4 +1,4 @@
-# now_use — 当前版本实际在用脚本（v0.7.2）
+# now_use — 当前版本实际在用脚本（v0.7.3）
 
 > 本文件夹**只存放当前版本（场景 `v0_4_EnemySystem.unity` 回归测试 + `v0_5_Dungeon.unity` / `v0_6_ClassWeapon.unity` 地牢）实际运行所需的脚本**。
 > 历史/弃用脚本保留在原版本文件夹（`v0_2` / `v0_3` / `v0_4` / `Framework`）作为档案，不删除。
@@ -22,7 +22,7 @@ now_use/
 ├── Common/      通用（相机、可破坏障碍物、TMP 字体）（4）
 ├── Class/       职业系统 + 准备房间（9，v0.6.2；六维字段 v0.7.0）
 ├── Weapon/      武器框架 + 运行时视觉（7，v0.6.3 行为完整实现）
-├── Item/        道具/背包（4，v0.7.2 槽位-背包-拾取链路）
+├── Item/        道具/背包（4，v0.7.3 三种正式消耗品：血包/甲包/魔力恢复包）
 └── Dungeon/     地牢系统（29，保留原 v0_5 子目录）
     ├── Core/        门面/构建/配置/楼层循环（5）
     ├── Generation/  纯 C# 布局数据层（4）
@@ -44,9 +44,9 @@ now_use/
 | PlayerCombat | 近战三阶段状态机 + v0.6.3 三模式（Melee/Ranged/SelfCast）：蓄力状态机（移动×0.5、AttackData 运行时副本缩放范围/角度）、弹夹/换弹/闲置自动换弹计时、Projectile 开火、治疗自施法；弹药/换弹/武器展示事件供 AmmoUI 订阅；v0.7.0 满蓄倍率归位 WeaponHitbox.DamageMultiplier（不再 SetDamage 改副本） |
 | PlayerAimController | 鼠标瞄准方向输入层 |
 | PlayerUI | 屏幕左下角固定 HP/护甲/法力条（法力条 v0.6.2）；v0.7.0 体力条下线，场景残留 StaminaBar 对象运行时 SetActive(false) 兜底隐藏 |
-| PlayerWorldStatusBar | 头顶世界空间状态条（钢灰护甲 + 红 HP；黄体力条 v0.7.0 下线） |
+| PlayerWorldStatusBar | ~~头顶世界空间状态条~~（钢灰护甲 + 红 HP；黄体力条 v0.7.0 下线）。**已从 Player.prefab 移除组件（2026-08-03）**：屏幕状态条美术到位后头顶条冗余；类文件保留，想恢复在 prefab 重新 AddComponent 即可（HealthBarAnchor 子物体仍在） |
 | AmmoUI | 弹药面板（v0.6.3）：武器色块+名 + 弹夹 x/y + 换弹进度细条（运行时构建，订阅 PlayerCombat 事件；无弹夹/默认近战隐藏） |
-| SlotBarUI | 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏，技能三槽"—"空占位，预留 SetSkillDisplay/SetSkillCooldown 给 v0.7.4）+ 道具栏上方背包 3 格（Button 点击与道具栏互换）；RuntimeInitializeOnLoadMethod 自举运行时构建，订阅 ItemInventory.OnChanged，数量角标 count≥2 显示、超 99 显示 99+ |
+| SlotBarUI | 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏，技能三槽"—"空占位，预留 SetSkillDisplay/SetSkillCooldown 给 v0.7.4）+ 道具栏上方背包 3 格（Button 点击与道具栏互换）；RuntimeInitializeOnLoadMethod 自举运行时构建，订阅 ItemInventory.OnChanged，数量角标 count≥2 显示、超 99 显示 99+；UiScale 常量整体缩放（CanvasScaler.scaleFactor，勿改根 RectTransform，自检 #23）；格子框美术 Assets/Art/UI/SlotFrame（v0.7.3 美术替换，固定路径加载，缺失退回纯色占位；打包需复制到 Resources/Art/UI/） |
 
 ### Combat/ — 武器 / 攻击框架（Player/Enemy 共用）
 | 脚本 | 职责 |
@@ -93,7 +93,7 @@ now_use/
 | PrepRoomPlacer | 三展台布置 + 武器展台刷新 + 初始武器自动归位（仅供准备场景，阶段 C 重构签名） |
 | ClassSelectUI | 职业选择界面（TMP 屏幕空间）：选择→高亮→确认闪烁→ApplyClass→展台刷新；v0.7.0 职业按钮描述改六维数值行（HP/护甲/攻击/魔力/暴击%/暴伤×） |
 | RunStateCarrier | 跨场景配置载体（DontDestroyOnLoad）：LastChosenClass/LastWeapon/HasLoadout |
-| PrepRoomManager | 独立准备场景总控：房间视觉/展台/传送门/出生位/换武器归位订阅（v0.7.2 改置 storeOldWeaponInSatchel=false）；v0.7.2 地面运行时投放 4 个测试消耗品（Consumable_Test，v0.7.3 删除） |
+| PrepRoomManager | 独立准备场景总控：房间视觉/展台/传送门/出生位/换武器归位订阅（v0.7.2 改置 storeOldWeaponInSatchel=false）；v0.7.3 地面运行时投放三种正式消耗包各 1 个（SpawnDemoItems），三包资产名清单与加载单点收口（ConsumableAssetNames / LoadConsumable / LoadRandomConsumable，宝箱与商店陈列共用） |
 | PrepPortalInteractable | 准备场景进入地牢传送门：校验 HasLoadout → LoadScene |
 
 ### Weapon/ — 武器框架（v0.6.2 框架 / v0.6.3 完整实现）
@@ -110,7 +110,7 @@ now_use/
 ### Item/ — 道具与背包（v0.7.2）
 | 脚本 | 职责 |
 |------|------|
-| ConsumableData | 消耗品配置 SO：displayName/effectType(HP/Armor/Mana)/value/iconColor/占位图标；测试资产 Assets/Data/Item/Consumable_Test.asset（仅本版验证，v0.7.3 删除）；效果接线归 v0.7.3 |
+| ConsumableData | 消耗品配置 SO：displayName/effectType(HP/Armor/Mana)/value/iconColor/占位图标；正式资产 Assets/Data/Item/ 下 Item_HealPack（HP+4）/ Item_ArmorPack（Armor+4）/ Item_ManaPack（Mana+40，占位数值待定稿；Consumable_Test 已删）；效果已接线（v0.7.3：UseActive → Health.Heal / ModifyArmor / AddMana） |
 | ItemInventory | 玩家道具背包（纯数据+事件 OnChanged）：道具栏激活位 1 格 + 背包 3 格，同类叠加无上限；Add 分流（栏同类→栏空→包同类→包空位→满 false）；UseActive 扣数清零出槽；SwapWithBackpack 点击互换；PlayerController.Awake 运行时挂载 |
 | ItemPickup | 消耗品拾取物（IPickupable）：E 拾取 → ItemInventory.Add，满则提示"背包已满"不消耗拾取物；运行时色块占位视觉 + Spawn 静态构建 |
 | WeaponSatchel | 武器背包（1 格纯 C# 数据类，PlayerWeaponHolder 持有）：Store 返回被挤出者；死亡重开 Clear；本版无 UI |
@@ -148,7 +148,7 @@ now_use/
 | EnemySpawner | 敌人生成（保底混编 + 洗牌 + 楼层难度注入 v0.5.4） |
 | ObstacleSpawner | 障碍物生成（可破坏款挂 ObstacleHealth） |
 | DecorationSpawner | 装饰生成（旋转/缩放/颜色抖动） |
-| InteractableSpawner | 交互物生成（散点冲突重试 / Row 一列陈列） |
+| InteractableSpawner | 交互物生成（散点冲突重试 / Row 一列陈列）；v0.7.3 商店房（RoomType.Shop）Row 收尾追加第二排三种消耗包各 1 个（ItemPickup.Spawn 运行时投放，免费占位与基座同规则） |
 | SpawnPositionHelper | 生成位置合法性（距墙/距门/防重叠/重试上限） |
 
 ### Dungeon/Interaction/ — E 键交互物 + 拾取框架
@@ -157,7 +157,7 @@ now_use/
 | Interactable | 交互基类（v0.6.1：walk-over → E 键 Interact()）：一次性触发 + OnConsumed 钩子 + 压暗已消耗态 |
 | IPickupable | 可拾取物接口（v0.6.1 两段式拾取框架）：DisplayName + OnPickedUp |
 | HealPickup | 治疗球拾取物（v0.6.1）：宝箱落物，按 E 拾取 +2HP，运行时补触发器 |
-| ChestInteractable | 宝箱：三段式开箱动画；v0.6.3 奖励 = 本职业随机武器 / 法力瓶 50-50（manaBottleChance 可调，无职业兜底 HealPickup） |
+| ChestInteractable | 宝箱：三段式开箱动画；v0.7.3 奖励三权重 = 本职业随机武器 0.4 / 法力瓶 0.3 / 随机消耗包 0.3（序列化可调，消耗包走 ItemPickup.Spawn + PrepRoomManager.LoadRandomConsumable，资产缺失退回法力瓶；无职业兜底 HealPickup） |
 | ShrineInteractable | 事件祭坛：随机 ±（治疗/受伤，运行时事件不进种子流） |
 | SupplyInteractable | 商店补给：治疗球/护甲球/法力瓶（v0.6.3 +Mana 分支，免费占位） |
 | PortalInteractable | 传送门（v0.5.4）：石块漩涡动效，按 E → RunManager.NextFloor |

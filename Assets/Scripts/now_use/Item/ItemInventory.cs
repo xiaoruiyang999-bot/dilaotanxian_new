@@ -20,13 +20,17 @@ public class ItemStack
 /// 玩家道具背包（v0.7.2，纯数据 + 事件）：
 /// 道具栏激活位 1 格 + 背包 3 格，同类叠加无上限。
 /// Add 分流：道具栏同类叠加 → 栏空入栏 → 背包同类叠加 → 背包空位 → 满返回 false；
-/// UseActive 扣数、清零出槽（效果接线归 v0.7.3）；SwapWithBackpack 道具栏与背包格互换。
+/// UseActive 按 effectType 结算效果（v0.7.3：Health.Heal / PlayerStats.ModifyArmor / AddMana）
+/// 后扣数、清零出槽；SwapWithBackpack 道具栏与背包格互换。
 /// 由 PlayerController.Awake 运行时挂载（与 PlayerInteractor 同模式，不改 prefab YAML）。
 /// </summary>
 public class ItemInventory : MonoBehaviour
 {
     /// <summary>背包格数（v0.7.2 固定 3 格）。</summary>
     public const int BackpackSize = 3;
+
+    private Health cachedHealth;     // 玩家组件缓存（本组件挂在 Player 上）
+    private PlayerStats cachedStats;
 
     /// <summary>道具栏激活位（无道具时为 null）。</summary>
     public ItemStack ActiveSlot { get; private set; }
@@ -88,20 +92,39 @@ public class ItemInventory : MonoBehaviour
     }
 
     /// <summary>
-    /// 使用道具栏激活项（UseItem 键）：数量 −1，减到 0 槽位清空。
-    /// 未装备消耗品时无副作用；使用效果（HP/Armor/Mana 结算）v0.7.3 接 Health/PlayerStats。
+    /// 使用道具栏激活项（UseItem 键）：先按 effectType 结算效果，数量 −1，减到 0 槽位清空。
+    /// 未装备消耗品时无副作用；对应属性已满也照常消耗（v0.7.3 规则：简单优先，不拦截）。
     /// </summary>
     public void UseActive()
     {
         if (ActiveSlot == null || ActiveSlot.Data == null || ActiveSlot.Count <= 0) return;
 
-        // TODO(v0.7.3)：按 ActiveSlot.Data.EffectType/Value 接 Health/PlayerStats 结算
-        Debug.Log($"[Item] 使用道具：{ActiveSlot.Data.DisplayName}（{ActiveSlot.Data.EffectType} +{ActiveSlot.Data.Value}，效果 v0.7.3 接线）");
+        ApplyEffect(ActiveSlot.Data);
 
         ActiveSlot.Count--;
         if (ActiveSlot.Count <= 0)
             ActiveSlot = null;
         OnChanged?.Invoke();
+    }
+
+    /// <summary>按消耗品效果类型结算（v0.7.3）：HP → Health.Heal；Armor → PlayerStats.ModifyArmor；Mana → PlayerStats.AddMana。</summary>
+    private void ApplyEffect(ConsumableData data)
+    {
+        switch (data.EffectType)
+        {
+            case ConsumableEffectType.HP:
+                if (cachedHealth == null) cachedHealth = GetComponent<Health>();
+                if (cachedHealth != null) cachedHealth.Heal(data.Value);
+                break;
+            case ConsumableEffectType.Armor:
+                if (cachedStats == null) cachedStats = GetComponent<PlayerStats>();
+                if (cachedStats != null) cachedStats.ModifyArmor(data.Value);
+                break;
+            case ConsumableEffectType.Mana:
+                if (cachedStats == null) cachedStats = GetComponent<PlayerStats>();
+                if (cachedStats != null) cachedStats.AddMana(data.Value);
+                break;
+        }
     }
 
     /// <summary>道具栏与背包格互换（背包格鼠标点击调用；空格互换即"取出/放入"）。</summary>

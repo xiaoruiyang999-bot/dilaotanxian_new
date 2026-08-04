@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 03a3309e69c042ef96f47f543769d92d, type: 3}
-  m_Name: Consumable_Test
+  m_Name: Item_ManaPack
   m_EditorClassIdentifier: 
-  displayName: 测试药
+  displayName: 魔力恢复包
   effectType: 2
-  value: 10
-  iconColor: {r: 0.2039, g: 0.5961, b: 0.8588, a: 1}
+  value: 40
+  iconColor: {r: 0.2, g: 0.6, b: 0.86, a: 1}
   icon: {fileID: 0}

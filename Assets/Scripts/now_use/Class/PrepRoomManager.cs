@@ -7,8 +7,7 @@ using UnityEngine;
 /// 准备场景专属武器规则：PlayerWeaponHolder.storeOldWeaponInSatchel = false（v0.7.2 字段换代），
 /// 订阅 OnWeaponChanged —— 换武器时旧初始武器自动归位原展台（不掉落、不入武器背包）。
 /// 死亡回来时（RunStateCarrier 有上次职业）按上次职业立即刷新武器展台。
-/// v0.7.2：地面运行时摆放 4 个测试消耗品 ItemPickup（Consumable_Test，仅本版链路验证用，
-/// v0.7.3 建正式三包后删除，见 v0.7.2_正式计划 §七）。
+/// v0.7.3：地面运行时投放三种正式消耗包各 1 个（出生位前方横排，运行时创建不变）。
 /// </summary>
 public class PrepRoomManager : MonoBehaviour
 {
@@ -44,8 +43,8 @@ public class PrepRoomManager : MonoBehaviour
             holder.OnWeaponChanged += OnWeaponChanged;
         }
 
-        // v0.7.2 测试投放：地面 4 个测试消耗品（仅本版链路验证，v0.7.3 删除）
-        SpawnTestItems();
+        // v0.7.3 正式投放：地面三种消耗包各 1 个（出生位前方横排）
+        SpawnDemoItems();
 
         // 死亡回来：职业保留，按上次职业立即摆好武器展台（武器需重新拾取）
         ClassData last = RunStateCarrier.Ensure().LastChosenClass;
@@ -67,28 +66,40 @@ public class PrepRoomManager : MonoBehaviour
         PrepRoomPlacer.ReturnWeapon(oldData);
     }
 
-    // ========== v0.7.2 测试道具投放（v0.7.3 建正式三包后删除本块与 Consumable_Test 资产） ==========
+    // ========== v0.7.3 正式消耗包投放 ==========
 
-    /// <summary>地面横排 4 个测试消耗品（出生位前方），加载走 ClassCatalog 同款编辑器路径分支。</summary>
-    private void SpawnTestItems()
+    /// <summary>三种正式消耗包资产名（Assets/Data/Item/）——全项目唯一清单，
+    /// 准备房间投放 / 宝箱奖励池 / 商店陈列共用（v0.7.3 单点收口）。</summary>
+    internal static readonly string[] ConsumableAssetNames = { "Item_HealPack", "Item_ArmorPack", "Item_ManaPack" };
+
+    /// <summary>地面横排三种正式消耗包各 1 个（出生位前方），加载走 ClassCatalog 同款编辑器路径分支。</summary>
+    private void SpawnDemoItems()
     {
-        ConsumableData testItem = LoadTestConsumable();
-        if (testItem == null) return;
-
-        for (int i = 0; i < 4; i++)
-            ItemPickup.Spawn(testItem, playerSpawn + new Vector3((i - 1.5f) * 1.2f, -1.2f, 0f));
+        for (int i = 0; i < ConsumableAssetNames.Length; i++)
+        {
+            ConsumableData data = LoadConsumable(ConsumableAssetNames[i]);
+            if (data == null) continue;
+            ItemPickup.Spawn(data, playerSpawn + new Vector3((i - 1) * 1.2f, -1.2f, 0f));
+        }
     }
 
-    private static ConsumableData LoadTestConsumable()
+    /// <summary>随机加载一种正式消耗包（宝箱奖励池等随机掉落用，v0.7.3 收口）。</summary>
+    internal static ConsumableData LoadRandomConsumable()
+    {
+        return LoadConsumable(ConsumableAssetNames[Random.Range(0, ConsumableAssetNames.Length)]);
+    }
+
+    /// <summary>按资产名加载消耗品 SO（编辑器 AssetDatabase / 构建 Resources.Load，与 ClassCatalog 同模式）。</summary>
+    internal static ConsumableData LoadConsumable(string assetName)
     {
 #if UNITY_EDITOR
         ConsumableData data = UnityEditor.AssetDatabase.LoadAssetAtPath<ConsumableData>(
-            "Assets/Data/Item/Consumable_Test.asset");
+            $"Assets/Data/Item/{assetName}.asset");
         if (data == null)
-            Debug.LogWarning("[Item] 测试消耗品 Consumable_Test.asset 未找到，跳过测试投放。");
+            Debug.LogWarning($"[Item] 消耗品 {assetName}.asset 未找到，跳过投放。");
         return data;
 #else
-        return Resources.Load<ConsumableData>("Item/Consumable_Test");
+        return Resources.Load<ConsumableData>($"Item/{assetName}");
 #endif
     }
 
