@@ -97,7 +97,11 @@ public class DungeonBuilder : MonoBehaviour
         for (int i = dungeonRoot.childCount - 1; i >= 0; i--)
         {
             Transform child = dungeonRoot.GetChild(i);
-            if (Application.isPlaying) Destroy(child.gameObject);
+            if (Application.isPlaying)
+            {
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
             else DestroyImmediate(child.gameObject);
         }
     }

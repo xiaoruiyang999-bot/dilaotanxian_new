@@ -13,7 +13,7 @@ public class Projectile : MonoBehaviour
     [SerializeField] private float speed = 8f;
     [SerializeField] private float maxLifetime = 3f;
     [SerializeField] private LayerMask targetLayer;
-    [SerializeField] private LayerMask wallLayer;
+    [SerializeField] private LayerMask obstacleLayer;
 
     [Header("视觉")]
     [SerializeField] private SpriteRenderer visual;
@@ -56,12 +56,13 @@ public class Projectile : MonoBehaviour
     /// 发射投射物。调用方设置所有参数并启动飞行。
     /// </summary>
     public void Launch(Vector2 direction, float dmg, float spd, LayerMask targets,
-        Transform src = null, float life = 3f)
+        LayerMask obstacles, Transform src = null, float life = 3f)
     {
         flightDirection = direction.normalized;
         damage = dmg;
         speed = spd;
         targetLayer = targets;
+        obstacleLayer = obstacles;
         source = src;
         maxLifetime = life;
         lifetime = life;
@@ -83,11 +84,19 @@ public class Projectile : MonoBehaviour
         // 跳过发射者自身
         if (source != null && other.transform.IsChildOf(source)) return;
 
+        // 命中障碍物（墙体等）→ 销毁
+        if (obstacleLayer.value != 0 && InLayer(other.gameObject.layer, obstacleLayer))
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         // 检查是否为可命中的目标层
-        if (!InTargetLayer(other.gameObject.layer)) return;
+        if (!InLayer(other.gameObject.layer, targetLayer)) return;
 
         // 命中
-        if (other.TryGetComponent<IDamageable>(out var damageable))
+        IDamageable damageable = FindDamageableInParents(other.transform);
+        if (damageable != null)
         {
             damageable.TakeDamage(damage);
         }
@@ -95,9 +104,20 @@ public class Projectile : MonoBehaviour
         Destroy(gameObject);
     }
 
-    private bool InTargetLayer(int layer)
+    private bool InLayer(int layer, LayerMask mask)
     {
-        return (targetLayer.value & (1 << layer)) != 0;
+        return (mask.value & (1 << layer)) != 0;
+    }
+
+    private static IDamageable FindDamageableInParents(Transform current)
+    {
+        while (current != null)
+        {
+            if (current.TryGetComponent<IDamageable>(out var damageable))
+                return damageable;
+            current = current.parent;
+        }
+        return null;
     }
 
     public void SetColor(Color color)

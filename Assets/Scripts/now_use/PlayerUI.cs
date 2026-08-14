@@ -147,23 +147,17 @@ public class PlayerUI : MonoBehaviour
 
     private void OnHealthChanged(float current, float max)
     {
-        Debug.Log($"[PlayerUI] HP Changed {current}/{max}");
-
         if (hpBar == null) return;
 
         hpBar.fillAmount = max > 0 ? current / max : 0f;
-        Debug.Log($"[PlayerUI] hpBar.fillAmount = {hpBar.fillAmount}");
     }
 
     private void OnStatsChanged()
     {
         if (stats == null) return;
 
-        Debug.Log($"[PlayerUI] Armor Changed {stats.CurrentArmor}/{stats.MaxArmor}");
-
         if (armorBar == null) return;
 
         armorBar.fillAmount = stats.MaxArmor > 0 ? stats.CurrentArmor / stats.MaxArmor : 0f;
-        Debug.Log($"[PlayerUI] armorBar.fillAmount = {armorBar.fillAmount}");
     }
 }

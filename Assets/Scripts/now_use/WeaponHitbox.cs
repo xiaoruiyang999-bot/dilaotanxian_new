@@ -34,7 +34,7 @@ public class WeaponHitbox : MonoBehaviour
     private const int MaxHits = 16;
     private static readonly Collider2D[] hitBuffer = new Collider2D[MaxHits];
 
-    private readonly HashSet<Collider2D> hitThisSwing = new HashSet<Collider2D>();
+    private readonly HashSet<IDamageable> hitThisSwing = new HashSet<IDamageable>();
     private bool isSwinging;
 
     void Awake()
@@ -84,7 +84,7 @@ public class WeaponHitbox : MonoBehaviour
         // useTriggers 保持旧 NonAlloc 行为（命中的 trigger 在下方手动跳过）。
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(attackData.TargetLayer);
-        filter.useTriggers = true;
+        filter.useTriggers = false;
 
         int count = Physics2D.OverlapBox(
             center, new Vector2(length, width), angle, filter, hitBuffer);
@@ -97,11 +97,8 @@ public class WeaponHitbox : MonoBehaviour
             if (hit.transform.IsChildOf(transform)) continue;   // 跳过攻击者自身（含子物体）。
                                                                 // 注意不能用 transform.root 比较：v0.5.2 起敌人/障碍物同挂 DungeonSystem 根下，
                                                                 // root 相同会被误判为"自身"（敌人武器因此打不到木箱）
-            if (hitThisSwing.Contains(hit)) continue;           // 每次挥击每目标只结算一次
-
-            hitThisSwing.Add(hit);
-
-            if (hit.TryGetComponent<IDamageable>(out var damageable))
+            IDamageable damageable = FindDamageableInParents(hit.transform);
+            if (damageable != null && hitThisSwing.Add(damageable))
             {
                 damageable.TakeDamage(attackData.AttackDamage);
                 OnHit?.Invoke(damageable, hit.ClosestPoint(center));
@@ -116,6 +113,17 @@ public class WeaponHitbox : MonoBehaviour
     {
         isSwinging = false;
         hitThisSwing.Clear();
+    }
+
+    private static IDamageable FindDamageableInParents(Transform current)
+    {
+        while (current != null)
+        {
+            if (current.TryGetComponent<IDamageable>(out var damageable))
+                return damageable;
+            current = current.parent;
+        }
+        return null;
     }
 
     /// <summary>

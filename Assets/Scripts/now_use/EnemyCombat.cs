@@ -8,6 +8,7 @@ using System.Collections.Generic;
 /// 默认配单份 AttackData 时行为与旧版本完全一致。
 /// 所有攻击数值来自 AttackData。
 /// </summary>
+[RequireComponent(typeof(EnemyController))]
 public class EnemyCombat : MonoBehaviour
 {
     /// <summary>招式选择策略。</summary>
@@ -30,9 +31,6 @@ public class EnemyCombat : MonoBehaviour
     public AttackData attackData;
     [Tooltip("招式选择策略。Random=完全随机 / Distance=按距离匹配 / Sequence=轮换 / Weighted=权重随机。")]
     public AttackSelectionMode selectionMode = AttackSelectionMode.Random;
-
-    [Tooltip("兼容旧版单招：attackDataSet 为空时使用此字段。")]
-    [SerializeField] private AttackData attackData;
 
     [Header("组件引用")]
     [SerializeField] private WeaponController weaponController;
@@ -69,6 +67,9 @@ public class EnemyCombat : MonoBehaviour
     /// <summary>v0.5.4.2 冲锋方向缓存。</summary>
     private Vector2 currentChargeDirection;
 
+    /// <summary>v0.5.4.2 是否正在冲锋（用于碰撞回调判定）。</summary>
+    private bool isCharging;
+
     void Awake()
     {
         if (attackDataSet == null || attackDataSet.Length == 0)
@@ -98,7 +99,6 @@ public class EnemyCombat : MonoBehaviour
     void Update()
     {
         UpdateCooldown();
-        UpdateAiming();
         UpdateAttackState();
     }
 
@@ -110,19 +110,6 @@ public class EnemyCombat : MonoBehaviour
             if (cooldownTimer <= 0f)
                 canAttack = true;
         }
-    }
-
-    /// <summary>
-    /// 普通状态下持续朝向目标。
-    /// 武器方向由 Enemy 自身 transform 控制，不再通过 WeaponController 实时瞄准，避免追击时武器漂移。
-    /// </summary>
-    private void UpdateAiming()
-    {
-        if (currentState != AttackState.None) return;
-        if (currentTarget == null) return;
-
-        // Enemy 武器方向跟随自身 transform，不再每帧调用 weaponController.SetAimDirection。
-        // 攻击开始时会在 EnterWindup 中根据当前 transform.right 锁定方向。
     }
 
     private void UpdateAttackState()
@@ -190,6 +177,12 @@ public class EnemyCombat : MonoBehaviour
     public bool CanAttack => canAttack && currentState == AttackState.None;
 
     /// <summary>
+    /// 是否正在攻击流程中（Windup/Active/Recovery 任一阶段）。
+    /// EnemyAI 用它判断「攻击是否结束」，区别于含冷却判定的 CanAttack。
+    /// </summary>
+    public bool IsAttacking => currentState != AttackState.None;
+
+    /// <summary>
     /// 获取生效的招式数组。多招数组非空则返回之；否则返回单招的退路。
     /// </summary>
     private AttackData[] GetEffectiveAttacks()
@@ -235,8 +228,10 @@ public class EnemyCombat : MonoBehaviour
                 return matched[combatRng.Next(matched.Count)];
 
             case AttackSelectionMode.Sequence:
+                // 先返回当前索引，再递增——保证第一招从 valid[0] 开始轮换
+                int idx = sequenceIndex;
                 sequenceIndex = (sequenceIndex + 1) % valid.Count;
-                return valid[sequenceIndex];
+                return valid[idx];
 
             case AttackSelectionMode.Weighted:
             default:
@@ -355,6 +350,7 @@ public class EnemyCombat : MonoBehaviour
         {
             // 冲锋攻击：开始冲锋位移
             currentChargeDirection = attackDirection;
+            isCharging = true;
         }
 
         // --- 普通近战流程 ---
@@ -391,12 +387,29 @@ public class EnemyCombat : MonoBehaviour
         activeTimer -= Time.deltaTime;
 
         // === v0.5.4.2：冲锋位移 ===
-        if (currentAttackData.IsCharge && currentChargeDirection.sqrMagnitude > 0.001f)
+        if (isCharging && currentChargeDirection.sqrMagnitude > 0.001f)
         {
             float speed = controller != null
                 ? controller.GetStats().MoveSpeed * currentAttackData.ChargeSpeedMultiplier
                 : 3f * currentAttackData.ChargeSpeedMultiplier;
-            controller.SetChargeVelocity(currentChargeDirection * speed);
+            Vector2 chargeVelocity = currentChargeDirection * speed;
+            if (controller == null)
+            {
+                isCharging = false;
+                return;
+            }
+            controller.SetChargeVelocity(chargeVelocity);
+
+            // 冲锋碰撞检测：撞墙或撞到目标时停止位移
+            float checkDist = chargeVelocity.magnitude * Time.deltaTime + 0.1f;
+            int stopLayer = currentAttackData.ChargerCollisionLayer | currentAttackData.TargetLayer;
+            RaycastHit2D hit = Physics2D.Raycast(transform.position, currentChargeDirection, checkDist, stopLayer);
+            if (hit.collider != null && !hit.transform.IsChildOf(transform))
+            {
+                currentChargeDirection = Vector2.zero;
+                isCharging = false;
+                controller.StopMoving();
+            }
         }
 
         if (activeTimer <= 0f)
@@ -451,6 +464,8 @@ public class EnemyCombat : MonoBehaviour
         AttackData endedAttack = currentAttackData;
         currentAttackData = null;
         currentChargeDirection = Vector2.zero;
+        isCharging = false;
+        if (controller != null) controller.StopMoving();
         canAttack = false;
         cooldownTimer = endedAttack.AttackCooldown;
     }
@@ -461,12 +476,15 @@ public class EnemyCombat : MonoBehaviour
     /// </summary>
     void OnDisable()
     {
-        if (currentState == AttackState.None) return;
-
         currentState = AttackState.None;
         currentAttackData = null;
+        currentChargeDirection = Vector2.zero;
+        isCharging = false;
         weaponHitbox?.EndSwing();
         attackIndicator?.Hide();
+        weaponAnimator?.Stop();
+        weaponController?.ResetAimToForward();
+        controller?.StopMoving();
     }
 
     /// <summary>
@@ -500,6 +518,7 @@ public class EnemyCombat : MonoBehaviour
                 currentAttackData.AttackDamage,
                 currentAttackData.ProjectileSpeed,
                 currentAttackData.TargetLayer,
+                currentAttackData.ObstacleLayer,
                 transform
             );
         }
@@ -516,14 +535,31 @@ public class EnemyCombat : MonoBehaviour
             return;
         }
 
+        EnemyAI ai = GetComponent<EnemyAI>();
+        Room ownerRoom = GetComponentInParent<Room>();
+
         for (int i = 0; i < currentAttackData.SummonCount; i++)
         {
+            // 每只生成前检查上限，避免一次召唤多只超上限
+            if (ai != null && !ai.CanSummonMore())
+                break;
+
             float angle = (float)combatRng.NextDouble() * 360f;
             float radius = (float)combatRng.NextDouble() * currentAttackData.SummonRadius;
             Vector2 offset = new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad)) * radius;
             Vector2 spawnPos = (Vector2)transform.position + offset;
 
-            Object.Instantiate(currentAttackData.SummonPrefab, spawnPos, Quaternion.identity, transform.parent);
+            GameObject minion = Object.Instantiate(currentAttackData.SummonPrefab, spawnPos, Quaternion.identity, transform.parent);
+            minion.name = $"{currentAttackData.SummonPrefab.name}_{name}_{i}";
+            Debug.Log($"[EnemyCombat] {name} 召唤了 {minion.name} 在 {spawnPos}");
+
+            // 登记到召唤师的 AI，追踪存活数与死亡回调
+            EnemyHealth mHealth = minion.GetComponent<EnemyHealth>();
+            if (mHealth != null)
+            {
+                if (ai != null) ai.RegisterMinion(mHealth);
+                if (ownerRoom != null) ownerRoom.RegisterEnemy(mHealth);
+            }
         }
     }
 }

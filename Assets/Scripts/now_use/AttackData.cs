@@ -60,6 +60,14 @@ public class AttackData : ScriptableObject
     [Tooltip("可命中目标的 LayerMask")]
     [SerializeField] private LayerMask targetLayer;
 
+    [Header("投射物-墙体")]
+    [Tooltip("投射物遇到此层立即销毁（墙体/障碍物等）。仅 isProjectile=true 时生效。")]
+    [SerializeField] private LayerMask obstacleLayer;
+
+    [Header("冲锋碰撞")]
+    [Tooltip("冲锋时碰到此层停止位移（墙体+目标等）。仅 isCharge=true 时生效。")]
+    [SerializeField] private LayerMask chargerCollisionLayer;
+
     [Header("动画")]
     [Tooltip("动画播放方式")]
     [SerializeField] private AttackAnimationType animationType = AttackAnimationType.Arc;
@@ -119,6 +127,12 @@ public class AttackData : ScriptableObject
     public float AttackDamage => attackDamage;
     public float AttackCooldown => attackCooldown;
     public LayerMask TargetLayer => targetLayer;
+
+    /// <summary>投射物遇到此层立即销毁（墙体/障碍物等）。</summary>
+    public LayerMask ObstacleLayer => obstacleLayer;
+
+    /// <summary>冲锋时碰到此层停止位移（墙体+目标等）。isCharge=true 时与 TargetLayer 做 OR 一起用。</summary>
+    public LayerMask ChargerCollisionLayer => chargerCollisionLayer;
 
     public AttackAnimationType AnimationType => animationType;
     public Ease AttackEase => attackEase;

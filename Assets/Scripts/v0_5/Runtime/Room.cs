@@ -28,6 +28,10 @@ public class Room : MonoBehaviour
 
     private readonly List<EnemyHealth> enemies = new List<EnemyHealth>();
     private readonly List<Door> doors = new List<Door>();
+    private readonly Dictionary<EnemyHealth, RigidbodyConstraints2D> enemyConstraints =
+        new Dictionary<EnemyHealth, RigidbodyConstraints2D>();
+    private readonly Dictionary<EnemyHealth, System.Action> enemyDeathHandlers =
+        new Dictionary<EnemyHealth, System.Action>();
     /// <summary>本房间的门（只读）。生成位置规则（距门 ≥2.5 格）使用。</summary>
     public IReadOnlyList<Door> Doors => doors;
 
@@ -52,9 +56,36 @@ public class Room : MonoBehaviour
     {
         if (enemy == null || enemies.Contains(enemy)) return;
         enemies.Add(enemy);
-        enemy.OnDeath += () => NotifyEnemyDied(enemy);
+        System.Action deathHandler = () => NotifyEnemyDied(enemy);
+        enemyDeathHandlers[enemy] = deathHandler;
+        enemy.OnDeath += deathHandler;
+        var rb = enemy.GetComponent<Rigidbody2D>();
+        if (rb != null) enemyConstraints[enemy] = rb.constraints;
         if (ClearCondition == RoomClearCondition.AllEnemiesDead && State == RoomState.Unvisited)
             SetEnemyDormant(enemy, true);
+    }
+
+    private void LateUpdate()
+    {
+        if (State != RoomState.Active || ClearCondition != RoomClearCondition.AllEnemiesDead)
+            return;
+
+        // OnDeath 是最快路径；这里负责清除已销毁或已死亡但漏发事件的残留引用，
+        // 避免 enemies.Count 永远无法归零而导致房门永久关闭。
+        for (int i = enemies.Count - 1; i >= 0; i--)
+        {
+            EnemyHealth enemy = enemies[i];
+            if (enemy == null)
+            {
+                enemies.RemoveAt(i);
+                continue;
+            }
+
+            if (enemy.IsDead)
+                RemoveEnemy(enemy);
+        }
+
+        TryClearRoom();
     }
 
     /// <summary>休眠开关：禁用 AI/Combat + 冻结刚体；精灵与碰撞保持原样（可见、可被武器打到）。</summary>
@@ -66,7 +97,15 @@ public class Room : MonoBehaviour
         var combat = enemy.GetComponent<EnemyCombat>();
         if (combat != null) combat.enabled = !dormant;
         var rb = enemy.GetComponent<Rigidbody2D>();
-        if (rb != null) rb.constraints = dormant ? RigidbodyConstraints2D.FreezeAll : RigidbodyConstraints2D.FreezeRotation;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+            rb.angularVelocity = 0f;
+            if (dormant)
+                rb.constraints = RigidbodyConstraints2D.FreezeAll;
+            else if (enemyConstraints.TryGetValue(enemy, out RigidbodyConstraints2D originalConstraints))
+                rb.constraints = originalConstraints;
+        }
     }
 
     private void SetAllEnemiesDormant(bool dormant)
@@ -96,11 +135,34 @@ public class Room : MonoBehaviour
     /// <summary>敌人死亡回调（注册时以闭包订阅）。</summary>
     public void NotifyEnemyDied(EnemyHealth enemy)
     {
+        RemoveEnemy(enemy);
+        TryClearRoom();
+    }
+
+    private void RemoveEnemy(EnemyHealth enemy)
+    {
+        if (enemy != null && enemyDeathHandlers.TryGetValue(enemy, out System.Action deathHandler))
+            enemy.OnDeath -= deathHandler;
+
         enemies.Remove(enemy);
+        enemyConstraints.Remove(enemy);
+        enemyDeathHandlers.Remove(enemy);
+    }
+
+    private void TryClearRoom()
+    {
         if (State == RoomState.Active
             && ClearCondition == RoomClearCondition.AllEnemiesDead
             && enemies.Count == 0)
             SetCleared();
+    }
+
+    private void OnDestroy()
+    {
+        foreach (KeyValuePair<EnemyHealth, System.Action> pair in enemyDeathHandlers)
+            if (pair.Key != null) pair.Key.OnDeath -= pair.Value;
+
+        enemyDeathHandlers.Clear();
     }
 
     private void SetCleared()

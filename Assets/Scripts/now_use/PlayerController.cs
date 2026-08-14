@@ -77,15 +77,9 @@ public class PlayerController : MonoBehaviour
 
     // ========== 更新循环 ==========
 
-    void Update()
-    {
-        // 鼠标瞄准与武器朝向由 PlayerAimController + WeaponController 负责，
-        // PlayerController 不再直接旋转角色，避免与 WeaponPivot 叠加导致武器转得比鼠标快。
-    }
-
     void FixedUpdate()
     {
-        if (health.IsDead)
+        if (health != null && health.IsDead)
         {
             rb.linearVelocity = Vector2.zero;
             return;

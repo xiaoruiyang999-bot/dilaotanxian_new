@@ -46,8 +46,6 @@ public class Health : MonoBehaviour, IDamageable
             OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
         }
 
-        Debug.Log($"[Health] TakeDamage raw={damage}, damageToHealth={damageToHealth}, CurrentHealth={CurrentHealth}/{maxHealth}, OnHealthChanged listeners={OnHealthChanged?.GetInvocationList().Length ?? 0}");
-
         if (CurrentHealth <= 0f) Die();
     }
 

@@ -115,15 +115,15 @@ PrefabInstance:
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackDataSet.Array.data[0]
       value:
-      objectReference: {fileID: 11400000, guid: e4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a, type: 2}
+      objectReference: {fileID: 11400000, guid: 7e0665142feb4f7d920a25ff3e57dca5, type: 2}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackDataSet.Array.data[1]
       value:
-      objectReference: {fileID: 11400000, guid: f5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b, type: 2}
+      objectReference: {fileID: 11400000, guid: 210c64513e4f470d9f50994bb63fdb09, type: 2}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackDataSet.Array.data[2]
       value:
-      objectReference: {fileID: 11400000, guid: a6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c, type: 2}
+      objectReference: {fileID: 11400000, guid: 35da26beaf2e476997cc17491a01345a, type: 2}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: selectionMode
       value: 3

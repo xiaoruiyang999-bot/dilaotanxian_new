@@ -26,6 +26,11 @@ public class EnemyStats : MonoBehaviour
     public float DetectionRange => detectionRange;
     public float LosePlayerRange => losePlayerRange;
 
+    public void ApplyMoveSpeedMultiplier(float multiplier)
+    {
+        moveSpeed *= Mathf.Max(0.1f, multiplier);
+    }
+
     [System.Obsolete("攻击距离已迁移至 AttackData，请通过 EnemyCombat / EnemyAI 配置 AttackData。", false)]
     public float AttackRange => attackRange;
 

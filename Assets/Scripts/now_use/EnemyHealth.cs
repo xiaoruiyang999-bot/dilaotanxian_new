@@ -11,6 +11,14 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public float MaxHealth => maxHealth;
     public bool IsDead { get; private set; }
 
+    public void ApplyMaxHealthMultiplier(float multiplier)
+    {
+        if (IsDead) return;
+        maxHealth *= Mathf.Max(0.1f, multiplier);
+        CurrentHealth = maxHealth;
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+    }
+
     // 事件
     public System.Action<float, float> OnHealthChanged; // (current, max) 供血条监听
     public System.Action OnDeath;                        // 死亡通知

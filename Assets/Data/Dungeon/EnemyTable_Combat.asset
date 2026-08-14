@@ -14,8 +14,53 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SpawnTable
   entries:
   - prefab: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-    weight: 1
+    weight: 10
+    minCount: 0
     destructible: 0
     hp: 0
+    encounterCost: 2
+    maxPerRoom: 0
+    role: 0
+  - prefab: {fileID: 6136619345674069884, guid: b100ba02de884a4aadb6af15a56f4cf5, type: 3}
+    weight: 6
+    minCount: 0
+    destructible: 0
+    hp: 0
+    encounterCost: 2
+    maxPerRoom: 2
+    role: 1
+  - prefab: {fileID: 6136619345674069884, guid: b200ba02de884a4aadb6af15a56f4cf6, type: 3}
+    weight: 6
+    minCount: 0
+    destructible: 0
+    hp: 0
+    encounterCost: 2
+    maxPerRoom: 2
+    role: 2
+  - prefab: {fileID: 6136619345674069884, guid: b300ba02de884a4aadb6af15a56f4cf7, type: 3}
+    weight: 4
+    minCount: 0
+    destructible: 0
+    hp: 0
+    encounterCost: 3
+    maxPerRoom: 2
+    role: 0
+  - prefab: {fileID: 6136619345674069884, guid: b400ba02de884a4aadb6af15a56f4cf8, type: 3}
+    weight: 3
+    minCount: 0
+    destructible: 0
+    hp: 0
+    encounterCost: 4
+    maxPerRoom: 1
+    role: 3
   countMin: 2
   countMax: 4
+  layoutMode: 0
+  rowSpacing: 2.5
+  encounterBudgetMin: 5
+  encounterBudgetMax: 9
+  requireFrontline: 1
+  affixChance: 0.2
+  affixes:
+  - {fileID: 11400000, guid: 3cd92ecbb36f1d4409ba225492b0be76, type: 2}
+  - {fileID: 11400000, guid: bff9fb956214bbc499046f411d3e9105, type: 2}

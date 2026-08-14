@@ -119,7 +119,7 @@ PrefabInstance:
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackDataSet.Array.data[2]
       value:
-      objectReference: {fileID: 11400000, guid: d3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f, type: 2}
+      objectReference: {fileID: 11400000, guid: 1d73c5f4a8aa4897b220ae55e20036e7, type: 2}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: selectionMode
       value: 1

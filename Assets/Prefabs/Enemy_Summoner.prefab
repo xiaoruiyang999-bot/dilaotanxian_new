@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &1000000000000000000
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Name
+      value: Enemy_Summoner
+      objectReference: {fileID: 0}
+    - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Color.r
+      value: 0.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Color.g
+      value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Color.b
+      value: 1.0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: maxHealth
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 1048759183800617251, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: maxHealth
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: moveSpeed
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: detectionRange
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: losePlayerRange
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 562794154036049862, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: behaviorConfig
+      value:
+      objectReference: {fileID: 11400000, guid: f3653be6a7ed45d68c043e4725e0f38c, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackDataSet.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackDataSet.Array.data[0]
+      value:
+      objectReference: {fileID: 11400000, guid: a400ba02de884a4aadb6af15a56f4cf4, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value:
+      objectReference: {fileID: 0}
+    - target: {fileID: 2233445566778899001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value:
+      objectReference: {fileID: 11400000, guid: a400ba02de884a4aadb6af15a56f4cf4, type: 2}
+    - target: {fileID: 3344556677889900112, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value:
+      objectReference: {fileID: 11400000, guid: a400ba02de884a4aadb6af15a56f4cf4, type: 2}
+    - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value:
+      objectReference: {fileID: 11400000, guid: a400ba02de884a4aadb6af15a56f4cf4, type: 2}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}

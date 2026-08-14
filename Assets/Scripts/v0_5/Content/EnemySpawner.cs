@@ -12,18 +12,24 @@ public static class EnemySpawner
     {
         if (room == null || table == null) return;
 
-        // v0.5.3.1 保底：minCount>0 的条目无视权重先行（如精英房至少 1 精英）
-        var picks = new List<SpawnTable.Entry>();
-        foreach (SpawnTable.Entry e in table.entries)
-            if (e != null && e.prefab != null)
-                for (int k = 0; k < e.minCount; k++) picks.Add(e);
+        var picks = table.UsesEncounterBudget
+            ? table.BuildEncounter(rng)
+            : new List<SpawnTable.Entry>();
 
-        int count = Mathf.Max(table.RollCount(rng), picks.Count);
-        while (picks.Count < count)
+        if (!table.UsesEncounterBudget)
         {
-            SpawnTable.Entry e = table.PickEntry(rng);
-            if (e == null) break;
-            picks.Add(e);
+            // v0.5.3.1 保底：minCount>0 的条目无视权重先行（如精英房至少 1 精英）
+            foreach (SpawnTable.Entry e in table.entries)
+                if (e != null && e.prefab != null)
+                    for (int k = 0; k < e.minCount; k++) picks.Add(e);
+
+            int count = Mathf.Max(table.RollCount(rng), picks.Count);
+            while (picks.Count < count)
+            {
+                SpawnTable.Entry e = table.PickEntry(rng);
+                if (e == null) break;
+                picks.Add(e);
+            }
         }
 
         // 洗牌（房间子 seed），避免保底条目固定占据生成顺序前部
@@ -39,6 +45,10 @@ public static class EnemySpawner
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";
+
+            EnemyAffixConfig affix = table.RollAffix(rng);
+            if (affix != null)
+                go.AddComponent<EnemyAffix>().Apply(affix);
 
             // v0.5.4.1：注入战斗专用随机源，确保招式选择同 seed 可复现
             var enemyCombat = go.GetComponent<EnemyCombat>();

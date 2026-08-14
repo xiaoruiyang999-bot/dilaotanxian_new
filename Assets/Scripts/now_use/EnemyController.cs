@@ -107,17 +107,23 @@ public class EnemyController : MonoBehaviour
         // 训练木桩由TrainingDummy自己管理重置与视觉，不执行敌人死亡流程
         if (GetComponent<TrainingDummy>() != null) return;
 
+        StopAllCoroutines();
         StopMoving();
-        // 变灰
-        if (sr != null) sr.color = Color.gray;
 
-        // 禁用AI和碰撞
+        // 死亡后立即退出所有运行逻辑。不能保留半秒“灰色尸体”，否则冲锋等
+        // Variant 的子碰撞体、状态机或世界空间 UI 会在 Destroy 前继续留在场景中。
         if (ai != null) ai.enabled = false;
         if (combat != null) combat.enabled = false;
-        if (TryGetComponent<Collider2D>(out var col)) col.enabled = false;
 
-        // 延迟销毁
-        Destroy(gameObject, 0.5f);
+        foreach (Collider2D col in GetComponentsInChildren<Collider2D>(true))
+            col.enabled = false;
+
+        foreach (Renderer rendererComponent in GetComponentsInChildren<Renderer>(true))
+            rendererComponent.enabled = false;
+
+        // SetActive(false) 立即移除视觉、物理和 Update；Destroy 在本帧结束回收对象。
+        gameObject.SetActive(false);
+        Destroy(gameObject);
     }
 
     // ========== 外部访问接口 ==========

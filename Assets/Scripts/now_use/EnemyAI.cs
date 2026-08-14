@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// 敌人AI状态机核心（v0.5.4.2 多行为系统）。
@@ -14,9 +15,6 @@ public class EnemyAI : MonoBehaviour
     [Header("AI配置")]
     [SerializeField] private float patrolRadius = 2f;
     [SerializeField] private float patrolWaitTime = 2f;
-
-    [Header("攻击配置（兼容旧版单招）")]
-    [SerializeField] private AttackData attackData;
 
     [Header("行为配置（v0.5.4.2）")]
     [Tooltip("怪物战斗行为配置。为空时默认 Melee 行为。")]
@@ -40,6 +38,38 @@ public class EnemyAI : MonoBehaviour
     private float skirmishRetreatTimer;
     private Vector2 skirmishRetreatDirection;
     private int aliveMinions; // 召唤师追踪存活小兵数
+    private readonly List<EnemyHealth> summonedMinions = new List<EnemyHealth>(); // 登记的小兵，OnDestroy 解绑用
+
+    // === 召唤上限检查（v0.5.4.2）===
+    /// <summary>还能召唤更多小兵吗？</summary>
+    public bool CanSummonMore()
+    {
+        if (behaviorConfig == null) return true;
+        return aliveMinions < behaviorConfig.maxMinionsAlive;
+    }
+
+    /// <summary>登记一只小兵，钩住其死亡事件以追踪存活数。</summary>
+    public void RegisterMinion(EnemyHealth minionHealth)
+    {
+        if (minionHealth == null || summonedMinions.Contains(minionHealth)) return;
+        minionHealth.OnDeath += OnMinionDied;
+        summonedMinions.Add(minionHealth);
+        aliveMinions = summonedMinions.Count;
+    }
+
+    private void OnMinionDied()
+    {
+        for (int i = summonedMinions.Count - 1; i >= 0; i--)
+        {
+            EnemyHealth minion = summonedMinions[i];
+            if (minion == null || minion.IsDead)
+            {
+                if (minion != null) minion.OnDeath -= OnMinionDied;
+                summonedMinions.RemoveAt(i);
+            }
+        }
+        aliveMinions = summonedMinions.Count;
+    }
 
     // === 属性 ===
     public State CurrentState => currentState;
@@ -63,8 +93,7 @@ public class EnemyAI : MonoBehaviour
         currentPatrolTarget = patrolOrigin;
         currentState = State.Patrol;
 
-        GameObject player = GameObject.FindWithTag("Player");
-        if (player != null) target = player.transform;
+        TryAcquireTarget();
 
         if (health != null)
             health.OnTakeDamage += OnDamaged;
@@ -74,12 +103,35 @@ public class EnemyAI : MonoBehaviour
     {
         if (health != null)
             health.OnTakeDamage -= OnDamaged;
+
+        // 解绑所有登记小兵的死亡回调，避免召唤师先死时小兵死亡触发已销毁对象
+        foreach (var m in summonedMinions)
+        {
+            if (m != null)
+                m.OnDeath -= OnMinionDied;
+        }
+        summonedMinions.Clear();
+    }
+
+    void OnEnable()
+    {
+        TryAcquireTarget();
     }
 
     void Update()
     {
-        if (target == null) return;
+        if (target == null) TryAcquireTarget();
         if (health != null && health.IsDead) return;
+
+        // Without target, fall back to patrol-only movement
+        if (target == null)
+        {
+            if (currentState == State.Chase || currentState == State.Attack)
+                ChangeState(State.ReturnToPatrol);
+            if (currentState == State.Patrol || currentState == State.ReturnToPatrol)
+                UpdatePatrolOnly();
+            return;
+        }
 
         float distToTarget = Vector2.Distance(transform.position, target.position);
         float distToOrigin = Vector2.Distance(transform.position, patrolOrigin);
@@ -249,8 +301,6 @@ public class EnemyAI : MonoBehaviour
             if (combat.TryStartAttack(target))
             {
                 ChangeState(State.Attack);
-                // 攻击完成后触发后退（在 Attack 状态退出时标记）
-                MarkSkirmishRetreat();
             }
         }
         else
@@ -319,9 +369,9 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // 保持距离，召唤
+            // 保持距离，召唤（检查上限）
             controller.StopMoving();
-            if (combat.CanAttack)
+            if (combat.CanAttack && CanSummonMore())
             {
                 if (combat.TryStartAttack(target))
                     ChangeState(State.Attack);
@@ -342,7 +392,7 @@ public class EnemyAI : MonoBehaviour
         if (Behavior != EnemyBehaviorType.Charger)
             controller.StopMoving();
 
-        if (combat.CanAttack)
+        if (!combat.IsAttacking)
         {
             ChangeState(State.Chase);
         }
@@ -380,6 +430,9 @@ public class EnemyAI : MonoBehaviour
             case State.Chase:
                 break;
             case State.Attack:
+                // 攻击结束切回 Chase → Skirmisher 触发一次后退
+                if (Behavior == EnemyBehaviorType.Skirmisher)
+                    MarkSkirmishRetreat();
                 break;
             case State.ReturnToPatrol:
                 break;
@@ -404,6 +457,34 @@ public class EnemyAI : MonoBehaviour
                 combat.SetTarget(null);
                 isSkirmishRetreating = false;
                 break;
+        }
+    }
+
+    private void TryAcquireTarget()
+    {
+        if (target != null) return;
+        GameObject player = GameObject.FindWithTag("Player");
+        if (player != null) target = player.transform;
+    }
+
+    private void UpdatePatrolOnly()
+    {
+        patrolWaitTimer -= Time.deltaTime;
+        if (patrolWaitTimer <= 0f)
+        {
+            currentPatrolTarget = PatrolSystem.GetRandomPatrolPoint(patrolOrigin, patrolRadius);
+            patrolWaitTimer = patrolWaitTime;
+        }
+
+        Vector2 dir = (currentPatrolTarget - transform.position).normalized;
+        if (Vector2.Distance(transform.position, currentPatrolTarget) > 0.2f)
+        {
+            controller.MoveTowards(dir);
+            controller.FaceTowards(dir);
+        }
+        else
+        {
+            controller.StopMoving();
         }
     }
 }

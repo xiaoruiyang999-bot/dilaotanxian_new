@@ -475,7 +475,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   patrolRadius: 2
   patrolWaitTime: 2
-  attackData: {fileID: 11400000, guid: 8300ba02de884a4aadb6af15a56f4cf5, type: 2}
 --- !u!114 &8222448255315628426
 MonoBehaviour:
   m_ObjectHideFlags: 0

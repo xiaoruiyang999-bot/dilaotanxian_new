@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 874e770bbe57a0d4ead014ca74c08c1d, type: 3}
+  m_Name: Affix_Tough
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyAffixConfig
+  displayName: Tough
+  healthMultiplier: 1.75
+  moveSpeedMultiplier: 0.85
+  scaleMultiplier: 1.15
+  tint: {r: 1, g: 0.72, b: 0.45, a: 1}

@@ -58,7 +58,6 @@ public class PlayerStats : MonoBehaviour
         if (absorbed > 0)
         {
             OnStatsChanged?.Invoke();
-            Debug.Log($"[PlayerStats] Armor absorbed {absorbed}, remainingArmor={CurrentArmor}/{maxArmor}");
         }
 
         return damage - absorbed;
