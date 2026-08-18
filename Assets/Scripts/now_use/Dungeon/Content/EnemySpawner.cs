@@ -29,7 +29,6 @@ public static class EnemySpawner
                 if (e != null && e.prefab != null)
                     for (int k = 0; k < e.minCount; k++) picks.Add(e);
 
-            int count = Mathf.Max(table.RollCount(rng), picks.Count);
             while (picks.Count < count)
             {
                 SpawnTable.Entry e = table.PickEntry(rng);
@@ -51,7 +50,8 @@ public static class EnemySpawner
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";
-EnemyAffixConfig affix = table.RollAffix(rng, room.DistanceFromStart);
+
+            EnemyAffixConfig affix = table.RollAffix(rng, room.DistanceFromStart);
             if (affix != null)
                 go.AddComponent<EnemyAffix>().Apply(affix);
 
