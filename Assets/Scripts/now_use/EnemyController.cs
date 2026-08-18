@@ -51,10 +51,10 @@ public class EnemyController : MonoBehaviour
     // ========== 移动接口（供EnemyAI调用）==========
 
     /// <summary>向指定方向移动</summary>
-    public void MoveTowards(Vector2 direction)
+    public void MoveTowards(Vector2 direction, float speedMultiplier = 1f)
     {
         if (stats == null || rb == null) return;
-        rb.linearVelocity = direction.normalized * stats.MoveSpeed;
+        rb.linearVelocity = direction.normalized * stats.MoveSpeed * Mathf.Max(0f, speedMultiplier);
     }
 
     /// <summary>停止移动</summary>

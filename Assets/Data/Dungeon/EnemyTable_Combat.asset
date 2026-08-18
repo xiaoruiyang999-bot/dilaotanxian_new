@@ -21,6 +21,7 @@ MonoBehaviour:
     encounterCost: 2
     maxPerRoom: 0
     role: 0
+    archetype: 0
   - prefab: {fileID: 6136619345674069884, guid: b100ba02de884a4aadb6af15a56f4cf5, type: 3}
     weight: 6
     minCount: 0
@@ -29,6 +30,7 @@ MonoBehaviour:
     encounterCost: 2
     maxPerRoom: 2
     role: 1
+    archetype: 1
   - prefab: {fileID: 6136619345674069884, guid: b200ba02de884a4aadb6af15a56f4cf6, type: 3}
     weight: 6
     minCount: 0
@@ -37,6 +39,7 @@ MonoBehaviour:
     encounterCost: 2
     maxPerRoom: 2
     role: 2
+    archetype: 2
   - prefab: {fileID: 6136619345674069884, guid: b300ba02de884a4aadb6af15a56f4cf7, type: 3}
     weight: 4
     minCount: 0
@@ -45,6 +48,7 @@ MonoBehaviour:
     encounterCost: 3
     maxPerRoom: 2
     role: 0
+    archetype: 3
   - prefab: {fileID: 6136619345674069884, guid: b400ba02de884a4aadb6af15a56f4cf8, type: 3}
     weight: 3
     minCount: 0
@@ -53,6 +57,7 @@ MonoBehaviour:
     encounterCost: 4
     maxPerRoom: 1
     role: 3
+    archetype: 4
   countMin: 2
   countMax: 4
   layoutMode: 0
@@ -60,6 +65,31 @@ MonoBehaviour:
   encounterBudgetMin: 5
   encounterBudgetMax: 9
   requireFrontline: 1
+  distanceBands:
+  - minDistance: 1
+    budgetMin: 4
+    budgetMax: 6
+    affixChance: 0
+    allowSupport: 0
+    maxSpecialRoles: 1
+  - minDistance: 2
+    budgetMin: 5
+    budgetMax: 8
+    affixChance: 0.1
+    allowSupport: 1
+    maxSpecialRoles: 2
+  - minDistance: 4
+    budgetMin: 7
+    budgetMax: 10
+    affixChance: 0.2
+    allowSupport: 1
+    maxSpecialRoles: 3
+  - minDistance: 6
+    budgetMin: 9
+    budgetMax: 12
+    affixChance: 0.3
+    allowSupport: 1
+    maxSpecialRoles: 4
   affixChance: 0.2
   affixes:
   - {fileID: 11400000, guid: 3cd92ecbb36f1d4409ba225492b0be76, type: 2}

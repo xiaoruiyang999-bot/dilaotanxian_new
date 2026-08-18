@@ -11,10 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ec5b9423876462a458f605f78581c111, type: 3}
   m_Name: BehaviorConfig_Ranged
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   behaviorType: 1
-  preferredDistance: {x: 4, y: 7}
+  preferredDistance: {x: 3, y: 6}
   retreatSpeedMultiplier: 1
+  retreatExitDistance: 4
+  approachExitDistance: 6
+  strafeSpeedMultiplier: 0.75
+  repositionInterval: 0.25
+  movementProbeDistance: 0.75
+  lineOfSightCheckInterval: 0.1
+  lineOfSightGraceTime: 0.2
   retreatDuration: 0.5
   skirmishRetreatSpeed: 1.5
   chargeSpeedMultiplier: 3

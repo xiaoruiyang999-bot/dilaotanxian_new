@@ -12,6 +12,7 @@ public class Room : MonoBehaviour
     /// <summary>布局分配的稳定 ID（同 seed 重生成保持一致）。</summary>
     public int Id { get; private set; }
     public RoomType Type { get; private set; }
+    public int DistanceFromStart { get; private set; }
     /// <summary>世界边界（内部可行走区域）。唯一边界来源：布局算术得出，禁止从 Tilemap 反算。</summary>
     public Rect Bounds { get; private set; }
     public Vector2 Center => Bounds.center;
@@ -35,13 +36,15 @@ public class Room : MonoBehaviour
     /// <summary>本房间的门（只读）。生成位置规则（距门 ≥2.5 格）使用。</summary>
     public IReadOnlyList<Door> Doors => doors;
 
-    public void Init(int id, RoomType type, Rect bounds, RoomClearCondition clearCondition, Transform contentRoot)
+    public void Init(int id, RoomType type, Rect bounds, RoomClearCondition clearCondition,
+        Transform contentRoot, int distanceFromStart = 0)
     {
         Id = id;
         Type = type;
         Bounds = bounds;
         ClearCondition = clearCondition;
         ContentRoot = contentRoot;
+        DistanceFromStart = Mathf.Max(0, distanceFromStart);
     }
 
     /// <summary>登记门（Builder 建门时调用，相邻两个房间各登记一次）。</summary>

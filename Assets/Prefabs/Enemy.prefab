@@ -92,7 +92,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fc57a216f12f4de49bb5789475a030e9, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   meshFilter: {fileID: 0}
   meshRenderer: {fileID: 0}
@@ -102,6 +102,7 @@ MonoBehaviour:
   shape: 2
   localOffset: {x: 0, y: 0, z: 0}
   degreesPerSegment: 5
+  lineWidth: 0.16
   indicatorMaterial: {fileID: 0}
 --- !u!1 &3649499591561068728
 GameObject:
@@ -195,6 +196,37 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!1 &5895307186183115078
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1197793278441682825}
+  m_Layer: 0
+  m_Name: ProjectileMuzzle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1197793278441682825
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5895307186183115078}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.8, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3942204860829104876}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6397662869274847100
 GameObject:
   m_ObjectHideFlags: 0
@@ -218,6 +250,8 @@ GameObject:
   - component: {fileID: 2142218676792205493}
   - component: {fileID: 3344556677889900112}
   - component: {fileID: 5500000000000000005}
+  - component: {fileID: 842471313851920371}
+  - component: {fileID: 4736793112043146767}
   m_Layer: 6
   m_Name: Enemy
   m_TagString: Untagged
@@ -241,6 +275,7 @@ Transform:
   - {fileID: 5631469538308985676}
   - {fileID: 7514505526645838272}
   - {fileID: 6460298588559207815}
+  - {fileID: 1197793278441682825}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &4130923934963827647
@@ -422,7 +457,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d6116f85cde51d340b212f52c00945da, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   maxHealth: 3
   moveSpeed: 3
@@ -456,11 +491,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e93e2daa91e1cf74b8aa71ec492fd3d4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  attackDataSet: []
   attackData: {fileID: 11400000, guid: 8300ba02de884a4aadb6af15a56f4cf5, type: 2}
+  selectionMode: 0
   weaponController: {fileID: 2233445566778899001}
   weaponAnimator: {fileID: 2142218676792205493}
   attackIndicator: {fileID: 5793256890460566255}
   weaponHitbox: {fileID: 5500000000000000005}
+  projectileEmitter: {fileID: 0}
 --- !u!114 &562794154036049862
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -475,6 +513,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   patrolRadius: 2
   patrolWaitTime: 2
+  behaviorConfig: {fileID: 0}
 --- !u!114 &8222448255315628426
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -569,6 +608,33 @@ MonoBehaviour:
   weaponPivot: {fileID: 6460298588559207815}
   weaponWidth: 0.2
   drawGizmos: 0
+--- !u!114 &842471313851920371
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6397662869274847100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f18c9928cd67a4349908993314135652, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyPerception
+  lineOfSightCheckInterval: 0.1
+--- !u!114 &4736793112043146767
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6397662869274847100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1f4d3190a5c974b4bad3517236e3b5de, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::ProjectileEmitter
+  muzzle: {fileID: 1197793278441682825}
+  fallbackOffset: 0.8
 --- !u!1 &7738838334378617118
 GameObject:
   m_ObjectHideFlags: 0

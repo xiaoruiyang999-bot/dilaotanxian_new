@@ -37,9 +37,12 @@ public class EnemyCombat : MonoBehaviour
     [SerializeField] private WeaponAnimator weaponAnimator;
     [SerializeField] private AttackIndicator attackIndicator;
     [SerializeField] private WeaponHitbox weaponHitbox;
+    [SerializeField] private ProjectileEmitter projectileEmitter;
 
     /// <summary>外部引用：EnemyController（用于冲锋位移/读取移动速度）。</summary>
     private EnemyController controller;
+    private EnemyPerception perception;
+    private EnemyBehaviorConfig behaviorConfig;
 
     private enum AttackState { None, Windup, Active, Recovery }
     private AttackState currentState = AttackState.None;
@@ -69,6 +72,7 @@ public class EnemyCombat : MonoBehaviour
 
     /// <summary>v0.5.4.2 是否正在冲锋（用于碰撞回调判定）。</summary>
     private bool isCharging;
+    private float lineOfSightLostTimer;
 
     void Awake()
     {
@@ -80,6 +84,9 @@ public class EnemyCombat : MonoBehaviour
         }
 
         controller = GetComponent<EnemyController>();
+        perception = GetComponent<EnemyPerception>();
+        EnemyAI enemyAI = GetComponent<EnemyAI>();
+        behaviorConfig = enemyAI != null ? enemyAI.behaviorConfig : null;
 
         if (weaponController == null)
             weaponController = GetComponent<WeaponController>();
@@ -89,6 +96,8 @@ public class EnemyCombat : MonoBehaviour
             attackIndicator = GetComponentInChildren<AttackIndicator>(true);
         if (weaponHitbox == null)
             weaponHitbox = GetComponent<WeaponHitbox>();
+        if (projectileEmitter == null)
+            projectileEmitter = GetComponent<ProjectileEmitter>();
 
         // 默认随机源：基于 Transform 位置哈希的保底种子。
         // 实际运行时 EnemySpawner 会在生成后立即通过 SetCombatRng() 注入房间子 seed，
@@ -181,6 +190,23 @@ public class EnemyCombat : MonoBehaviour
     /// EnemyAI 用它判断「攻击是否结束」，区别于含冷却判定的 CanAttack。
     /// </summary>
     public bool IsAttacking => currentState != AttackState.None;
+
+    public bool HasProjectileLineOfSight(Transform target, bool forceRefresh = false)
+    {
+        AttackData data = currentAttackData != null ? currentAttackData : PickFirstProjectileAttack();
+        if (data == null || !data.IsProjectile) return true;
+        if (perception == null) return false;
+        return perception.HasLineOfSight(target, data.TargetLayer, data.ObstacleLayer, forceRefresh);
+    }
+
+    private AttackData PickFirstProjectileAttack()
+    {
+        AttackData[] attacks = GetEffectiveAttacks();
+        if (attacks != null)
+            foreach (AttackData candidate in attacks)
+                if (candidate != null && candidate.IsProjectile) return candidate;
+        return attackData != null && attackData.IsProjectile ? attackData : null;
+    }
 
     /// <summary>
     /// 获取生效的招式数组。多招数组非空则返回之；否则返回单招的退路。
@@ -279,6 +305,10 @@ public class EnemyCombat : MonoBehaviour
             return false;
         }
 
+        if (picked.IsProjectile && (perception == null
+            || !perception.HasLineOfSight(target, picked.TargetLayer, picked.ObstacleLayer)))
+            return false;
+
         currentAttackData = picked;
         currentTarget = target;
         EnterWindup();
@@ -290,12 +320,16 @@ public class EnemyCombat : MonoBehaviour
         currentState = AttackState.Windup;
         windupTimer = currentAttackData.WindupTime;
         activeMomentTriggered = false;
+        lineOfSightLostTimer = 0f;
 
         // 攻击方向使用 Enemy 当前朝向，确保动画与判定都基于同一方向。
-        attackDirection = transform.right;
+        attackDirection = currentAttackData.IsProjectile && currentTarget != null
+            ? ((Vector2)(currentTarget.position - transform.position)).normalized
+            : (Vector2)transform.right;
 
         // 同步 AttackData 到 WeaponController 和 WeaponHitbox，确保武器视觉/伤害匹配当前招式。
-        if (weaponController != null)
+        if (weaponController != null && !currentAttackData.IsProjectile
+            && !currentAttackData.IsSummon)
         {
             weaponController.SetAttackData(currentAttackData);
             // Enemy 的 transform 已经由 EnemyAI/EnemyController 旋转朝向目标，
@@ -305,12 +339,21 @@ public class EnemyCombat : MonoBehaviour
             weaponController.LockAttackDirection();
         }
 
-        if (weaponHitbox != null)
+        if (weaponHitbox != null && !currentAttackData.IsProjectile
+            && !currentAttackData.IsSummon)
             weaponHitbox.SetAttackData(currentAttackData);
 
-        // 投射物和召唤类型的攻击不需要扇形预警指示器
-        if (attackIndicator != null && !currentAttackData.IsProjectile && !currentAttackData.IsSummon)
+        if (attackIndicator != null && currentAttackData.IsProjectile)
         {
+            attackIndicator.SetShape(AttackIndicator.ShapeType.Line);
+            attackIndicator.SetRadius(Vector2.Distance(transform.position, currentTarget.position));
+            attackIndicator.SetDirection(attackDirection);
+            attackIndicator.SetColor(attackIndicator.WarningColor);
+            attackIndicator.Show();
+        }
+        else if (attackIndicator != null && !currentAttackData.IsSummon)
+        {
+            attackIndicator.SetShape(AttackIndicator.ShapeType.Sector);
             attackIndicator.SetRadius(currentAttackData.AttackRange);
             attackIndicator.SetAngle(currentAttackData.AttackAngle);
             attackIndicator.SetDirection(attackDirection);
@@ -321,6 +364,29 @@ public class EnemyCombat : MonoBehaviour
 
     private void UpdateWindup()
     {
+        if (currentAttackData != null && currentAttackData.IsProjectile)
+        {
+            bool visible = currentTarget != null && perception != null
+                && perception.HasLineOfSight(currentTarget, currentAttackData.TargetLayer,
+                    currentAttackData.ObstacleLayer);
+            lineOfSightLostTimer = visible ? 0f : lineOfSightLostTimer + Time.deltaTime;
+            float grace = behaviorConfig != null ? behaviorConfig.lineOfSightGraceTime : 0.15f;
+            if (lineOfSightLostTimer > grace)
+            {
+                CancelAttack(false);
+                return;
+            }
+
+            // v0.5.4.4.2 修复：预警跟手。Windup 期间每帧让预警线指向目标当前方向/距离，
+            // 避免预警冻结在 Windup 开始那一刻的位置（玩家一动预警就失效）。
+            if (attackIndicator != null && currentTarget != null)
+            {
+                Vector2 dirToTarget = (Vector2)(currentTarget.position - transform.position);
+                attackIndicator.SetDirection(dirToTarget);
+                attackIndicator.SetRadius(dirToTarget.magnitude);
+            }
+        }
+
         windupTimer -= Time.deltaTime;
         if (windupTimer <= 0f)
             EnterActive();
@@ -328,6 +394,11 @@ public class EnemyCombat : MonoBehaviour
 
     private void EnterActive()
     {
+        // v0.5.4.4.2 修复：删除 EnterActive 的强制 LOS 复查。
+        // 之前 Windup 结束前会 force-refresh 一次 LOS，失败就 CancelAttack——
+        // 这导致「预警已显示、但子弹被拦下不发射」（预警弹道常驻、子弹轨道不出现）。
+        // 躲墙判定已由 UpdateWindup 里的 lineOfSightLostTimer + grace 持续追踪，
+        // 无需在这里二次复查；预警显示与发射现在由同一套 LOS 追踪门控。
         currentState = AttackState.Active;
         activeTimer = currentAttackData.ActiveDuration;
         activeMomentTriggered = false;
@@ -336,7 +407,8 @@ public class EnemyCombat : MonoBehaviour
 
         if (currentAttackData.IsProjectile)
         {
-            // 投射物攻击：在 Active 开始时发射一发投射物
+            // 发射帧先收起预警，避免高覆盖面积的预警 Mesh 遮住弹体。
+            attackIndicator?.Hide();
             FireProjectile();
         }
 
@@ -360,11 +432,14 @@ public class EnemyCombat : MonoBehaviour
             weaponHitbox?.BeginSwing();
         }
 
-        // Active 阶段将指示器切换为危险色（投射物/召唤不需要）
-        if (attackIndicator != null && !currentAttackData.IsProjectile && !currentAttackData.IsSummon)
+        // Active 阶段将预警切换为危险色；召唤攻击不显示范围指示器。
+        if (attackIndicator != null && !currentAttackData.IsSummon
+            && !currentAttackData.IsProjectile)
             attackIndicator.SetColor(attackIndicator.DangerColor);
 
-        if (weaponAnimator != null && weaponController != null)
+        bool usesMeleePresentation = !currentAttackData.IsProjectile
+            && !currentAttackData.IsSummon;
+        if (usesMeleePresentation && weaponAnimator != null && weaponController != null)
         {
             weaponAnimator.Play(
                 weaponController.GetAttackStartAngle(),
@@ -470,6 +545,31 @@ public class EnemyCombat : MonoBehaviour
         cooldownTimer = endedAttack.AttackCooldown;
     }
 
+    private void CancelAttack(bool applyCooldown)
+    {
+        AttackData cancelledAttack = currentAttackData;
+        currentState = AttackState.None;
+        currentAttackData = null;
+        currentChargeDirection = Vector2.zero;
+        isCharging = false;
+        weaponHitbox?.EndSwing();
+        attackIndicator?.Hide();
+        weaponAnimator?.Stop();
+        weaponController?.ResetAimToForward();
+        controller?.StopMoving();
+
+        if (applyCooldown && cancelledAttack != null)
+        {
+            canAttack = false;
+            cooldownTimer = cancelledAttack.AttackCooldown;
+        }
+        else
+        {
+            canAttack = true;
+            cooldownTimer = 0f;
+        }
+    }
+
     /// <summary>
     /// 死亡/失活时中断攻击流程：关闭武器检测并隐藏攻击预警。
     /// 预警显示时会脱离父物体挂到场景根部，若不在此清理，Enemy 被销毁后指示器会成为孤儿常驻显示。
@@ -502,26 +602,12 @@ public class EnemyCombat : MonoBehaviour
     /// </summary>
     private void FireProjectile()
     {
-        if (currentAttackData.ProjectilePrefab == null)
+        if (projectileEmitter == null)
         {
-            Debug.LogWarning($"[EnemyCombat] isProjectile=true 但 projectilePrefab 为空，{name} 无法发射。", this);
+            Debug.LogWarning($"[EnemyCombat] {name} 缺少 ProjectileEmitter，无法发射。", this);
             return;
         }
-
-        Vector2 spawnPos = (Vector2)transform.position + attackDirection * 0.8f;
-        GameObject projGo = Object.Instantiate(currentAttackData.ProjectilePrefab, spawnPos, Quaternion.identity);
-        Projectile projectile = projGo.GetComponent<Projectile>();
-        if (projectile != null)
-        {
-            projectile.Launch(
-                attackDirection,
-                currentAttackData.AttackDamage,
-                currentAttackData.ProjectileSpeed,
-                currentAttackData.TargetLayer,
-                currentAttackData.ObstacleLayer,
-                transform
-            );
-        }
+        projectileEmitter.Emit(currentAttackData, attackDirection, transform);
     }
 
     /// <summary>

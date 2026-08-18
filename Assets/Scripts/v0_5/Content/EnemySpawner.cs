@@ -13,7 +13,7 @@ public static class EnemySpawner
         if (room == null || table == null) return;
 
         var picks = table.UsesEncounterBudget
-            ? table.BuildEncounter(rng)
+            ? table.BuildEncounter(rng, room.DistanceFromStart)
             : new List<SpawnTable.Entry>();
 
         if (!table.UsesEncounterBudget)
@@ -46,12 +46,15 @@ public static class EnemySpawner
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";
 
-            EnemyAffixConfig affix = table.RollAffix(rng);
+            EnemyAffixConfig affix = table.RollAffix(rng, room.DistanceFromStart);
             if (affix != null)
                 go.AddComponent<EnemyAffix>().Apply(affix);
 
             // v0.5.4.1：注入战斗专用随机源，确保招式选择同 seed 可复现
             var enemyCombat = go.GetComponent<EnemyCombat>();
+            var enemyAI = go.GetComponent<EnemyAI>();
+            if (enemyAI != null)
+                enemyAI.SetBehaviorRng(new System.Random(rng.Next()));
             if (enemyCombat != null)
             {
                 // 每个敌人用独立子 seed，避免敌人间招式选择完全同步

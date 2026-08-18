@@ -36,6 +36,22 @@ public class EnemyBehaviorConfig : ScriptableObject
     [Tooltip("后退速度倍率（相对于 moveSpeed）")]
     [Range(0.5f, 2f)] public float retreatSpeedMultiplier = 1f;
 
+    [Tooltip("进入后撤后，达到此距离才退出；应大于 preferredDistance.x。")]
+    [Min(0f)] public float retreatExitDistance = 4.8f;
+
+    [Tooltip("进入接近后，达到此距离才退出；应小于 preferredDistance.y。")]
+    [Min(0f)] public float approachExitDistance = 6.2f;
+
+    [Range(0.25f, 2f)] public float strafeSpeedMultiplier = 0.75f;
+    [Range(0.05f, 1f)] public float repositionInterval = 0.25f;
+    [Min(0.05f)] public float movementProbeDistance = 0.75f;
+
+    [Tooltip("远程 LOS 物理查询的最短间隔（秒）。发射瞬间仍会强制刷新。")]
+    [Range(0.02f, 0.5f)] public float lineOfSightCheckInterval = 0.1f;
+
+    [Tooltip("短暂遮挡宽限（秒），阶段 B 用于 Windup 连续遮挡取消。")]
+    [Range(0f, 0.5f)] public float lineOfSightGraceTime = 0.15f;
+
     [Header("Skirmisher 游击配置")]
     [Tooltip("攻击后强制后退的时间（秒）")]
     [Range(0.1f, 2f)] public float retreatDuration = 0.5f;
@@ -74,9 +90,16 @@ public class EnemyBehaviorConfig : ScriptableObject
     {
         preferredDistance.x = Mathf.Max(0, preferredDistance.x);
         preferredDistance.y = Mathf.Max(preferredDistance.x + 1f, preferredDistance.y);
+        retreatExitDistance = Mathf.Max(preferredDistance.x, retreatExitDistance);
+        approachExitDistance = Mathf.Clamp(approachExitDistance,
+            preferredDistance.x, preferredDistance.y);
+        repositionInterval = Mathf.Max(0.05f, repositionInterval);
+        movementProbeDistance = Mathf.Max(0.05f, movementProbeDistance);
         retreatDuration = Mathf.Max(0, retreatDuration);
         chargeSpeedMultiplier = Mathf.Max(1f, chargeSpeedMultiplier);
         summonCooldown = Mathf.Max(1f, summonCooldown);
         maxMinionsAlive = Mathf.Max(1, maxMinionsAlive);
+        lineOfSightCheckInterval = Mathf.Max(0.02f, lineOfSightCheckInterval);
+        lineOfSightGraceTime = Mathf.Max(0f, lineOfSightGraceTime);
     }
 }

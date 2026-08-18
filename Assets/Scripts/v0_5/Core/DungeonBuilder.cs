@@ -227,7 +227,7 @@ public class DungeonBuilder : MonoBehaviour
         contentGo.transform.localPosition = Vector3.zero;
 
         Room room = go.AddComponent<Room>();
-        room.Init(node.id, node.type, bounds, condition, contentGo.transform);
+        room.Init(node.id, node.type, bounds, condition, contentGo.transform, node.distanceFromStart);
         rooms[node.id] = room;
 
         // 进入触发器：四边内缩 0.5 格，保证玩家完全进房后才触发（防关门夹人）

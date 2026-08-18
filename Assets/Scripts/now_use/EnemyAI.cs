@@ -25,6 +25,7 @@ public class EnemyAI : MonoBehaviour
     private EnemyStats stats;
     private EnemyCombat combat;
     private EnemyHealth health;
+    private EnemyPerception perception;
 
     // 目标与状态
     private Transform target;
@@ -39,6 +40,11 @@ public class EnemyAI : MonoBehaviour
     private Vector2 skirmishRetreatDirection;
     private int aliveMinions; // 召唤师追踪存活小兵数
     private readonly List<EnemyHealth> summonedMinions = new List<EnemyHealth>(); // 登记的小兵，OnDestroy 解绑用
+    private enum RangedMoveMode { Hold, Approach, Retreat, Strafe }
+    private RangedMoveMode rangedMoveMode;
+    private Vector2 rangedStrafeDirection;
+    private float rangedRepositionTimer;
+    private System.Random behaviorRng;
 
     // === 召唤上限检查（v0.5.4.2）===
     /// <summary>还能召唤更多小兵吗？</summary>
@@ -46,6 +52,11 @@ public class EnemyAI : MonoBehaviour
     {
         if (behaviorConfig == null) return true;
         return aliveMinions < behaviorConfig.maxMinionsAlive;
+    }
+
+    public void SetBehaviorRng(System.Random rng)
+    {
+        if (rng != null) behaviorRng = rng;
     }
 
     /// <summary>登记一只小兵，钩住其死亡事件以追踪存活数。</summary>
@@ -88,10 +99,14 @@ public class EnemyAI : MonoBehaviour
         stats = GetComponent<EnemyStats>();
         combat = GetComponent<EnemyCombat>();
         health = GetComponent<EnemyHealth>();
+        perception = GetComponent<EnemyPerception>();
+        if (perception != null && behaviorConfig != null)
+            perception.Configure(behaviorConfig.lineOfSightCheckInterval);
 
         patrolOrigin = transform.position;
         currentPatrolTarget = patrolOrigin;
         currentState = State.Patrol;
+        behaviorRng = new System.Random(transform.position.GetHashCode() ^ 0x51A7);
 
         TryAcquireTarget();
 
@@ -242,18 +257,38 @@ public class EnemyAI : MonoBehaviour
         float minDist = behaviorConfig != null ? behaviorConfig.preferredDistance.x : 4f;
         float maxDist = behaviorConfig != null ? behaviorConfig.preferredDistance.y : 7f;
         float retreatMul = behaviorConfig != null ? behaviorConfig.retreatSpeedMultiplier : 1f;
+        float retreatExit = behaviorConfig != null ? behaviorConfig.retreatExitDistance : minDist + 0.8f;
+        float approachExit = behaviorConfig != null ? behaviorConfig.approachExitDistance : maxDist - 0.8f;
 
         Vector2 dirToTarget = (target.position - transform.position).normalized;
         controller.FaceTowards(dirToTarget);
 
-        if (distToTarget < minDist)
+        if (rangedMoveMode == RangedMoveMode.Retreat && distToTarget >= retreatExit)
+            rangedMoveMode = RangedMoveMode.Hold;
+        else if (rangedMoveMode == RangedMoveMode.Approach && distToTarget <= approachExit)
+            rangedMoveMode = RangedMoveMode.Hold;
+
+        if (rangedMoveMode == RangedMoveMode.Hold || rangedMoveMode == RangedMoveMode.Strafe)
         {
-            // 太近：后退
-            controller.MoveTowards(-dirToTarget * retreatMul);
+            if (distToTarget < minDist) rangedMoveMode = RangedMoveMode.Retreat;
+            else if (distToTarget > maxDist) rangedMoveMode = RangedMoveMode.Approach;
         }
-        else if (distToTarget > maxDist)
+
+        if (rangedMoveMode == RangedMoveMode.Retreat)
         {
-            // 太远：靠近
+            Vector2 retreatDirection = -dirToTarget;
+            float probeDistance = behaviorConfig != null ? behaviorConfig.movementProbeDistance : 0.75f;
+            if (perception == null || perception.IsDirectionClear(retreatDirection, probeDistance))
+            {
+                controller.MoveTowards(retreatDirection, retreatMul);
+            }
+            else
+            {
+                UpdateRangedStrafe(dirToTarget, probeDistance);
+            }
+        }
+        else if (rangedMoveMode == RangedMoveMode.Approach)
+        {
             controller.MoveTowards(dirToTarget);
         }
         else
@@ -261,7 +296,8 @@ public class EnemyAI : MonoBehaviour
             // 在理想距离区间内，停住射击
             controller.StopMoving();
 
-            if (combat.CanAttack)
+            bool hasLineOfSight = perception == null || combat.HasProjectileLineOfSight(target);
+            if (combat.CanAttack && hasLineOfSight)
             {
                 if (combat.TryStartAttack(target))
                     ChangeState(State.Attack);
@@ -272,6 +308,40 @@ public class EnemyAI : MonoBehaviour
         {
             combat.SetTarget(null);
             ChangeState(State.ReturnToPatrol);
+        }
+    }
+
+    private void UpdateRangedStrafe(Vector2 dirToTarget, float probeDistance)
+    {
+        rangedRepositionTimer -= Time.deltaTime;
+        if (rangedRepositionTimer <= 0f || rangedStrafeDirection.sqrMagnitude <= 0.001f
+            || (perception != null && !perception.IsDirectionClear(rangedStrafeDirection, probeDistance)))
+        {
+            Vector2 left = new Vector2(-dirToTarget.y, dirToTarget.x);
+            Vector2 right = -left;
+            bool preferLeft = behaviorRng.Next(2) == 0;
+            Vector2 first = preferLeft ? left : right;
+            Vector2 second = preferLeft ? right : left;
+
+            if (perception == null || perception.IsDirectionClear(first, probeDistance))
+                rangedStrafeDirection = first;
+            else if (perception.IsDirectionClear(second, probeDistance))
+                rangedStrafeDirection = second;
+            else
+                rangedStrafeDirection = Vector2.zero;
+
+            rangedRepositionTimer = behaviorConfig != null ? behaviorConfig.repositionInterval : 0.25f;
+        }
+
+        if (rangedStrafeDirection.sqrMagnitude > 0.001f)
+        {
+            rangedMoveMode = RangedMoveMode.Strafe;
+            float strafeMultiplier = behaviorConfig != null ? behaviorConfig.strafeSpeedMultiplier : 0.75f;
+            controller.MoveTowards(rangedStrafeDirection, strafeMultiplier);
+        }
+        else
+        {
+            controller.StopMoving();
         }
     }
 
@@ -447,6 +517,8 @@ public class EnemyAI : MonoBehaviour
                 currentPatrolTarget = patrolOrigin;
                 patrolWaitTimer = 0f;
                 isSkirmishRetreating = false;
+                rangedMoveMode = RangedMoveMode.Hold;
+                rangedStrafeDirection = Vector2.zero;
                 break;
             case State.Chase:
                 break;
@@ -456,6 +528,8 @@ public class EnemyAI : MonoBehaviour
             case State.ReturnToPatrol:
                 combat.SetTarget(null);
                 isSkirmishRetreating = false;
+                rangedMoveMode = RangedMoveMode.Hold;
+                rangedStrafeDirection = Vector2.zero;
                 break;
         }
     }

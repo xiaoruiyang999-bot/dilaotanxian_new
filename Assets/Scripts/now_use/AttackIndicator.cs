@@ -11,7 +11,8 @@ public class AttackIndicator : MonoBehaviour
     {
         Circle,
         Box,
-        Sector
+        Sector,
+        Line
     }
 
     [Header("渲染组件")]
@@ -32,6 +33,9 @@ public class AttackIndicator : MonoBehaviour
     [Header("扇形细分")]
     [Tooltip("扇形每 5 度一个分段，角度越大分段越多")]
     [SerializeField] private float degreesPerSegment = 5f;
+
+    [Tooltip("方向预警线的世界宽度。")]
+    [SerializeField, Min(0.02f)] private float lineWidth = 0.16f;
 
     [Header("材质")]
     [SerializeField] private Material indicatorMaterial;
@@ -291,6 +295,9 @@ public class AttackIndicator : MonoBehaviour
 
         switch (shape)
         {
+            case ShapeType.Line:
+                BuildLineMesh();
+                break;
             case ShapeType.Sector:
                 BuildSectorMesh();
                 break;
@@ -369,6 +376,28 @@ public class AttackIndicator : MonoBehaviour
     private void BuildSectorMesh()
     {
         BuildSectorMeshInternal(currentAngle, currentDirection);
+    }
+
+    private void BuildLineMesh()
+    {
+        if (indicatorMesh == null) return;
+
+        Vector2 direction = currentDirection.sqrMagnitude > 0.0001f
+            ? currentDirection.normalized : Vector2.right;
+        Vector2 perpendicular = new Vector2(-direction.y, direction.x) * (lineWidth * 0.5f);
+        Vector2 end = direction * currentRadius;
+
+        indicatorMesh.Clear();
+        indicatorMesh.vertices = new[]
+        {
+            (Vector3)(-perpendicular),
+            (Vector3)perpendicular,
+            (Vector3)(end + perpendicular),
+            (Vector3)(end - perpendicular)
+        };
+        indicatorMesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+        indicatorMesh.RecalculateNormals();
+        indicatorMesh.RecalculateBounds();
     }
 
     private void BuildSectorMeshInternal(float angle, Vector2 direction)

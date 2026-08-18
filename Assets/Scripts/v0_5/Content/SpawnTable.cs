@@ -27,6 +27,19 @@ public class SpawnTable : ScriptableObject
         public int maxPerRoom = 0;
         [Tooltip("用于保证前后排组合的战斗职责。")]
         public EnemyEncounterRole role = EnemyEncounterRole.Frontline;
+        public EnemyArchetype archetype = EnemyArchetype.Melee;
+    }
+
+    [System.Serializable]
+    public class EncounterDistanceBand
+    {
+        public int minDistance;
+        public int budgetMin = 5;
+        public int budgetMax = 8;
+        [Range(0f, 1f)] public float affixChance = 0.1f;
+        public bool allowSupport = true;
+        [Tooltip("非 Frontline 职责的总数量上限；0 表示不限。")]
+        public int maxSpecialRoles = 0;
     }
 
     public List<Entry> entries = new List<Entry>();
@@ -43,6 +56,8 @@ public class SpawnTable : ScriptableObject
     public int encounterBudgetMax = 0;
     [Tooltip("预算允许时，至少安排一个 Frontline，避免只有远程/召唤单位。")]
     public bool requireFrontline = true;
+    [Tooltip("按 minDistance 从高到低匹配。为空时使用 encounterBudgetMin/Max。")]
+    public List<EncounterDistanceBand> distanceBands = new List<EncounterDistanceBand>();
 
     [Header("Enemy Affixes")]
     [Range(0f, 1f)] public float affixChance = 0f;
@@ -52,8 +67,15 @@ public class SpawnTable : ScriptableObject
 
     public EnemyAffixConfig RollAffix(System.Random rng)
     {
+        return RollAffix(rng, -1);
+    }
+
+    public EnemyAffixConfig RollAffix(System.Random rng, int distanceFromStart)
+    {
+        EncounterDistanceBand band = distanceFromStart >= 0 ? ResolveBand(distanceFromStart) : null;
+        float chance = band != null ? band.affixChance : affixChance;
         if (rng == null || affixes == null || affixes.Count == 0
-            || rng.NextDouble() >= Mathf.Clamp01(affixChance))
+            || rng.NextDouble() >= Mathf.Clamp01(chance))
             return null;
 
         var valid = new List<EnemyAffixConfig>();
@@ -89,16 +111,28 @@ public class SpawnTable : ScriptableObject
     /// <summary>按成本、职责和房间上限构建敌人组合；仅供 EnemySpawner 使用。</summary>
     public List<Entry> BuildEncounter(System.Random rng)
     {
+        return BuildEncounterInternal(rng, null);
+    }
+
+    public List<Entry> BuildEncounter(System.Random rng, int distanceFromStart)
+    {
+        return BuildEncounterInternal(rng, ResolveBand(distanceFromStart));
+    }
+
+    private List<Entry> BuildEncounterInternal(System.Random rng, EncounterDistanceBand band)
+    {
         var result = new List<Entry>();
         var counts = new Dictionary<Entry, int>();
-        int safeMin = Mathf.Max(1, encounterBudgetMin);
-        int safeMax = Mathf.Max(safeMin, encounterBudgetMax);
+        int configuredMin = band != null ? band.budgetMin : encounterBudgetMin;
+        int configuredMax = band != null ? band.budgetMax : encounterBudgetMax;
+        int safeMin = Mathf.Max(1, configuredMin);
+        int safeMax = Mathf.Max(safeMin, configuredMax);
         int budget = rng.Next(safeMin, safeMax + 1);
 
         // 配置的保底数量优先，并同样消耗预算。
         foreach (Entry entry in entries)
         {
-            if (!IsValidEncounterEntry(entry)) continue;
+            if (!IsValidEncounterEntry(entry) || !AllowedByBand(entry, result, band)) continue;
             int minimum = Mathf.Max(0, entry.minCount);
             for (int i = 0; i < minimum && CanAdd(entry, counts); i++)
             {
@@ -109,7 +143,8 @@ public class SpawnTable : ScriptableObject
 
         if (requireFrontline && !ContainsRole(result, EnemyEncounterRole.Frontline))
         {
-            Entry frontline = PickAffordable(rng, counts, budget, EnemyEncounterRole.Frontline);
+            Entry frontline = PickAffordable(rng, counts, result, budget,
+                EnemyEncounterRole.Frontline, band);
             if (frontline != null)
             {
                 AddPick(frontline, result, counts);
@@ -121,7 +156,7 @@ public class SpawnTable : ScriptableObject
         int safety = 64;
         while (budget > 0 && safety-- > 0)
         {
-            Entry picked = PickAffordable(rng, counts, budget, null);
+            Entry picked = PickAffordable(rng, counts, result, budget, null, band);
             if (picked == null) break;
             AddPick(picked, result, counts);
             budget -= CostOf(picked);
@@ -130,13 +165,15 @@ public class SpawnTable : ScriptableObject
         return result;
     }
 
-    private Entry PickAffordable(System.Random rng, Dictionary<Entry, int> counts, int budget,
-        EnemyEncounterRole? requiredRole)
+    private Entry PickAffordable(System.Random rng, Dictionary<Entry, int> counts,
+        List<Entry> currentPicks, int budget, EnemyEncounterRole? requiredRole,
+        EncounterDistanceBand band)
     {
         int totalWeight = 0;
         foreach (Entry entry in entries)
             if (IsValidEncounterEntry(entry) && CanAdd(entry, counts)
                 && CostOf(entry) <= budget
+                && AllowedByBand(entry, currentPicks, band)
                 && (!requiredRole.HasValue || entry.role == requiredRole.Value))
                 totalWeight += Mathf.Max(0, entry.weight);
 
@@ -146,12 +183,55 @@ public class SpawnTable : ScriptableObject
         {
             if (!IsValidEncounterEntry(entry) || !CanAdd(entry, counts)
                 || CostOf(entry) > budget
+                || !AllowedByBand(entry, currentPicks, band)
                 || (requiredRole.HasValue && entry.role != requiredRole.Value))
                 continue;
             roll -= Mathf.Max(0, entry.weight);
             if (roll < 0) return entry;
         }
         return null;
+    }
+
+    private EncounterDistanceBand ResolveBand(int distanceFromStart)
+    {
+        EncounterDistanceBand selected = null;
+        foreach (EncounterDistanceBand band in distanceBands)
+        {
+            if (band == null || distanceFromStart < band.minDistance) continue;
+            if (selected == null || band.minDistance > selected.minDistance) selected = band;
+        }
+        return selected;
+    }
+
+    private static bool AllowedByBand(Entry candidate, List<Entry> currentPicks,
+        EncounterDistanceBand band)
+    {
+        if (band == null) return !CreatesForbiddenPressureCombo(candidate, currentPicks);
+        if (!band.allowSupport && candidate.role == EnemyEncounterRole.Support) return false;
+
+        if (band.maxSpecialRoles > 0 && candidate.role != EnemyEncounterRole.Frontline)
+        {
+            int specials = 0;
+            foreach (Entry picked in currentPicks)
+                if (picked.role != EnemyEncounterRole.Frontline) specials++;
+            if (specials >= band.maxSpecialRoles) return false;
+        }
+
+        return !CreatesForbiddenPressureCombo(candidate, currentPicks);
+    }
+
+    private static bool CreatesForbiddenPressureCombo(Entry candidate, List<Entry> currentPicks)
+    {
+        bool hasSummoner = candidate.archetype == EnemyArchetype.Summoner;
+        bool hasCharger = candidate.archetype == EnemyArchetype.Charger;
+        int rangedCount = candidate.archetype == EnemyArchetype.Ranged ? 1 : 0;
+        foreach (Entry picked in currentPicks)
+        {
+            hasSummoner |= picked.archetype == EnemyArchetype.Summoner;
+            hasCharger |= picked.archetype == EnemyArchetype.Charger;
+            if (picked.archetype == EnemyArchetype.Ranged) rangedCount++;
+        }
+        return hasSummoner && hasCharger && rangedCount >= 2;
     }
 
     private static bool IsValidEncounterEntry(Entry entry) =>
@@ -183,3 +263,4 @@ public class SpawnTable : ScriptableObject
 public enum SpawnLayout { Random, Row }
 
 public enum EnemyEncounterRole { Frontline, Ranged, Flanker, Support }
+public enum EnemyArchetype { Melee, Ranged, Skirmisher, Charger, Summoner }
