@@ -23,14 +23,20 @@ public abstract class Interactable : MonoBehaviour
     {
         if (consumed || !other.CompareTag("Player")) return;
         consumed = true;
-        ApplyEffect(other);
+        OnConsumed(other);
+    }
+
+    /// <summary>消耗钩子（v0.5.4）：默认 = 旧行为（立即结算 + 压暗）；宝箱（先演动画）/传送门（不压暗）覆盖。</summary>
+    protected virtual void OnConsumed(Collider2D player)
+    {
+        ApplyEffect(player);
         SetConsumedVisual();
     }
 
     /// <summary>一次性效果（治疗/回甲/祭坛±等），由子类实现。</summary>
     protected abstract void ApplyEffect(Collider2D player);
 
-    private void SetConsumedVisual()
+    protected void SetConsumedVisual()
     {
         if (visual == null) return;
         Color c = visual.color;

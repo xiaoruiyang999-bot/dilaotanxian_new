@@ -49,7 +49,7 @@ public class DungeonBuilder : MonoBehaviour
 
     /// <summary>按布局重建整层地牢，返回起始房中心（世界坐标）。
     /// layoutSeed 用于派生每个房间的内容子 seed（同 seed 下地图与内容完全一致）。</summary>
-    public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed)
+    public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
         roomW = config.roomWidth;
         roomH = config.roomHeight;
@@ -69,20 +69,21 @@ public class DungeonBuilder : MonoBehaviour
         foreach (KeyValuePair<RoomConnection, Rect> kv in doorRects) CreateDoor(kv.Key, kv.Value);
 
         // v0.5.2：内容生成放在最后——位置规则要读门洞中心（门已建）、敌人登记要 Room 已 Init。
-        foreach (RoomNode node in layout.rooms) SpawnContent(node, layoutSeed);
+        foreach (RoomNode node in layout.rooms) SpawnContent(node, layoutSeed, config, floorNumber);
 
         return GetRoomCenterWorld(layout.startRoom);
     }
 
-    /// <summary>按房间类型取 Profile 生成内容（子 seed 派生：seed*7919 + roomId）。Start 等无 Profile 房自然为空。</summary>
-    private void SpawnContent(RoomNode node, int layoutSeed)
+    /// <summary>按房间类型取 Profile 生成内容（子 seed 派生：seed*7919 + roomId）。Start 等无 Profile 房自然为空。
+    /// v0.5.4：floorNumber 透传 EnemySpawner 做楼层难度注入。</summary>
+    private void SpawnContent(RoomNode node, int layoutSeed, DungeonConfig config, int floorNumber)
     {
         RoomContentProfile profile = GetTypeConfig(node.type)?.contentProfile;
         if (profile == null) return;
         if (!rooms.TryGetValue(node.id, out Room room)) return;
 
         var rng = new System.Random(layoutSeed * 7919 + node.id);
-        EnemySpawner.Spawn(room, profile.enemyTable, rng);
+        EnemySpawner.Spawn(room, profile.enemyTable, rng, floorNumber, config);
         ObstacleSpawner.Spawn(room, profile.obstacleTable, rng);
         DecorationSpawner.Spawn(room, profile.decorationTable, rng);
         InteractableSpawner.Spawn(room, profile.interactableTable, rng);

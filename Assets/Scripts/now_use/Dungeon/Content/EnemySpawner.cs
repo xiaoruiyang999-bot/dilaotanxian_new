@@ -8,7 +8,9 @@ using UnityEngine;
 /// </summary>
 public static class EnemySpawner
 {
-    public static void Spawn(Room room, SpawnTable table, System.Random rng)
+    /// <summary>按权重表在房间内随机放敌人。v0.5.4：floorNumber&gt;1 时注入楼层难度
+    ///（数量 +enemyCountBonusPerFloor×(floor-1) 封顶 8，HP ×(1+hpMultiplierPerFloor×(floor-1))）。</summary>
+    public static void Spawn(Room room, SpawnTable table, System.Random rng, int floorNumber = 1, DungeonConfig config = null)
     {
         if (room == null || table == null) return;
 
@@ -16,7 +18,11 @@ public static class EnemySpawner
             ? table.BuildEncounter(rng, room.DistanceFromStart)
             : new List<SpawnTable.Entry>();
 
-        if (!table.UsesEncounterBudget)
+        int count = Mathf.Max(table.RollCount(rng), picks.Count);
+        // v0.5.4 楼层数量递增（封顶 8/房）
+        if (config != null && floorNumber > 1)
+            count = Mathf.Max(Mathf.Min(count + config.enemyCountBonusPerFloor * (floorNumber - 1), 8), picks.Count);
+        while (picks.Count < count)
         {
             // v0.5.3.1 保底：minCount>0 的条目无视权重先行（如精英房至少 1 精英）
             foreach (SpawnTable.Entry e in table.entries)
@@ -45,8 +51,7 @@ public static class EnemySpawner
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";
-
-            EnemyAffixConfig affix = table.RollAffix(rng, room.DistanceFromStart);
+EnemyAffixConfig affix = table.RollAffix(rng, room.DistanceFromStart);
             if (affix != null)
                 go.AddComponent<EnemyAffix>().Apply(affix);
 
@@ -62,6 +67,9 @@ public static class EnemySpawner
                 enemyCombat.SetCombatRng(combatRng);
             }
 
+            // v0.5.4 楼层 HP 缩放（dmgMul 预留恒 1，见 EnemyStats.ApplyFloorScale 注释）
+            if (config != null && floorNumber > 1)
+                go.GetComponent<EnemyStats>()?.ApplyFloorScale(1f + config.hpMultiplierPerFloor * (floorNumber - 1), 1f);
             room.RegisterEnemy(go.GetComponent<EnemyHealth>());
         }
     }

@@ -40,6 +40,16 @@ public class EnemyStats : MonoBehaviour
     [System.Obsolete("攻击冷却已迁移至 AttackData，请通过 EnemyCombat / EnemyAI 配置 AttackData。", false)]
     public float AttackCooldown => attackCooldown;
 
+    /// <summary>楼层难度缩放（v0.5.4，计划书五-E）：HP 经 EnemyHealth 缩放（血条/伤害链路只读 EnemyHealth，
+    /// 其 Awake 已初始化 CurrentHealth，缩放必须同步刷新）；本类 maxHealth 为手工同步字段一并缩放保持一致。
+    /// dmgMul 预留：攻击数值已迁移至 AttackData（共享 SO，不能就地缩放），真实攻击递增属未来版本，v0.5.4 恒传 1。</summary>
+    public void ApplyFloorScale(float hpMul, float dmgMul)
+    {
+        maxHealth *= hpMul;
+        attackDamage *= dmgMul;   // 已弃用的兼容字段，仅前向兼容
+        if (TryGetComponent(out EnemyHealth eh)) eh.ScaleMaxHealth(hpMul);
+    }
+
     void OnValidate()
     {
         // 确保丢失距离大于检测距离
