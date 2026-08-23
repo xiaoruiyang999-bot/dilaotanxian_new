@@ -1,0 +1,43 @@
+---
+name: project-dev-rules
+description: 本 Unity 地牢 Roguelite 项目的开发红线与架构规则（写代码前必读）。凡任务涉及以下任一情况必须先加载本 skill——编写/修改任何 C# 脚本、改动场景或 Prefab、导入图片/序列帧资产、物理检测(LOS/投射物/碰撞)、战斗判定或预警、敌人 AI/死亡流程、玩家状态、YAML 手术、使用 UnitySkills 操作编辑器。即使只是"加个小功能/改一行"也要过一遍红线，历史上 90% 的事故来自小改动踩了已知坑。
+---
+
+# 项目开发红线与速查（真源：根目录《开发必读_核心信息整合.md》，更新须同步）
+
+## 架构铁律
+1. **分层禁跨层**：输入→决策(AI/Room状态机)→执行(Combat状态机)→判定(WeaponHitbox)→数据(AttackData SO)→表现/UI。表现层组件禁止逻辑（AttackIndicator 类注释即合同）。
+2. **事件驱动**：System.Action 事件解耦，订阅/退订必须配对（OnEnable/OnDisable 或 OnDestroy）。
+3. **SO 同源原则**：预警=判定=武器视觉消费同一份 AttackData；判定几何唯一真源 `WeaponHitbox.CurrentBoxGeometry`（长=AttackRange×lossyScale，宽=weaponWidth×lossyScale 的 OverlapBox，从攻击者中心沿攻击方向延伸）。预警用 Box 形状 + SetBoxSize 消费它，不得自算。
+4. 脚本只用 `Assets/Scripts/now_use/`；v0_1~v0_4 归档、Framework/ 死代码，禁止引用。
+
+## 写代码前 Checklist
+- [ ] 属于哪一层？跨层了吗？
+- [ ] 新事件订阅有配对退订？协程互斥（先 Stop 旧的）？
+- [ ] 每帧零 GC：物理查询 NonAlloc+静态缓冲，GetComponent 缓存
+- [ ] **Trigger 只参与逻辑事件**：LOS 射线/投射物/移动探测一律 `isTrigger` 跳过；实体碰撞（墙 TilemapCollider）才阻挡。投射物命中无 IDamageable 时：Trigger 穿透、非 Trigger 挡弹销毁
+- [ ] 敌人 OnDisable 用 `EnemyHealth.IsDead` 区分死亡（销毁指示器）vs 休眠（只 Hide 复用）；脱离父物体的对象防孤儿泄漏
+- [ ] 玩家对象从不销毁（死亡=ResetHealth+Respawn）；**新增玩家状态字段必须加进 Respawn 重置**
+- [ ] GetComponentsInChildren 递归收集时确认是否排除特定子树（狼人视觉被误藏教训）
+- [ ] 720px 序列帧默认 7.2 世界单位，需 scale/PPU；`#if UNITY_EDITOR` 便利代码打包前资源化
+- [ ] 完成后 UnitySkills `script_get_compile_feedback` 验证（Domain Reload 断连=等待重试）
+
+## 踩坑红线（按代价排序）
+- **R1** prefab 实例上 component_add 会被 scene_load 丢弃 → 组件进 prefab 本体（`prefab_apply_overrides`）
+- **R2** YAML 手术：备份→**行尾感知**（场景 LF / Player.prefab **CRLF**）→fileID 查重→组件三处双向（块+GO m_Component+父TF m_Children）→删根对象同步 SceneRoots→`scene_load` 重载验证。UnitySkills 属性设置用公开名（`sprite` 非 `m_Sprite`），资产引用走 `assetPath=`
+- **R3** `textureType=Sprite` 默认 Multiple 自动切片（透明碎片假象）→ 必须显式 `spriteMode=Single`；meta 的 internalIDToNameTable 应为 `213: 21300000 → 文件名`
+- **R4** 外部改场景后必须 Reload 再 Play（旧内存副本假象：移动键全失灵/双玩家抢键盘）
+- **R5** Play 模式编辑是运行时的（退出还原）；Domain Reload 断服务=等待，长时不恢复去面板重开
+- **R6** 层现状：墙/玩家/交互物全在 Default，Obstacle=可破坏障碍；AttackData.obstacleLayer 指 Obstacle
+- **R8** 三态攻击：Windup 预警（脱离父物体防跟随）→ Active 判定 → Recovery；远程预警线 Windup 内每帧跟手 + LOS 门控（丢失超 grace 取消进半额冷却）
+- **R9** 变色协程：互斥 + 基线色持久缓存（勿从 sr.color 现读）
+- **R10** 同帧多命中音效用 PlayOneShot；**R11** 无敌帧 `Health.GrantIFrames`（Time.time 口径，hit-stop 期间冷却暂停属预期）
+- **R13** 集合引用比较陷阱：FrameAnimator.Play 复制新 List，外部引用比较恒不等→每帧重播卡帧 0。跨对象状态跟踪用枚举/标记
+- **R14** Play 中改代码不热生效：editor_stop → asset_refresh 等编译 → editor_play；日志验证看格式特征（新增字段出现=新代码生效）
+
+## 速查
+- 键位：WASD / 左键攻击 / Space=Dash(无敌帧) / **T=狼人变身**
+- 事件：`DungeonManager.OnGenerated`（楼层重建链路）/ `Room.OnRoomEntered/OnRoomCleared` / `Health.OnDeath` / `WeaponHitbox.OnHit`
+- 反馈：命中三件套挂 WeaponHitbox（"hit"+HitStop0.03+轻震）；受击在 Health（"hurt"+重震）；音效 `AudioManager.PlaySFX(id)` 未配置静默
+- 狼人：素材 `Assets/Art/Werewolf/{Walk_L,Walk_R,Transform_L}`，左右两套素材不 flipX；变身帧仅 4 张（005+ 渐变背景待源头出透明版）；素材工具在 `E:\WeGameApps\The animation of Unity\狼人\`（mirror_frames.py / remove_bg.py）
+- 遗留债清单见 v0.5.4.4.4 文档第 4 节；里程碑任务总账见《项目长期计划_Roguelite路线图》

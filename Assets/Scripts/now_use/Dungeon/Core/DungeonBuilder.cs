@@ -49,8 +49,11 @@ public class DungeonBuilder : MonoBehaviour
 
     /// <summary>按布局重建整层地牢，返回起始房中心（世界坐标）。
     /// layoutSeed 用于派生每个房间的内容子 seed（同 seed 下地图与内容完全一致）。</summary>
+    private int floorTheme = 1;   // M3：当前层主题缓存
+
     public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
+        floorTheme = floorNumber;   // M3：主题缓存
         roomW = config.roomWidth;
         roomH = config.roomHeight;
         doorW = config.doorWidth;
@@ -138,6 +141,8 @@ public class DungeonBuilder : MonoBehaviour
     {
         RectInt rect = TileRect(node);
         Color tint = GetTypeConfig(node.type)?.floorTint ?? Color.clear;
+        // M3·v0.8.1：房型色 × 主题色叠乘（废墟白/墓穴冷蓝/熔炉暖红，3 层一换）
+        tint *= DungeonManager.GetFloorTheme(floorTheme).tint;
 
         for (int x = 0; x < rect.width; x++)
         {
@@ -233,6 +238,9 @@ public class DungeonBuilder : MonoBehaviour
 
         // 进入触发器：四边内缩 0.5 格，保证玩家完全进房后才触发（防关门夹人）
         var triggerGo = new GameObject("RoomTrigger");
+        // v0.5.4.4.3：RoomTrigger 放到 Ignore Raycast layer，避免被 EnemyPerception 的
+        // LOS 射线（Layer0+7）拦截成障碍物，导致远程/召唤敌人永远看不到玩家。
+        triggerGo.layer = LayerMask.NameToLayer("Ignore Raycast");
         triggerGo.transform.SetParent(go.transform, false);
         triggerGo.transform.localPosition = Vector3.zero;
         var triggerCol = triggerGo.AddComponent<BoxCollider2D>();

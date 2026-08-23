@@ -8,29 +8,61 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Name
-      value: Enemy_Ranged
+    - target: {fileID: 3649499591561068728, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 562794154036049862, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: behaviorConfig
+      value: 
+      objectReference: {fileID: 11400000, guid: 7f21a36d8a49e1549b855f82a1be1c9e, type: 2}
+    - target: {fileID: 1048759183800617251, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: maxHealth
+      value: 120
+      objectReference: {fileID: 0}
+    - target: {fileID: 1087170248208308388, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 1087170248208308388, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 2233445566778899001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value: 
+      objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
+    - target: {fileID: 3344556677889900112, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value: 
+      objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Color.r
-      value: 0.4
+      propertyPath: m_Color.b
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_Color.g
       value: 0.6
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Color.b
-      value: 1.0
+      propertyPath: m_Color.r
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 4736793112043146767, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: muzzle
+      value: 
+      objectReference: {fileID: 2125659511975442313}
+    - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value: 
+      objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
+    - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Name
+      value: Enemy_Ranged
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 1048759183800617251, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: maxHealth
-      value: 2
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: moveSpeed
@@ -44,36 +76,25 @@ PrefabInstance:
       propertyPath: losePlayerRange
       value: 14
       objectReference: {fileID: 0}
-    - target: {fileID: 562794154036049862, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: behaviorConfig
-      value:
-      objectReference: {fileID: 11400000, guid: 7f21a36d8a49e1549b855f82a1be1c9e, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackDataSet.Array.size
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackDataSet.Array.data[0]
-      value:
-      objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
-    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackData
-      value:
-      objectReference: {fileID: 0}
-    - target: {fileID: 2233445566778899001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackData
-      value:
-      objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
-    - target: {fileID: 3344556677889900112, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackData
-      value:
-      objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
-    - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackData
-      value:
+      propertyPath: 'attackDataSet.Array.data[0]'
+      value: 
       objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+--- !u!4 &2125659511975442313 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1197793278441682825, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+  m_PrefabInstance: {fileID: 1000000000000000000}
+  m_PrefabAsset: {fileID: 0}

@@ -96,7 +96,7 @@ MonoBehaviour:
   visual: {fileID: 8433136605905702321}
   consumedBrightness: 0.35
   supplyType: 1
-  amount: 2
+  amount: 20
 --- !u!1 &3843921119859843079
 GameObject:
   m_ObjectHideFlags: 0

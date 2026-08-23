@@ -8,8 +8,8 @@ using UnityEngine;
 public class EnemyStats : MonoBehaviour
 {
     [Header("基础属性")]
-    [SerializeField] private float maxHealth = 3f;
-    [SerializeField] private float moveSpeed = 3f;
+    [SerializeField] private float maxHealth = 150f;
+    [SerializeField] private float moveSpeed = 4f;
 
     [Header("AI检测")]
     [SerializeField] private float detectionRange = 5f;     // 发现玩家的距离

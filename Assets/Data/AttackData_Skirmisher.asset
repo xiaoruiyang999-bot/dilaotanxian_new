@@ -18,7 +18,7 @@ MonoBehaviour:
   recoveryTime: 0.3
   attackRange: 1.5
   attackAngle: 100
-  attackDamage: 1
+  attackDamage: 22
   attackCooldown: 0.6
   targetLayer:
     serializedVersion: 2

@@ -8,13 +8,25 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: phase2Attacks.Array.data[0]
+      value: 
+      objectReference: {fileID: 11400000, guid: 514c8444bec47b7478015d2f3b53c1c3, type: 2}
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: phase2Attacks.Array.data[1]
+      value: 
+      objectReference: {fileID: 11400000, guid: 4041da820c184a3bad77e120d91ce616, type: 2}
     - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_Name
       value: Enemy_Boss
       objectReference: {fileID: 0}
     - target: {fileID: 1048759183800617251, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
-      value: 20
+      value: 9000
       objectReference: {fileID: 0}
     - target: {fileID: 1087170248208308388, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_LocalScale.y
@@ -94,7 +106,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
-      value: 20
+      value: 9000
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: moveSpeed

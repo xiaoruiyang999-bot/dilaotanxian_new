@@ -37,6 +37,27 @@ public class WeaponHitbox : MonoBehaviour
     private readonly HashSet<IDamageable> hitThisSwing = new HashSet<IDamageable>();
     private bool isSwinging;
 
+    /// <summary>伤害乘数（M2·v0.7.1）：玩家侧由 PlayerCombat 每次攻击前刷新（升级×兽化叠乘）；敌人侧保持 1。</summary>
+    public float DamageMultiplier { get; set; } = 1f;
+    /// <summary>本次攻击的暴击乘数（M4：PlayerCombat 每次攻击前 roll——暴击=CD 值，否则 1）。</summary>
+    public float CritMultiplier { get; set; } = 1f;
+
+    /// <summary>
+    /// 当前判定矩形几何（x=长度, y=宽度），已含 lossyScale（v0.6.2）。
+    /// 预警显示（AttackIndicator 的 Box 形状）消费此属性，保证"所见即所判"——
+    /// 与 Tick() 用同一套公式，是 v0.4.5.2 Final5"三者同源"原则的回归。
+    /// </summary>
+    public Vector2 CurrentBoxGeometry
+    {
+        get
+        {
+            float scale = weaponPivot != null ? weaponPivot.lossyScale.x : 1f;
+            float length = (attackData != null ? attackData.AttackRange : 1f) * scale;
+            float width = attackData != null && attackData.OverrideWidth > 0f ? attackData.OverrideWidth : weaponWidth;
+            return new Vector2(length, width * scale);
+        }
+    }
+
     void Awake()
     {
         // 宽度/pivot 单一数据源：存在 WeaponController 时以其为准，序列化值仅作兜底。
@@ -75,7 +96,7 @@ public class WeaponHitbox : MonoBehaviour
 
         float scale = weaponPivot.lossyScale.x;
         float length = attackData.AttackRange * scale;
-        float width = weaponWidth * scale;
+        float width = (attackData.OverrideWidth > 0f ? attackData.OverrideWidth : weaponWidth) * scale;
         Vector2 dir = weaponPivot.right;
         Vector2 center = (Vector2)weaponPivot.position + dir * (length * 0.5f);
         float angle = weaponPivot.eulerAngles.z;
@@ -100,8 +121,14 @@ public class WeaponHitbox : MonoBehaviour
             IDamageable damageable = FindDamageableInParents(hit.transform);
             if (damageable != null && hitThisSwing.Add(damageable))
             {
-                damageable.TakeDamage(attackData.AttackDamage);
+                damageable.TakeDamage(attackData.AttackDamage * DamageMultiplier * CritMultiplier);
                 OnHit?.Invoke(damageable, hit.ClosestPoint(center));
+
+                // 命中反馈三件套（M1.5·v0.6.1）：音效 + 打击停顿 + 轻震屏。
+                // 玩家与敌人共用本组件，双方命中都有反馈。
+                AudioManager.PlaySFX("hit");
+                HitStop.Request(0.03f);
+                CameraFollow.ShakeMain(0.05f, 0.08f);
             }
         }
     }

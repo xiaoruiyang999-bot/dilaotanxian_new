@@ -252,6 +252,7 @@ GameObject:
   - component: {fileID: 5500000000000000005}
   - component: {fileID: 842471313851920371}
   - component: {fileID: 4736793112043146767}
+  - component: {fileID: 6660000000000000001}
   m_Layer: 6
   m_Name: Enemy
   m_TagString: Untagged
@@ -459,8 +460,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6116f85cde51d340b212f52c00945da, type: 3}
   m_Name:
   m_EditorClassIdentifier: 
-  maxHealth: 3
-  moveSpeed: 3
+  maxHealth: 150
+  moveSpeed: 4
   detectionRange: 5
   losePlayerRange: 8
   attackRange: 1.2
@@ -698,3 +699,19 @@ Transform:
   - {fileID: 1087170248208308388}
   m_Father: {fileID: 3942204860829104876}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6660000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6397662869274847100}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2c583bfe18000243817d4609ff49199, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  phase2Threshold: 0.5
+  phase2Attacks: []
+  phase2CooldownScale: 0.7
+  phase2Tint: {r: 1, g: 0.35, b: 0.25, a: 1}

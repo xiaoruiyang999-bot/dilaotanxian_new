@@ -25,6 +25,8 @@ public class RunManager : MonoBehaviour
     private Health playerHealth;
     private PlayerStats playerStats;
     private Room bossRoomSubscribed;
+    private float runStartTime;   // M3·v0.8.1 通关用时统计
+    private const int VictoryFloor = 9;   // 决策①：9 层通关制
 
     void Start()
     {
@@ -36,6 +38,7 @@ public class RunManager : MonoBehaviour
     {
         yield return null;
         MainSeed = dungeonManager.ActiveSeed;
+        runStartTime = Time.time;   // M3：本局计时起点
         player = FindAnyObjectByType<PlayerController>();
         if (player == null)
         {
@@ -71,6 +74,15 @@ public class RunManager : MonoBehaviour
 
     private void OnBossCleared(Room room)
     {
+        // M3·v0.8.1：第 9 层通关结算（时停面板；点"进入无尽"后照常生成下一层）
+        if (FloorNumber >= VictoryFloor)
+        {
+            PlayerStats stats = player != null ? player.GetStats() : null;
+            int coins = stats != null ? stats.Coins : 0;
+            VictoryPanel.Show(FloorNumber, coins, Time.time - runStartTime, null);
+            MetaManager.SettleRun(FloorNumber, victory: true);   // M4：通关结算（+100 魂）
+            Debug.Log("[Run] 第 9 层通关：结算面板已弹，无尽模式继续");
+        }
         // 奖励宝箱与传送门在房中心左右错开，挂在 contentRoot 下（随 dungeonRoot 一并清理）
         Vector3 c = room.Center;
         if (rewardChestPrefab != null)
@@ -92,8 +104,10 @@ public class RunManager : MonoBehaviour
         FloorNumber++;
         dungeonManager.FloorNumber = FloorNumber;
         dungeonManager.Generate(FloorSeed());   // 生成 + 传送玩家 + 相机 Snap（v0.5.0 链路）
+        // v0.8.1：进层瞬间补满护甲（第二生命资源随层重置；血量保留跨层）
+        if (playerStats != null) playerStats.ModifyArmor(playerStats.MaxArmor);
         SubscribeBossRoom();
-        Debug.Log($"[Run] 进入第 {FloorNumber} 层（玩家 HP/护甲保留）");
+        Debug.Log($"[Run] 进入第 {FloorNumber} 层（玩家 HP 保留·护甲已补满）");
     }
 
     private int FloorSeed() => MainSeed + FloorNumber * 104729;   // 质数步长，每层可复现且互不雷同
@@ -101,8 +115,16 @@ public class RunManager : MonoBehaviour
     // ---------- 死亡重开 ----------
 
     private void OnPlayerDeath() => StartCoroutine(RestartRun());
+
+    /// <summary>M5·v1.0.0：暂停菜单"重开本局"——与死亡重开同链路（结算魂+清场+回1层）。</summary>
+    public void DebugRestartFromPause()
+    {
+        StopAllCoroutines();
+        StartCoroutine(RestartRun());
+    }
     private IEnumerator RestartRun()
     {
+        MetaManager.SettleRun(FloorNumber, victory: false);   // M4：死亡结算魂入档
         yield return new WaitForSeconds(restartDelay);
         UnsubscribeBossRoom();
         dungeonManager.Cleanup();

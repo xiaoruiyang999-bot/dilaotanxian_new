@@ -27,6 +27,26 @@ public class DungeonManager : MonoBehaviour
     /// <summary>当前楼层数（v0.5.4：由 RunManager 写入，仅作难度注入透传，默认 1）。</summary>
     public int FloorNumber { get; set; } = 1;
 
+    /// <summary>一层生成完毕（含玩家传送与相机 Snap）时触发；小地图等消费方据此重建（v0.6.0）。
+    /// 楼层切换 / 死亡重开同样经由 Generate 触发，无需额外监听。</summary>
+    public event System.Action OnGenerated;
+
+    /// <summary>M3·v0.8.1：楼层主题（3 层一换，1-3 废墟 / 4-6 墓穴 / 7-9 熔炉）。</summary>
+    public static (string name, Color tint) GetFloorTheme(int floor)
+    {
+        switch (Mathf.Clamp((floor - 1) / 3, 0, 2))
+        {
+            case 0: return ("废墟", new Color(1f, 1f, 1f));
+            case 1: return ("墓穴", new Color(0.72f, 0.8f, 1f));
+            default: return ("熔炉", new Color(1f, 0.78f, 0.68f));
+        }
+    }
+
+    private static readonly Dictionary<int, Room> emptyRooms = new Dictionary<int, Room>();
+
+    /// <summary>当前楼层全部场景房间（id → Room，透传自 Builder；未生成时为空表）。</summary>
+    public IReadOnlyDictionary<int, Room> Rooms => builder != null ? builder.Rooms : emptyRooms;
+
     /// <summary>当前楼层的 Boss 房（v0.5.4 RunManager 结算监听用）；未生成时返回 null。</summary>
     public Room BossRoom
     {
@@ -65,6 +85,10 @@ public class DungeonManager : MonoBehaviour
             GameObject p = GameObject.FindGameObjectWithTag("Player");
             if (p != null) player = p.transform;
         }
+        // M5·v1.0.0：出生房教程牌（Start 房对应的场景 Room）
+        if (builder != null && Layout != null && Layout.startRoom != null
+            && builder.Rooms.TryGetValue(Layout.startRoom.id, out Room startRoom2))
+            TutorialSigns.Spawn(startRoom2);
         if (player != null)
         {
             player.position = spawnPos;
@@ -73,6 +97,7 @@ public class DungeonManager : MonoBehaviour
         }
 
         Debug.Log($"[Dungeon] 生成完成 seed={ActiveSeed} rooms={Layout.rooms.Count} connections={Layout.connections.Count} bossRoom=#{Layout.bossRoom.id} bossDist={Layout.bossRoom.distanceFromStart}");
+        OnGenerated?.Invoke();
     }
 
     /// <summary>v0.5.4 楼层切换清理：销毁 dungeonRoot 全部生成物 + 清两块 Tilemap（Builder.ClearAll 收口）。</summary>

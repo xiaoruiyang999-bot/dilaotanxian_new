@@ -153,11 +153,23 @@ public class Projectile : MonoBehaviour
 
         // 命中
         IDamageable damageable = FindDamageableInParents(other.transform);
+        // v0.8：子弹伤害仅对角色生效——命中其他实体（友方敌人/召唤物等）直接穿透，不伤不挡
+        if (damageable != null && !IsPlayerBody(other.transform))
+            return false;
         if (damageable != null)
         {
             damageable.TakeDamage(damage);
             DamagePopup.Spawn(other.bounds.center, damage);
+            consumed = true;
+            Destroy(gameObject);
+            return true;
         }
+
+        // v0.5.4.4.4：targetLayer 命中但无 IDamageable 分两种——
+        // 非 Trigger（墙 TilemapCollider 等实体碰撞）→ 挡弹销毁；
+        // Trigger（宝箱/补给/传送门等交互物、另一颗投射物）→ 穿透继续飞。
+        // 之前一律自毁，敌弹飞过交互物会被凭空吞掉、两颗敌弹对射互销。
+        if (other.isTrigger) return false;
 
         consumed = true;
         Destroy(gameObject);
@@ -197,4 +209,10 @@ public class Projectile : MonoBehaviour
             trail.endColor = new Color(color.r, color.g, color.b, 0f);
         }
     }
+    /// <summary>v0.8：判定命中体是否玩家本体（根比较，子碰撞体/武器都算）。</summary>
+    private static bool IsPlayerBody(Transform t)
+    {
+        return t != null && t.root != null && t.root.CompareTag("Player");
+    }
+
 }

@@ -10,7 +10,7 @@ public enum SupplyType { Heal, Armor }
 public class SupplyInteractable : Interactable
 {
     [SerializeField] private SupplyType supplyType = SupplyType.Heal;
-    [SerializeField] private float amount = 2f;
+    [SerializeField] private float amount = 20f;
 
     protected override void ApplyEffect(Collider2D player)
     {

@@ -53,6 +53,12 @@ public class EnemyCombat : MonoBehaviour
     private bool activeMomentTriggered;
 
     private float cooldownTimer = 0f;
+
+    /// <summary>v0.8(M3)：攻击冷却全局乘数（Boss P2 攻速加成用；1=默认）。</summary>
+    public float CooldownScale { get; set; } = 1f;
+
+    /// <summary>v0.8(M3)：运行时替换招式池（Boss 阶段切换用）。null=回退单招。</summary>
+    public void SetAttackPool(AttackData[] pool) => attackDataSet = pool;
     private bool canAttack = true;
 
     private Transform currentTarget;
@@ -353,9 +359,16 @@ public class EnemyCombat : MonoBehaviour
         }
         else if (attackIndicator != null && !currentAttackData.IsSummon)
         {
-            attackIndicator.SetShape(AttackIndicator.ShapeType.Sector);
-            attackIndicator.SetRadius(currentAttackData.AttackRange);
-            attackIndicator.SetAngle(currentAttackData.AttackAngle);
+            // v0.6.2 修复：近战预警复刻判定矩形（同源原则回归）。v0.5 重构后 WeaponHitbox
+            // 用矩形 OverlapBox（长=AttackRange×scale、宽=weaponWidth×scale，从攻击者中心
+            // 沿攻击方向延伸），但预警仍显示 AttackAngle 扇形——120° 扇形 vs 0.2 宽矩形，
+            // 观感上"预警一大片、实际打一线"。预警几何直接取自 WeaponHitbox 单一数据源。
+            attackIndicator.SetShape(AttackIndicator.ShapeType.Box);
+            Vector2 box = weaponHitbox != null
+                ? weaponHitbox.CurrentBoxGeometry
+                : new Vector2(currentAttackData.AttackRange,
+                    weaponController != null ? weaponController.WeaponWidth : 0.2f);
+            attackIndicator.SetBoxSize(box.x, box.y);
             attackIndicator.SetDirection(attackDirection);
             attackIndicator.SetColor(attackIndicator.WarningColor);
             attackIndicator.Show();
@@ -373,18 +386,14 @@ public class EnemyCombat : MonoBehaviour
             float grace = behaviorConfig != null ? behaviorConfig.lineOfSightGraceTime : 0.15f;
             if (lineOfSightLostTimer > grace)
             {
-                CancelAttack(false);
+                // v0.6.1 修复（M1.9）：LOS 丢失取消也进半额冷却。之前不进冷却会让
+                // 敌人在视野边缘反复"蓄力→取消→再蓄力"抖动（v0.5.4.4.2 已知遗留）；
+                // 半额而非全额——短暂遮挡不该按整轮 CD 惩罚。
+                CancelAttack(true, 0.5f);
                 return;
             }
 
-            // v0.5.4.4.2 修复：预警跟手。Windup 期间每帧让预警线指向目标当前方向/距离，
-            // 避免预警冻结在 Windup 开始那一刻的位置（玩家一动预警就失效）。
-            if (attackIndicator != null && currentTarget != null)
-            {
-                Vector2 dirToTarget = (Vector2)(currentTarget.position - transform.position);
-                attackIndicator.SetDirection(dirToTarget);
-                attackIndicator.SetRadius(dirToTarget.magnitude);
-            }
+            // v0.8：远程预警已移除，跟手逻辑随之删除（LOS 门控保留）
         }
 
         windupTimer -= Time.deltaTime;
@@ -542,10 +551,11 @@ public class EnemyCombat : MonoBehaviour
         isCharging = false;
         if (controller != null) controller.StopMoving();
         canAttack = false;
-        cooldownTimer = endedAttack.AttackCooldown;
+        cooldownTimer = endedAttack.AttackCooldown * CooldownScale;
     }
 
-    private void CancelAttack(bool applyCooldown)
+    /// <summary>中断当前攻击。applyCooldown=是否进冷却；cooldownMultiplier=冷却倍率（LOS 取消用 0.5，正常结束 1）。</summary>
+    private void CancelAttack(bool applyCooldown, float cooldownMultiplier = 1f)
     {
         AttackData cancelledAttack = currentAttackData;
         currentState = AttackState.None;
@@ -561,7 +571,7 @@ public class EnemyCombat : MonoBehaviour
         if (applyCooldown && cancelledAttack != null)
         {
             canAttack = false;
-            cooldownTimer = cancelledAttack.AttackCooldown;
+            cooldownTimer = cancelledAttack.AttackCooldown * cooldownMultiplier * CooldownScale;
         }
         else
         {
@@ -581,7 +591,17 @@ public class EnemyCombat : MonoBehaviour
         currentChargeDirection = Vector2.zero;
         isCharging = false;
         weaponHitbox?.EndSwing();
-        attackIndicator?.Hide();
+        // 死亡停用时指示器可能正处于预警显示中、已脱离父物体挂在场景根，
+        // 仅 Hide 会留下孤儿对象逐楼层累积——死亡即销毁（v0.5.4.4.4）。
+        // 未进房休眠/场景卸载（IsDead=false）只隐藏，敌人复活后仍可复用。
+        if (attackIndicator != null)
+        {
+            EnemyHealth health = controller != null ? controller.GetHealth() : null;
+            if (health != null && health.IsDead)
+                attackIndicator.DestroyIndicator();
+            else
+                attackIndicator.Hide();
+        }
         weaponAnimator?.Stop();
         weaponController?.ResetAimToForward();
         controller?.StopMoving();
@@ -613,6 +633,9 @@ public class EnemyCombat : MonoBehaviour
     /// <summary>
     /// 召唤小兵（由 EnterActive 在 isSummon=true 时调用）。
     /// </summary>
+    /// <summary>v0.8：远程怪隐藏武器长条视觉——WeaponController 子树的 SpriteRenderer 全关
+    /// （判定/预警不受影响，远程本就不用武器矩形）。</summary>
+
     private void SummonMinions()
     {
         if (currentAttackData.SummonPrefab == null)
@@ -630,13 +653,17 @@ public class EnemyCombat : MonoBehaviour
             if (ai != null && !ai.CanSummonMore())
                 break;
 
-            float angle = (float)combatRng.NextDouble() * 360f;
-            float radius = (float)combatRng.NextDouble() * currentAttackData.SummonRadius;
-            Vector2 offset = new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad)) * radius;
-            Vector2 spawnPos = (Vector2)transform.position + offset;
+            // v0.5.4.4.4：落点必须通过实体碰撞校验——召唤师贴墙时纯随机点会把小兵
+            // 嵌进墙里，而小兵已计入清房计数，会导致房间永不清空、房门永锁。
+            // 找不到合法点则跳过该只：宁可少召唤，不可卡死清房条件。
+            if (!TryGetMinionSpawnPosition(currentAttackData.SummonRadius, out Vector2 spawnPos))
+                continue;
 
             GameObject minion = Object.Instantiate(currentAttackData.SummonPrefab, spawnPos, Quaternion.identity, transform.parent);
             minion.name = $"{currentAttackData.SummonPrefab.name}_{name}_{i}";
+            // v0.8：召唤生物不掉金币（防刷钱：反复刷召唤师=无限金币）
+            EnemyController minionCtrl = minion.GetComponent<EnemyController>();
+            if (minionCtrl != null) minionCtrl.DropCoins = false;
             Debug.Log($"[EnemyCombat] {name} 召唤了 {minion.name} 在 {spawnPos}");
 
             // 登记到召唤师的 AI，追踪存活数与死亡回调
@@ -647,5 +674,39 @@ public class EnemyCombat : MonoBehaviour
                 if (ownerRoom != null) ownerRoom.RegisterEnemy(mHealth);
             }
         }
+    }
+
+    // 与 SpawnPositionHelper 一致的占位判定：Default(墙)/Enemy/Obstacle 实体层，
+    // useTriggers=false 自动跳过 RoomTrigger 与探测圈；缓冲复用避免 GC。
+    private static readonly Collider2D[] minionOverlapBuffer = new Collider2D[1];
+    private const int MinionPlacementAttempts = 8;
+    private const float MinionOverlapRadius = 0.4f;
+
+    /// <summary>在召唤师周围找不嵌墙的落点；最多重摇 8 次，失败返回 false。</summary>
+    private bool TryGetMinionSpawnPosition(float summonRadius, out Vector2 spawnPos)
+    {
+        var filter = new ContactFilter2D
+        {
+            layerMask = LayerMask.GetMask("Default", "Enemy", "Obstacle"),
+            useLayerMask = true,
+            useTriggers = false
+        };
+
+        for (int attempt = 0; attempt < MinionPlacementAttempts; attempt++)
+        {
+            float angle = (float)combatRng.NextDouble() * 360f;
+            float radius = (float)combatRng.NextDouble() * summonRadius;
+            Vector2 offset = new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad)) * radius;
+            Vector2 candidate = (Vector2)transform.position + offset;
+
+            if (Physics2D.OverlapCircle(candidate, MinionOverlapRadius, filter, minionOverlapBuffer) == 0)
+            {
+                spawnPos = candidate;
+                return true;
+            }
+        }
+
+        spawnPos = default;
+        return false;
     }
 }

@@ -21,9 +21,29 @@ public class PlayerController : MonoBehaviour
     // 初始颜色缓存（死亡变灰后 Respawn 恢复用，v0.5.4）
     private Color initialColor;
 
+    [Header("闪避 Dash（M1·v0.6.1）")]
+    [Tooltip("冲刺速度（远高于移速）")]
+    [SerializeField] private float dashSpeed = 18f;
+    [Tooltip("冲刺持续时间（秒）")]
+    [SerializeField] private float dashDuration = 0.15f;
+    [Tooltip("冲刺冷却（秒），从冲刺结束起算")]
+    [SerializeField] private float dashCooldown = 0.9f;
+    [Tooltip("无敌帧额外延长：冲刺结束后仍免伤一小段，避免收招瞬间被弹道擦中")]
+    [SerializeField] private float iFrameBonus = 0.06f;
+
+    // Dash 运行时状态
+    private bool isDashing;
+    private float dashTimer;
+    private float dashCooldownUntil;
+    private Vector2 dashDirection;
+    // 最近一次非零移动方向：无输入触发 Dash 时的兜底朝向
+    private Vector2 facingDirection = Vector2.right;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
+        // v0.7.1 修复：Dash 高速（18/s）下默认离散碰撞检测会概率隧穿薄墙——连续检测兜底
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         stats = GetComponent<PlayerStats>();
         health = GetComponent<Health>();
         combat = GetComponent<PlayerCombat>();
@@ -78,6 +98,24 @@ public class PlayerController : MonoBehaviour
             if (!health.IsDead)
                 combat.TryAttack();
         }
+        else if (actionName == "Dash" && context.performed)
+        {
+            TryStartDash();
+        }
+    }
+
+    // ========== 闪避 Dash（M1·v0.6.1）==========
+
+    private void TryStartDash()
+    {
+        if (health == null || health.IsDead) return;
+        if (isDashing || Time.time < dashCooldownUntil) return;
+
+        dashDirection = moveInput.sqrMagnitude > 0.01f ? moveInput.normalized : facingDirection;
+        isDashing = true;
+        dashTimer = dashDuration;
+        // 无敌帧覆盖冲刺全程 + 收招缓冲（M1.2）
+        health.GrantIFrames(dashDuration + iFrameBonus);
     }
 
     // ========== 更新循环 ==========
@@ -90,6 +128,20 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        if (isDashing)
+        {
+            dashTimer -= Time.fixedDeltaTime;
+            rb.linearVelocity = dashDirection * dashSpeed;
+            if (dashTimer <= 0f)
+            {
+                isDashing = false;
+                dashCooldownUntil = Time.time + dashCooldown;
+            }
+            return;
+        }
+
+        if (moveInput.sqrMagnitude > 0.01f)
+            facingDirection = moveInput.normalized;
         rb.linearVelocity = moveInput.normalized * stats.MoveSpeed;
     }
 
@@ -99,6 +151,7 @@ public class PlayerController : MonoBehaviour
     {
         rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
+        isDashing = false;   // 死亡中断冲刺，冷却由 Respawn 重置
 
         // 变灰表现
         if (TryGetComponent<SpriteRenderer>(out var sr))
@@ -111,12 +164,16 @@ public class PlayerController : MonoBehaviour
         if (TryGetComponent<SpriteRenderer>(out var sr)) sr.color = initialColor;
         rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
+        isDashing = false;
+        dashCooldownUntil = 0f;
     }
 
     // 外部访问接口
     public PlayerStats GetStats() => stats;
     public Health GetHealth() => health;
     public PlayerCombat GetCombat() => combat;
+    /// <summary>最近一次非零移动方向（狼人形态等视觉系统用，v0.6.3）。</summary>
+    public Vector2 FacingDirection => facingDirection;
 
     public void TakeDamage(float damage) => health.TakeDamage(damage);
 }

@@ -51,6 +51,7 @@ public class AttackIndicator : MonoBehaviour
 
     private float currentRadius = 1f;
     private float currentAngle = 360f;
+    private float currentWidth = 0.2f;
     private Vector2 currentDirection = Vector2.right;
 
     public Color WarningColor => warningColor;
@@ -176,6 +177,15 @@ public class AttackIndicator : MonoBehaviour
         RestoreParent();
     }
 
+    /// <summary>
+    /// 销毁指示器对象本体（v0.5.4.4.4）。所有者进入"即将销毁"流程时调用：
+    /// 指示器显示期间脱离父物体挂在场景根，仅 Hide 会留下孤儿对象。
+    /// </summary>
+    public void DestroyIndicator()
+    {
+        Destroy(gameObject);
+    }
+
     private void ShowRenderers()
     {
         if (meshRenderer != null)
@@ -203,6 +213,18 @@ public class AttackIndicator : MonoBehaviour
     public void SetAngle(float angle)
     {
         currentAngle = Mathf.Clamp(angle, 0f, 360f);
+        RebuildMesh();
+    }
+
+    /// <summary>
+    /// 设置矩形尺寸（v0.6.2）：length 为攻击方向延伸长度，width 为垂直宽度。
+    /// 近战预警用——与 WeaponHitbox 的 OverlapBox 判定几何严格同源
+    /// （v0.4.5.2 Final5"三者同源"原则：预警=动画=判定同一份数据）。
+    /// </summary>
+    public void SetBoxSize(float length, float width)
+    {
+        currentRadius = Mathf.Max(0.01f, length);
+        currentWidth = Mathf.Max(0.01f, width);
         RebuildMesh();
     }
 
@@ -248,16 +270,23 @@ public class AttackIndicator : MonoBehaviour
 
     private void RestoreParent()
     {
-        if (!isDetached || originalParent == null) return;
+        if (!isDetached) return;
 
-        // 父物体正在停用/销毁（如敌人死亡触发 EnemyCombat.OnDisable → Hide）时，
-        // SetParent 会被 Unity 拒绝并报错——放弃归位，指示器随父物体一起销毁即可。
-        if (!originalParent.gameObject.activeInHierarchy)
+        // isDetached 为 true 时 Show() 必然缓存过 originalParent；此处为 fake-null
+        // 说明父物体已被 Destroy。指示器已挂在场景根，不会随父销毁——必须自毁，
+        // 否则 GameObject 与运行时 Mesh 将作为孤儿常驻场景、逐楼层累积（v0.5.4.4.4）。
+        if (originalParent == null)
         {
+            Destroy(gameObject);
             isDetached = false;
-            originalParent = null;
             return;
         }
+
+        // 父物体停用中（敌人死亡流程、未进房休眠）：SetParent 会被 Unity 拒绝并报错。
+        // 保持脱离状态与父引用，交由 Update 持续监视——父恢复激活则归位，
+        // 父被销毁则自毁（如休眠敌人随楼层 Cleanup 一起回收的路径）。
+        if (!originalParent.gameObject.activeInHierarchy)
+            return;
 
         transform.SetParent(originalParent, false);
         transform.localPosition = originalLocalPosition;
@@ -265,6 +294,21 @@ public class AttackIndicator : MonoBehaviour
         transform.localScale = Vector3.one;
         isDetached = false;
         originalParent = null;
+    }
+
+    void Update()
+    {
+        // 仅在"脱离父物体且归位被搁置"的窗口期做检查，正常状态零开销。
+        if (!isDetached) return;
+        if (originalParent == null) { Destroy(gameObject); return; }
+        if (originalParent.gameObject.activeInHierarchy) RestoreParent();
+    }
+
+    void OnDestroy()
+    {
+        // 运行时创建的 Mesh/Material 不挂在场景对象上，Unity 不会自动回收。
+        if (indicatorMesh != null) Destroy(indicatorMesh);
+        if (indicatorMaterial != null) Destroy(indicatorMaterial);
     }
 
     private void ApplyTransform()
@@ -297,6 +341,9 @@ public class AttackIndicator : MonoBehaviour
         {
             case ShapeType.Line:
                 BuildLineMesh();
+                break;
+            case ShapeType.Box:
+                BuildBoxMesh();
                 break;
             case ShapeType.Sector:
                 BuildSectorMesh();
@@ -385,6 +432,33 @@ public class AttackIndicator : MonoBehaviour
         Vector2 direction = currentDirection.sqrMagnitude > 0.0001f
             ? currentDirection.normalized : Vector2.right;
         Vector2 perpendicular = new Vector2(-direction.y, direction.x) * (lineWidth * 0.5f);
+        Vector2 end = direction * currentRadius;
+
+        indicatorMesh.Clear();
+        indicatorMesh.vertices = new[]
+        {
+            (Vector3)(-perpendicular),
+            (Vector3)perpendicular,
+            (Vector3)(end + perpendicular),
+            (Vector3)(end - perpendicular)
+        };
+        indicatorMesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+        indicatorMesh.RecalculateNormals();
+        indicatorMesh.RecalculateBounds();
+    }
+
+    /// <summary>
+    /// 矩形 Mesh（v0.6.2）：从原点（攻击者中心）沿 currentDirection 延伸 currentRadius、
+    /// 垂直宽 currentWidth。与 BuildLineMesh 同构（厚版预警线），顶点直接用世界方向计算、
+    /// 不依赖自身 Transform 旋转（脱离父物体后 rotation 为 identity）。
+    /// </summary>
+    private void BuildBoxMesh()
+    {
+        if (indicatorMesh == null) return;
+
+        Vector2 direction = currentDirection.sqrMagnitude > 0.0001f
+            ? currentDirection.normalized : Vector2.right;
+        Vector2 perpendicular = new Vector2(-direction.y, direction.x) * (currentWidth * 0.5f);
         Vector2 end = direction * currentRadius;
 
         indicatorMesh.Clear();

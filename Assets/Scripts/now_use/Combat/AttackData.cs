@@ -49,6 +49,8 @@ public class AttackData : ScriptableObject
     [Header("攻击判定")]
     [Tooltip("攻击判定半径（物理）")]
     [SerializeField] private float attackRange = 1.5f;
+    [Tooltip("v0.8(M3)：判定/预警宽度覆盖（>0 替代武器宽）——Boss 大招宽横扫用")]
+    [SerializeField] private float overrideWidth = 0f;
 
     [Tooltip("扇形全角（度）。仅用于 Arc 动画挥动幅度与预警指示器形状；v0.4.6 起近战伤害由武器矩形（WeaponHitbox）判定，不再使用此角度。")]
     [Range(0f, 360f)]
@@ -123,6 +125,7 @@ public class AttackData : ScriptableObject
     public float RecoveryTime => recoveryTime;
 
     public float AttackRange => attackRange;
+    public float OverrideWidth => overrideWidth;
     public float AttackAngle => attackAngle;
     public float AttackDamage => attackDamage;
     public float AttackCooldown => attackCooldown;

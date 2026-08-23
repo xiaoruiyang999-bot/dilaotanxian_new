@@ -28,9 +28,11 @@ public class PlayerCombat : MonoBehaviour
     private float recoveryTimer;
     private bool activeMomentTriggered;
     private Vector2 attackDirection;
+    private PlayerStats stats;
 
     void Awake()
     {
+        stats = GetComponent<PlayerStats>();   // M2·v0.7.1：乘数体系（升级×兽化）
         if (attackData == null)
             Debug.LogWarning("[PlayerCombat] 未配置 AttackData，攻击无法执行。");
 
@@ -49,6 +51,9 @@ public class PlayerCombat : MonoBehaviour
         if (weaponHitbox == null)
             weaponHitbox = GetComponent<WeaponHitbox>();
     }
+
+    /// <summary>攻速乘数（M2·v0.7.1）：三阶段时长同步缩短——预警/判定/后摇整体加速，手感一致。</summary>
+    private float AttackSpeed() => stats != null ? stats.AttackSpeedMultiplier : 1f;
 
     void Update()
     {
@@ -90,6 +95,14 @@ public class PlayerCombat : MonoBehaviour
         windupTimer = attackData.WindupTime;
         activeMomentTriggered = false;
 
+        // M2·v0.7.1：每次攻击刷新伤害乘数（升级×兽化×永久，EnemyCombat 不设=1）
+        // M4·v0.9.0：同一次 roll 暴击（一次挥击一次判定，整刀暴击）
+        if (weaponHitbox != null && stats != null)
+        {
+            weaponHitbox.DamageMultiplier = stats.DamageMultiplier;
+            weaponHitbox.CritMultiplier = Random.value < stats.CritChance ? stats.CritDamage : 1f;
+        }
+
         // 锁定当前攻击方向，由 WeaponController 负责管理 WeaponPivot
         weaponController?.LockAttackDirection();
 
@@ -102,8 +115,14 @@ public class PlayerCombat : MonoBehaviour
 
         if (attackIndicator != null)
         {
-            attackIndicator.SetRadius(attackData.AttackRange);
-            attackIndicator.SetAngle(attackData.AttackAngle);
+            // v0.6.2：预警复刻判定矩形（与 WeaponHitbox.OverlapBox 同源，含 lossyScale），
+            // 替换旧的 AttackAngle 扇形——玩家根 scale=0.6 时扇形与矩形判定偏差更明显。
+            attackIndicator.SetShape(AttackIndicator.ShapeType.Box);
+            Vector2 box = weaponHitbox != null
+                ? weaponHitbox.CurrentBoxGeometry
+                : new Vector2(attackData.AttackRange,
+                    weaponController != null ? weaponController.WeaponWidth : 0.15f);
+            attackIndicator.SetBoxSize(box.x, box.y);
             attackIndicator.SetDirection(attackDirection);
             attackIndicator.SetColor(attackIndicator.WarningColor);
             attackIndicator.Show();
@@ -128,7 +147,7 @@ public class PlayerCombat : MonoBehaviour
 
     private void UpdateWindup()
     {
-        windupTimer -= Time.deltaTime;
+        windupTimer -= Time.deltaTime * AttackSpeed();
         if (windupTimer <= 0f)
             EnterActive();
     }
@@ -162,7 +181,7 @@ public class PlayerCombat : MonoBehaviour
 
     private void UpdateActive()
     {
-        activeTimer -= Time.deltaTime;
+        activeTimer -= Time.deltaTime * AttackSpeed();
         if (activeTimer <= 0f)
         {
             EnterRecovery();
@@ -197,7 +216,7 @@ public class PlayerCombat : MonoBehaviour
 
     private void UpdateRecovery()
     {
-        recoveryTimer -= Time.deltaTime;
+        recoveryTimer -= Time.deltaTime * AttackSpeed();
         if (recoveryTimer <= 0f)
         {
             subPhase = SubPhase.None;

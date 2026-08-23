@@ -8,7 +8,18 @@ using UnityEngine;
 /// </summary>
 public class ChestInteractable : Interactable
 {
-    [SerializeField] private float healAmount = 2f;
+    [SerializeField] private float healAmount = 20f;
+
+    [Header("掉落表（M2·v0.7.1：权重替代单一占位治疗）")]
+    [Tooltip("金币掉落的权重（散落 6~10 枚）")]
+    [SerializeField, Min(0)] private float coinWeight = 50f;
+    [Tooltip("治疗权重（+2 HP，旧占位行为降级为表中一项）")]
+    [SerializeField, Min(0)] private float healWeight = 30f;
+    [Tooltip("三选一升级权重")]
+    [SerializeField, Min(0)] private float upgradeWeight = 20f;
+    [Tooltip("金币掉落枚数区间")]
+    [SerializeField, Min(1)] private int coinsMin = 6;
+    [SerializeField, Min(1)] private int coinsMax = 10;
 
     [Header("开箱动画")]
     [SerializeField] private Transform lidTop;
@@ -20,37 +31,52 @@ public class ChestInteractable : Interactable
 
     protected override void OnConsumed(Collider2D player)
     {
+        // 开箱反馈（M1.5·v0.6.1）
+        AudioManager.PlaySFX("chest");
+
+        // v0.7.1 还债（M2.7）：奖励结算从开盖动画的 OnComplete 提前到触碰瞬间——
+        // 之前若 0.35s 动画期间踩传送门切层，OnComplete 被 SetLink 杀掉，奖励被吞且 consumed 已置位。
+        // 动画降级为纯视觉表现（SpawnItem 的展示弹跳保留）。
+        RollAndApply(player);
+
         if (lidTop == null || lidBottom == null)
         {
-            // 防御：prefab 未接线时退回旧行为，不卡死
-            ApplyEffect(player);
             SetConsumedVisual();
             return;
         }
         lidTop.DOLocalMoveY(lidTop.localPosition.y + lidOffset, openDuration)
               .SetLink(lidTop.gameObject);   // 目标销毁时自动 kill，避免 DOTween safe mode 报 missing target
         lidBottom.DOLocalMoveY(lidBottom.localPosition.y - lidOffset, openDuration)
-              .SetLink(lidBottom.gameObject)
-              .OnComplete(() => SpawnItem(player));
+              .SetLink(lidBottom.gameObject);
     }
 
-    private void SpawnItem(Collider2D player)
+    /// <summary>M2·v0.7.1：按权重 roll 一次奖励（金币/治疗/三选一升级）。</summary>
+    private void RollAndApply(Collider2D player)
     {
-        if (itemPrefab != null)
+        float total = coinWeight + healWeight + upgradeWeight;
+        if (total <= 0f) return;
+        float roll = Random.value * total;
+
+        if (roll < coinWeight)
         {
-            GameObject item = Instantiate(itemPrefab, transform.position, Quaternion.identity, transform);
-            Vector3 targetScale = itemPrefab.transform.localScale;
-            item.transform.localScale = Vector3.zero;
-            item.transform.DOScale(targetScale, 0.25f).SetEase(Ease.OutBack).SetLink(item);   // pop-in 弹出
-            if (item.TryGetComponent(out SpriteRenderer sr))
-                sr.DOFade(0f, 0.5f).SetDelay(0.8f).SetLink(item).OnComplete(() => Destroy(item));   // 展示后淡出
+            CoinDrop.Spawn(transform.position, Random.Range(coinsMin, coinsMax + 1));
+            Debug.Log($"[Dungeon] 宝箱开出金币");
         }
-        ApplyEffect(player);   // 结算：+2 HP（占位奖励）+ 日志
+        else if (roll < coinWeight + healWeight)
+        {
+            if (player.TryGetComponent(out Health hp)) hp.Heal(healAmount);
+            Debug.Log($"[Dungeon] 宝箱开出治疗：HP +{healAmount}");
+        }
+        else
+        {
+            UpgradePanel.Show();
+            Debug.Log("[Dungeon] 宝箱开出三选一强化");
+        }
     }
+
 
     protected override void ApplyEffect(Collider2D player)
     {
-        if (player.TryGetComponent(out Health hp)) hp.Heal(healAmount);
-        Debug.Log($"[Dungeon] 宝箱开启：HP +{healAmount}（占位奖励）");
+        // M2·v0.7.1：结算已前移到 OnConsumed 的 RollAndApply（防切层吞奖励），此处空实现保基类契约
     }
 }

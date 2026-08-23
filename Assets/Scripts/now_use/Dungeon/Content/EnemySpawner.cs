@@ -55,6 +55,17 @@ public static class EnemySpawner
             if (affix != null)
                 go.AddComponent<EnemyAffix>().Apply(affix);
 
+            // M3·v0.8.1 最终 Boss：第 9 层 Boss 房敌人全面强化（数值书 §5.3 压轴）
+            if (floorNumber >= 9 && room.Type == RoomType.Boss)
+            {
+                var eh = go.GetComponent<EnemyHealth>();
+                if (eh != null) eh.ApplyMaxHealthMultiplier(1.5f);
+                var sr = go.GetComponent<SpriteRenderer>();
+                if (sr != null) sr.color = new Color(1f, 0.45f, 0.3f);
+                go.name += "·终焉";
+                Debug.Log($"[M3] 最终 Boss 已强化：{go.name}（HP ×1.5）");
+            }
+
             // v0.5.4.1：注入战斗专用随机源，确保招式选择同 seed 可复现
             var enemyCombat = go.GetComponent<EnemyCombat>();
             var enemyAI = go.GetComponent<EnemyAI>();

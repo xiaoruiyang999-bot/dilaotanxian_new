@@ -11,6 +11,8 @@ public class Door : MonoBehaviour
     [SerializeField] private BoxCollider2D solidCollider;
 
     private Room roomA, roomB;
+    // v0.6.1：记录当前开关状态，RefreshState 幂等重算时只在状态真正变化时播音效
+    private bool isOpenState = true;
 
     /// <summary>初始化相邻房间与门洞尺寸（世界单位：E-W 门为 (2, doorWidth)，N-S 门为 (doorWidth, 2)）。</summary>
     public void Init(Room a, Room b, Vector2 size)
@@ -33,6 +35,12 @@ public class Door : MonoBehaviour
 
     private void SetOpen(bool open)
     {
+        // 状态真正变化时才播音效（M1.5·v0.6.1）：进战斗房关门 / 清房开门都有听觉反馈
+        if (open != isOpenState)
+        {
+            isOpenState = open;
+            AudioManager.PlaySFX("door");
+        }
         if (solidCollider != null) solidCollider.enabled = !open;
         if (visual != null) visual.enabled = !open;
     }

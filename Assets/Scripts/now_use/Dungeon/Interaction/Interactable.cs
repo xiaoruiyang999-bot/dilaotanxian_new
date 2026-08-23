@@ -12,7 +12,8 @@ public abstract class Interactable : MonoBehaviour
     [Tooltip("已消耗态亮度倍率（压暗表示已用掉）")]
     [SerializeField, Range(0f, 1f)] private float consumedBrightness = 0.35f;
 
-    private bool consumed;
+    /// <summary>是否已消耗（M2·v0.7.1 转 protected：商店余额不足时需重置为可再次触发）。</summary>
+    protected bool consumed;
 
     protected virtual void Awake()
     {

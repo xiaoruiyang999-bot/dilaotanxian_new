@@ -1,5 +1,14 @@
 {
   "dependencies": {
+    "com.besty.unity-skills": {
+      "version": "file:com.besty.unity-skills",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.nuget.newtonsoft-json": "3.0.2",
+        "com.unity.timeline": "1.7.7"
+      }
+    },
     "com.coplaydev.unity-mcp": {
       "version": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
       "depth": 0,

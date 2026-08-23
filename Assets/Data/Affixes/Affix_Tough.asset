@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Affix_Tough
   m_EditorClassIdentifier: Assembly-CSharp::EnemyAffixConfig
   displayName: Tough
-  healthMultiplier: 1.75
+  healthMultiplier: 5
   moveSpeedMultiplier: 0.85
   scaleMultiplier: 1.15
   tint: {r: 1, g: 0.72, b: 0.45, a: 1}
