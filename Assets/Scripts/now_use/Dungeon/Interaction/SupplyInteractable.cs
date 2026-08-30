@@ -12,6 +12,9 @@ public class SupplyInteractable : Interactable
     [SerializeField] private SupplyType supplyType = SupplyType.Heal;
     [SerializeField] private float amount = 2f;
 
+    /// <summary>补给类型（v0.7.5 商店陈列改造：InteractableSpawner 据类型映射正式消耗包）。</summary>
+    public SupplyType Type => supplyType;
+
     protected override void ApplyEffect(Collider2D player)
     {
         switch (supplyType)

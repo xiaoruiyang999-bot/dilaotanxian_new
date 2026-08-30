@@ -55,8 +55,9 @@ public static class InteractableSpawner
 
     /// <summary>Row 布局（v0.5.3.1）：有效条目按列表顺序在房中心横轴一列排放，间距 rowSpacing。
     /// 位置在房中心，天然满足距门 ≥2.5（房宽 20，3 个商品总宽 5），无需重试。
-    /// v0.7.3：商店房（RoomType.Shop）补给基座排下方追加三种正式消耗包各 1 个（ItemPickup 运行时投放，
-    /// 免费占位与基座同规则——不做货币结算；ItemPickup 无可序列化 prefab，运行时构建与资产加载收口一致）。</summary>
+    /// v0.7.5：商店展台上的商品由补给球（SupplyInteractable，即拾即用）换成正式消耗包（ItemPickup，
+    /// E 拾取进背包按 C 使用）——展台/排布仍由 SpawnTable 资产驱动，生成时按补给类型映射消耗包并拆掉补给行为；
+    /// 原第二排地面三件套（v0.7.3 SpawnShopConsumables）撤销，避免与展台商品重复。</summary>
     private static void SpawnRow(Room room, SpawnTable table)
     {
         var items = new List<SpawnTable.Entry>();
@@ -69,28 +70,37 @@ public static class InteractableSpawner
             var pos = new Vector3(x, room.Center.y, 0f);
             GameObject go = Object.Instantiate(items[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{items[i].prefab.name}_{room.Id}_{i}";
-        }
 
-        if (room.Type == RoomType.Shop) SpawnShopConsumables(room);
+            // v0.7.5：补给基座 → 展台 + 测试药（仅商店 Row 陈列使用 Supply prefab，其余条目原样）
+            if (go.TryGetComponent(out SupplyInteractable supply))
+                ConvertSupplyToConsumable(go, supply, room);
+        }
     }
 
-    // 商店消耗包陈列参数（v0.7.3）：基座排下方 2 格起第二排，间距 1.5（拾取物比基座小，收紧防跨门区）
-    private const float ShopConsumableRowOffsetY = 2f;
-    private const float ShopConsumableSpacing = 1.5f;
+    // 商品摆放高度：原补给球浮在展台上方 0.45（Supply prefab Orb 偏移），消耗包沿用
+    private const float ShopItemOffsetY = 0.45f;
 
-    /// <summary>商店补充陈列（v0.7.3）：三种正式消耗包各 1 个，E 拾取进背包（与 v0.7.2 背包天然联动）。
-    /// 资产名清单与加载路径收口在 PrepRoomManager（ConsumableAssetNames / LoadConsumable），不另存第三份。</summary>
-    private static void SpawnShopConsumables(Room room)
+    /// <summary>商店展台改造（v0.7.5）：保留展台视觉，拆掉补给球与即拾即用行为，
+    /// 原位摆上补给类型对应的正式消耗包（SupplyType 顺序与 PrepRoomManager.ConsumableAssetNames 对齐：血/甲/法力）。
+    /// 资产缺失时留空展台，不阻断陈列。</summary>
+    private static void ConvertSupplyToConsumable(GameObject pedestalGo, SupplyInteractable supply, Room room)
     {
         string[] names = PrepRoomManager.ConsumableAssetNames;
-        for (int i = 0; i < names.Length; i++)
-        {
-            ConsumableData data = PrepRoomManager.LoadConsumable(names[i]);
-            if (data == null) continue;
-            float x = room.Center.x + (i - (names.Length - 1) * 0.5f) * ShopConsumableSpacing;
-            var pos = new Vector3(x, room.Center.y - ShopConsumableRowOffsetY, 0f);
-            ItemPickup pickup = ItemPickup.Spawn(data, pos);
-            if (pickup != null) pickup.transform.SetParent(room.ContentRoot, true);
-        }
+        int index = (int)supply.Type;
+        ConsumableData data = index >= 0 && index < names.Length
+            ? PrepRoomManager.LoadConsumable(names[index]) : null;
+
+        // 拆补给球视觉与补给行为；基座触发碰撞体禁用（Destroy 受基类 RequireComponent 限制，
+        // 且 ItemPickup 自带触发器，禁用后即退出 OverlapCircle 探测）
+        Transform orb = pedestalGo.transform.Find("Orb");
+        if (orb != null) Object.Destroy(orb.gameObject);
+        Collider2D col = pedestalGo.GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+        Object.Destroy(supply);
+
+        if (data == null) return;
+        ItemPickup pickup = ItemPickup.Spawn(data,
+            pedestalGo.transform.position + new Vector3(0f, ShopItemOffsetY, 0f));
+        if (pickup != null) pickup.transform.SetParent(room.ContentRoot, true);
     }
 }

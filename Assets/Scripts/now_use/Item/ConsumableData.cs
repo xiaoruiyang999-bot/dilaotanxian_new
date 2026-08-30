@@ -25,7 +25,7 @@ public class ConsumableData : ScriptableObject
     [Header("表现（程序员美术占位）")]
     [Tooltip("图标染色：槽位色块与掉落物色块共用")]
     [SerializeField] private Color iconColor = Color.white;
-    [Tooltip("占位图标，可空（空则色块呈现）")]
+    [Tooltip("正式图标，可空：不空则掉落物直接显示该图（无染色，自动缩放到色块尺寸），空则走 iconColor 色块占位")]
     [SerializeField] private Sprite icon;
 
     public string DisplayName => displayName;

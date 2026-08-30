@@ -1,9 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// 消耗品拾取物（v0.7.2，实现 v0.6.1 IPickupable，与 ManaBottlePickup 同模式）。
+/// 消耗品拾取物（v0.7.2，实现 v0.6.1 IPickupable，与 HealPickup 同模式）。
 /// E 拾取 → ItemInventory.Add 分流；背包满 → 提示"背包已满"且不消耗拾取物（留在原地）。
-/// 视觉运行时色块占位：道具色（ConsumableData.iconColor）方块 + 顶部高光条。
+/// 视觉：ConsumableData.icon 非空 → 直接显示该 sprite（无染色，缩放到约 0.45 世界单位，v0.7.5 换美术留口）；
+/// 空 → 色块占位：道具色（ConsumableData.iconColor）方块 + 顶部高光条。
 /// </summary>
 public class ItemPickup : MonoBehaviour, IPickupable
 {
@@ -22,7 +23,7 @@ public class ItemPickup : MonoBehaviour, IPickupable
 
     private void Awake()
     {
-        // 与 ManaBottlePickup 同模式：运行时构建无碰撞体，自动补触发器供 PlayerInteractor 探测
+        // 与 HealPickup 同模式：运行时构建无碰撞体，自动补触发器供 PlayerInteractor 探测
         if (GetComponent<Collider2D>() == null)
         {
             CircleCollider2D col = gameObject.AddComponent<CircleCollider2D>();
@@ -37,7 +38,7 @@ public class ItemPickup : MonoBehaviour, IPickupable
         itemData = data;
     }
 
-    /// <summary>运行时构建一个消耗品拾取物（准备场景投放 / 宝箱奖励池用）。</summary>
+    /// <summary>运行时构建一个消耗品拾取物（准备房间投放 / 商店陈列 / 宝箱奖励池用）。</summary>
     public static ItemPickup Spawn(ConsumableData data, Vector3 pos)
     {
         if (data == null) return null;
@@ -45,11 +46,24 @@ public class ItemPickup : MonoBehaviour, IPickupable
         GameObject go = new GameObject($"ItemPickup_{data.DisplayName}");
         go.transform.position = pos;
 
-        Color c = data.IconColor;
-        // 主体方块 0.3×0.3 + 顶部高光条（交互物层级 1~2，不超玩家层）
-        CreateBlock(go.transform, "Body", Vector3.zero, new Vector3(0.3f, 0.3f, 1f), c, 1);
-        CreateBlock(go.transform, "Highlight", new Vector3(0f, 0.1f, 0f),
-            new Vector3(0.18f, 0.06f, 1f), Color.Lerp(c, Color.white, 0.5f), 2);
+        if (data.Icon != null)
+        {
+            // 正式图标：无染色单 sprite，缩放到与色块相当的世界尺寸（约 0.45），层级 1 不超玩家层
+            SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = data.Icon;
+            sr.sortingOrder = 1;
+            float maxSide = Mathf.Max(data.Icon.bounds.size.x, data.Icon.bounds.size.y);
+            if (maxSide > 0f)
+                go.transform.localScale = Vector3.one * (0.45f / maxSide);
+        }
+        else
+        {
+            Color c = data.IconColor;
+            // 主体方块 0.3×0.3 + 顶部高光条（交互物层级 1~2，不超玩家层）
+            CreateBlock(go.transform, "Body", Vector3.zero, new Vector3(0.3f, 0.3f, 1f), c, 1);
+            CreateBlock(go.transform, "Highlight", new Vector3(0f, 0.1f, 0f),
+                new Vector3(0.18f, 0.06f, 1f), Color.Lerp(c, Color.white, 0.5f), 2);
+        }
 
         ItemPickup pickup = go.AddComponent<ItemPickup>();
         pickup.Init(data);
@@ -86,7 +100,7 @@ public class ItemPickup : MonoBehaviour, IPickupable
         }
     }
 
-    /// <summary>创建染色方块部件（白图 sprite 染色，与 ManaBottlePickup 同款做法）。</summary>
+    /// <summary>创建染色方块部件（白图 sprite 染色，色块占位视觉用）。</summary>
     private static void CreateBlock(Transform parent, string name, Vector3 localPos,
         Vector3 scale, Color color, int sortingOrder)
     {

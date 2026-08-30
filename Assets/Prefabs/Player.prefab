@@ -164,7 +164,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.82, y: 5.33, z: 0}
-  m_LocalScale: {x: 0.6, y: 0.6, z: 1}
+  m_LocalScale: {x: 0.3617922, y: 0.3617922, z: 0.6029869}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 283850676589024314}
@@ -220,12 +220,12 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 10
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 21300000, guid: cb48cec4712a4ed499d769fbd696c6a8, type: 2}
-  m_Color: {r: 0.2, g: 0.8, b: 0.3, a: 1}
+  m_Sprite: {fileID: 21300000, guid: c5a7463aeff700c4abbe61bbf2804999, type: 3}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 5.12, y: 5.12}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -258,8 +258,8 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
---- !u!58 &6166423361803029149
-CircleCollider2D:
+--- !u!70 &6166423361803029149
+CapsuleCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -292,8 +292,9 @@ CircleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
-  m_Radius: 0.49999997
+  m_Offset: {x: -0.19, y: 2.5}
+  m_Size: {x: 3.65, y: 4.39}
+  m_Direction: 0
 --- !u!114 &5777388954288320219
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -368,15 +369,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 23b9a324f0726184fb071df130c7c543, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHP: 5
-  maxArmor: 5
-  moveSpeed: 5
-  armorRegenRate: 0.5
-  armorRegenDelay: 3
-  maxStamina: 100
-  staminaRegenRate: 30
-  staminaRegenDelay: 0.8
-  maxMana: 0
 --- !u!114 &8476436258134989188
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -408,6 +400,11 @@ MonoBehaviour:
   weaponAnimator: {fileID: 7620958924149439312}
   attackIndicator: {fileID: 0}
   weaponHitbox: {fileID: 5500000000000000001}
+  rangeDisplayColor: {r: 0.75, g: 0.75, b: 0.75, a: 0.35}
+  thrustPullBack: 0.45
+  thrustTravel: 0.5
+  chargeHoldThreshold: 0.2
+  chargeAutoReleaseDelay: 1
 --- !u!114 &1448680205994273094
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -453,6 +450,7 @@ MonoBehaviour:
   weaponSprite: {fileID: 3750983646266118015}
   attackData: {fileID: 11400000, guid: 523190e3772aa284983fab3c0f033c99, type: 2}
   weaponWidth: 0.15
+  customVisualGripOffset: 0.35
 --- !u!114 &7620958924149439312
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -508,14 +506,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b962d618d17df9eccf1528c9d734580, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sprintSpeedMultiplier: 1.6
-  sprintStaminaPerSec: 20
-  dashDistance: 3
-  dashDuration: 0.18
-  dashStaminaCost: 35
-  dashCooldown: 0.5
-  dashAlpha: 0.5
-  afterimageCount: 3
+  chargeMoveSpeedMultiplier: 0.5
 --- !u!114 &5500000000000000011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -536,7 +527,9 @@ MonoBehaviour:
   hintFontSize: 16
   hintPanelSize: {x: 40, y: 30}
   hintWorldScale: 0.03
-  listCloseDistance: 2.5
+  listRemoveBuffer: 1
+  selectedScale: 1.15
+  selectedDuration: 0.5
 --- !u!1 &5830396728039968300
 GameObject:
   m_ObjectHideFlags: 0

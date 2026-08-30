@@ -63,6 +63,25 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         }
     }
 
+    /// <summary>
+    /// 真实伤害入口（v0.7.5 裸绞，DamageContext.trueDamage 通道）：绕过减伤甲结算直接扣血。
+    /// 仅 DamageResolver.Deal 的真伤分支调用；普通受伤路径（TakeDamage）不受影响。
+    /// </summary>
+    public void TakeTrueDamage(float damage)
+    {
+        if (IsDead) return;
+        if (damage <= 0f) return;
+
+        CurrentHealth = Mathf.Max(CurrentHealth - damage, 0f);
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+        OnTakeDamage?.Invoke(); // 通知AI：我被打了！
+
+        if (CurrentHealth <= 0f)
+        {
+            Die();
+        }
+    }
+
     public void Heal(float amount)
     {
         if (IsDead) return;

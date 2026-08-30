@@ -14,9 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   classType: 0
   displayName: 战士
-  maxHP: 8
-  maxArmor: 8
-  maxMana: 30
+  maxHP: 130
+  maxArmor: 70
+  maxMana: 100
+  moveSpeed: 5
+  attack: 40
+  critRate: 0.1
+  critDamage: 1.5
+  armorReduceMul: 0.4
+  armorLossMul: 1
   classColor: {r: 0.75294, g: 0.23137, b: 0.16863, a: 1}
   availableWeapons:
   - {fileID: 11400000, guid: 1cef4d0b9c8bb0ec6296a4fabcf765dc, type: 2}

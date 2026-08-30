@@ -10,11 +10,21 @@ public static class DamageResolver
 {
     /// <summary>
     /// 结算一次伤害：Roll 出最终伤害（含暴击）并写入目标。
+    /// trueDamage &gt; 0 时为真伤包（v0.7.5 裸绞）：跳过 Roll 与护甲结算直接扣血
+    /// （EnemyHealth 走 TakeTrueDamage 专用入口，其余 IDamageable 原路径）。
     /// 返回实际结算伤害，供表现层/测试断言使用。
     /// </summary>
     public static float Deal(IDamageable target, DamageContext ctx)
     {
         if (target == null) return 0f;
+        if (ctx.trueDamage > 0f)
+        {
+            if (target is EnemyHealth eh)
+                eh.TakeTrueDamage(ctx.trueDamage);
+            else
+                target.TakeDamage(ctx.trueDamage);
+            return ctx.trueDamage;
+        }
         float final = ctx.Roll();
         target.TakeDamage(final);
         return final;

@@ -47,6 +47,13 @@ public class WeaponHitbox : MonoBehaviour
     /// </summary>
     public float DamageMultiplier { get; set; } = 1f;
 
+    /// <summary>
+    /// 多目标命中伤害倍率（v0.7.5 二期长枪贯穿被动）：单次挥击命中 ≥2 目标时该次全部命中 ×此倍率。
+    /// 由 WeaponPassives 按当前武器设置（长枪 1.15，其余 1）。仅玩家路径生效；敌人路径保持默认 1 不受影响。
+    /// 第 2 个目标命中时对第 1 个目标追补倍率差（走正常 TakeDamage，护甲同比例结算），保证"全部命中"同倍率。
+    /// </summary>
+    public float MultiHitDamageMul { get; set; } = 1f;
+
     private const int MaxHits = 16;
     private static readonly Collider2D[] hitBuffer = new Collider2D[MaxHits];
 
@@ -54,6 +61,10 @@ public class WeaponHitbox : MonoBehaviour
     private bool isSwinging;
     private WeaponController wc;   // v0.6.3：缓存引用，Tick 实时读其 WeaponWidth（蓄力宽度缩放）
     private PlayerStats attackerStats;   // v0.7.0：Awake 缓存攻击者根的 PlayerStats；非空 = 玩家（走新管线），空 = 敌人（原路径）
+
+    // v0.7.5 二期贯穿追补：本挥击第 1 个命中目标与其结算伤害（BeginSwing 复位）
+    private IDamageable swingFirstTarget;
+    private float swingFirstDealt;
 
     void Awake()
     {
@@ -83,6 +94,8 @@ public class WeaponHitbox : MonoBehaviour
         hitThisSwing.Clear();
         LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
         DamageMultiplier = 1f;   // 蓄力伤害倍率复位（v0.7.0）
+        swingFirstTarget = null;   // 贯穿追补复位（v0.7.5 二期）
+        swingFirstDealt = 0f;
         isSwinging = true;
     }
 
@@ -130,14 +143,33 @@ public class WeaponHitbox : MonoBehaviour
                 // v0.7.0 结算分流：玩家走新管线（角色攻击+武器攻击）×倍率×暴击；敌人保持原路径
                 if (attackerStats != null)
                 {
+                    // v0.7.5 二期长枪贯穿：本挥击第 2 个及以后目标 ×MultiHitDamageMul（默认 1 = 零差异）
+                    float pierceMul = MultiHitDamageMul > 1f && hitThisSwing.Count >= 2 ? MultiHitDamageMul : 1f;
                     DamageContext ctx = new DamageContext
                     {
                         baseAttack = attackerStats.Attack + attackData.AttackDamage,
-                        multiplier = DamageMultiplier,
+                        // v0.7.5：输出倍率通道（强力一击期间普攻/蓄力也吃加成）；无 BuffManager 为 1 零差异
+                        multiplier = DamageMultiplier * pierceMul * BuffManager.DamageDealtMulOf(attackerStats.gameObject),
                         critRate = attackerStats.CritRate,
                         critDamage = attackerStats.CritDamage
                     };
-                    DamageResolver.Deal(damageable, ctx);
+                    float dealt = DamageResolver.Deal(damageable, ctx);
+
+                    if (MultiHitDamageMul > 1f)
+                    {
+                        if (hitThisSwing.Count == 1)
+                        {
+                            // 记录本挥击第 1 个目标（追补用）
+                            swingFirstTarget = damageable;
+                            swingFirstDealt = dealt;
+                        }
+                        else if (hitThisSwing.Count == 2 && swingFirstTarget != null)
+                        {
+                            // 达 2 目标：给第 1 个目标追补倍率差（走正常 TakeDamage，护甲同比例结算）
+                            swingFirstTarget.TakeDamage(swingFirstDealt * (MultiHitDamageMul - 1f));
+                            swingFirstTarget = null;
+                        }
+                    }
                 }
                 else
                 {

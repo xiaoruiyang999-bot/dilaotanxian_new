@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c70349bc85d468b419ec7338aecd6457
+guid: cea7d0b00515eb349bbe5937020a5687
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 2875948508881216187
-    second: warrior_idle_0
+      213: 6872501535704615461
+    second: v075_idle_play_c_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -100,13 +100,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: warrior_idle_0
+      name: v075_idle_play_c_0
       rect:
         serializedVersion: 2
-        x: 21
-        y: 8
-        width: 422
-        height: 477
+        x: 0
+        y: 0
+        width: 1920
+        height: 1080
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -115,8 +115,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: bb2ed207eeb69e720800000000000000
-      internalID: 2875948508881216187
+      spriteID: 52a00021cb7006f50800000000000000
+      internalID: 6872501535704615461
       vertices: []
       indices: 
       edges: []
@@ -135,7 +135,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      warrior_idle_0: 2875948508881216187
+      v075_idle_play_c_0: 6872501535704615461
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

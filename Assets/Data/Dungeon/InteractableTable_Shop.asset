@@ -23,11 +23,6 @@ MonoBehaviour:
     minCount: 0
     destructible: 0
     hp: 0
-  - prefab: {fileID: 2649812206430025290, guid: 4f6033d90e93e894eac7ea4065e5903c, type: 3}
-    weight: 2
-    minCount: 0
-    destructible: 0
-    hp: 0
   - prefab: {fileID: 2649812206430025290, guid: 4be98d59dbc5a883b7a62e9b4c310a57, type: 3}
     weight: 1
     minCount: 0

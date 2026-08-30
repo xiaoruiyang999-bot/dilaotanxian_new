@@ -26,6 +26,7 @@ MonoBehaviour:
   chargeWidthMul: 1.2
   chargeDamageMul: 2
   chargeSpeedMul: 2
+  chargeFullDamageMul: 2.2
   clipSize: 0
   reloadTime: 0
   autoReloadIdleTime: 0

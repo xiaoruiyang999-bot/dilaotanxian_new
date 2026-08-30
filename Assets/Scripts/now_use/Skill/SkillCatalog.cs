@@ -13,6 +13,7 @@ public static class SkillCatalog
     {
         "Skill_Warrior_StandFirm",
         "Skill_Warrior_PowerStrike",
+        "Skill_Warrior_Garrote",
         "Skill_Warrior_Ultimate",
         "Skill_Whirlwind_Weapon",
         "SkillBranch_Warrior"

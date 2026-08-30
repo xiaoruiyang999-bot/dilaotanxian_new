@@ -8,6 +8,7 @@ using DG.Tweening;
 /// 不控制 WeaponPivot，不读取鼠标输入，不管理武器视觉。
 /// v0.6.3：扩展为三模式（近战 / 远程 / 自身施法）+ 蓄力状态机 + 弹夹换弹计时。
 /// 默认近战（weapon == null）行为与 v0.6.2 前完全一致。
+/// v0.7.6：攻击开始（StartWindup）通知 FrameAnimator 播攻击序列帧（组缺失零干预）。
 /// </summary>
 public class PlayerCombat : MonoBehaviour
 {
@@ -81,9 +82,22 @@ public class PlayerCombat : MonoBehaviour
     // 组件缓存（Awake GetComponent）
     private PlayerMovement playerMovement;
     private Health health;
+    private BuffManager buffManager;    // v0.7.5：延迟缓存（SkillExecutor.Awake 运行时补挂，Awake 顺序不定）
+    private FrameAnimator frameAnimator; // v0.7.6：延迟缓存（PlayerController.Awake 运行时补挂，同 buffManager 模式）
+
+    // v0.7.5 攻速倍率：本次挥击实际前摇/判定时长（= 配置值 ÷ 攻速倍率），戳击进度比值同源使用
+    private float windupDuration;
+    private float activeDuration;
 
     /// <summary>是否正在蓄力（v0.6.3）。</summary>
     public bool IsCharging => isCharging;
+
+    /// <summary>攻速倍率（v0.7.5 Buff 通道）：攻击间隔 ÷ 此值；无 BuffManager / 无 buff 返回 1，零行为差异。</summary>
+    private float AttackSpeedMul()
+    {
+        if (buffManager == null) buffManager = GetComponent<BuffManager>();
+        return buffManager != null ? Mathf.Max(0.01f, buffManager.AttackSpeedMultiplier) : 1f;
+    }
 
     void Awake()
     {
@@ -688,7 +702,8 @@ public class PlayerCombat : MonoBehaviour
         Projectile.Launch(weapon.Data.ProjectileData, origin, aimDir, gameObject, damageMul, speedMul);
 
         // 弓箭等 FireInterval=0 的单发：冷却下限 0.05s，射速主要由装填限制
-        fireCooldownTimer = Mathf.Max(weapon.Data.FireInterval, 0.05f);
+        // v0.7.5：射击间隔 ÷ 攻速倍率（Buff 通道）
+        fireCooldownTimer = Mathf.Max(weapon.Data.FireInterval, 0.05f) / AttackSpeedMul();
         idleTimer = 0f;
         OnAmmoChanged?.Invoke(weapon.CurrentClip, weapon.Data.ClipSize);
 
@@ -816,7 +831,8 @@ public class PlayerCombat : MonoBehaviour
     private void StartWindup()
     {
         subPhase = SubPhase.Windup;
-        windupTimer = attackData.WindupTime;
+        windupDuration = attackData.WindupTime / AttackSpeedMul();   // v0.7.5：前摇 ÷ 攻速倍率
+        windupTimer = windupDuration;
         activeMomentTriggered = false;
 
         // v0.6.3：戳击类武器（枪矛）走活塞动画，不走 WeaponAnimator 旋转挥击
@@ -832,6 +848,19 @@ public class PlayerCombat : MonoBehaviour
             : aimController != null ? aimController.AimDirection : Vector2.right;
 
         OnAttackStart?.Invoke();
+
+        // v0.7.6 美术线：通知 FrameAnimator 播攻击序列帧（attack_sword/attack_spear 组）。
+        // 时长 = 三阶段合计 ÷ 攻速倍率，fps 由 FrameAnimator 按帧数自动对齐；
+        // 组缺失时 PlayAttack 返回 false 完全不干预（WeaponAnimator 挥砍照旧，零回归）。
+        if (frameAnimator == null) frameAnimator = GetComponent<FrameAnimator>();
+        if (frameAnimator != null)
+        {
+            bool isSpear = weapon != null && weapon.Data != null
+                && weapon.Data.ChargeRule == ChargeRule.RectScale;   // FanScale=剑、RectScale=枪
+            float totalDuration = (attackData.WindupTime + attackData.ActiveDuration + attackData.RecoveryTime)
+                / AttackSpeedMul();
+            frameAnimator.PlayAttack(isSpear, totalDuration);
+        }
 
         // v0.6.3：灰色实时范围显示（蓄力释放进挥击时数值已是缩放后的副本值，重刷等于保持）
         if (attackIndicator != null)
@@ -864,9 +893,9 @@ public class PlayerCombat : MonoBehaviour
         windupTimer -= Time.deltaTime;
 
         // 戳击（v0.6.3）：Windup 阶段武器逐帧后拉，为前冲蓄势
-        if (isThrustAttack && weaponController != null && attackData.WindupTime > 0.001f)
+        if (isThrustAttack && weaponController != null && windupDuration > 0.001f)
         {
-            float pull = 1f - Mathf.Max(windupTimer, 0f) / attackData.WindupTime;
+            float pull = 1f - Mathf.Max(windupTimer, 0f) / windupDuration;
             weaponController.SetCustomVisualThrustOffset(-thrustPullBack * pull);
         }
 
@@ -877,7 +906,8 @@ public class PlayerCombat : MonoBehaviour
     private void EnterActive()
     {
         subPhase = SubPhase.Active;
-        activeTimer = attackData.ActiveDuration;
+        activeDuration = attackData.ActiveDuration / AttackSpeedMul();   // v0.7.5：判定/动画时长 ÷ 攻速倍率
+        activeTimer = activeDuration;
         activeMomentTriggered = false;
 
         // Active 开始，武器矩形检测同步启动
@@ -895,7 +925,7 @@ public class PlayerCombat : MonoBehaviour
             weaponAnimator.Play(
                 weaponController.GetAttackStartAngle(),
                 weaponController.GetAttackEndAngle(),
-                attackData.ActiveDuration,
+                activeDuration,
                 attackData.AttackEase,
                 weaponController.GetAttackRotateMode(),
                 attackData.ActiveMomentRatio,
@@ -921,7 +951,7 @@ public class PlayerCombat : MonoBehaviour
         {
             // 戳击（v0.6.3 方案一：戳出段有判定、收回段无判定）：
             // 伸展度 0→1→0；判定长度 = AttackRange × 伸展度；仅前半程（戳出）执行判定
-            float progress = 1f - activeTimer / attackData.ActiveDuration;
+            float progress = 1f - activeTimer / activeDuration;
             float extension = Mathf.Sin(progress * Mathf.PI);
 
             if (weaponController != null)
@@ -960,7 +990,7 @@ public class PlayerCombat : MonoBehaviour
     private void EnterRecovery()
     {
         subPhase = SubPhase.Recovery;
-        recoveryTimer = attackData.RecoveryTime;
+        recoveryTimer = attackData.RecoveryTime / AttackSpeedMul();   // v0.7.5：后摇 ÷ 攻速倍率
 
         // Active 结束即停挥，关闭武器检测（不能等到 Recovery 之后）
         weaponHitbox?.EndSwing();

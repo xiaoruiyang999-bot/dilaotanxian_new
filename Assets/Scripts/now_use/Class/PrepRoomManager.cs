@@ -111,13 +111,13 @@ public class PrepRoomManager : MonoBehaviour
 
         float w = roomSize.x, h = roomSize.y;
         const float t = 0.5f;   // 墙厚
-        CreateBlock("WallN", new Vector2(w + t * 2f, t), new Vector3(0f, h * 0.5f + t * 0.5f, 0f), wallColor);
-        CreateBlock("WallS", new Vector2(w + t * 2f, t), new Vector3(0f, -h * 0.5f - t * 0.5f, 0f), wallColor);
-        CreateBlock("WallW", new Vector2(t, h), new Vector3(-w * 0.5f - t * 0.5f, 0f, 0f), wallColor);
-        CreateBlock("WallE", new Vector2(t, h), new Vector3(w * 0.5f + t * 0.5f, 0f, 0f), wallColor);
+        CreateBlock("WallN", new Vector2(w + t * 2f, t), new Vector3(0f, h * 0.5f + t * 0.5f, 0f), wallColor, solid: true);
+        CreateBlock("WallS", new Vector2(w + t * 2f, t), new Vector3(0f, -h * 0.5f - t * 0.5f, 0f), wallColor, solid: true);
+        CreateBlock("WallW", new Vector2(t, h), new Vector3(-w * 0.5f - t * 0.5f, 0f, 0f), wallColor, solid: true);
+        CreateBlock("WallE", new Vector2(t, h), new Vector3(w * 0.5f + t * 0.5f, 0f, 0f), wallColor, solid: true);
     }
 
-    private void CreateBlock(string name, Vector2 size, Vector3 localPos, Color color, int sortingOrder = 0)
+    private void CreateBlock(string name, Vector2 size, Vector3 localPos, Color color, int sortingOrder = 0, bool solid = false)
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(transform, false);
@@ -128,6 +128,13 @@ public class PrepRoomManager : MonoBehaviour
         sr.sprite = GetWhiteSprite();
         sr.color = color;
         sr.sortingOrder = sortingOrder;
+
+        // v0.7.5：围墙补碰撞（此前纯色块无碰撞，玩家穿墙）；size 显式 1×1，随 localScale 与视觉同域
+        if (solid)
+        {
+            BoxCollider2D col = go.AddComponent<BoxCollider2D>();
+            col.size = Vector2.one;
+        }
     }
 
     private static Sprite GetWhiteSprite()

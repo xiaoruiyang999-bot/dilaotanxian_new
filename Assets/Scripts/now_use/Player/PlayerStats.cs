@@ -2,20 +2,17 @@ using UnityEngine;
 
 public class PlayerStats : MonoBehaviour
 {
-    [Header("基础属性")]
-    [SerializeField] private float maxHP = 5f;
-    [SerializeField] private float maxArmor = 5f;
-    [SerializeField] private float moveSpeed = 5f;
-
-    [Header("六维（v0.7.0，决策 6；占位数值待设计 D 定稿）")]
-    [SerializeField] private float attack = 5f;                 // 角色攻击力（基础攻击区的一半，另一半为武器攻击）
-    [SerializeField, Range(0f, 1f)] private float critRate = 0.2f;  // 暴击率
-    [SerializeField] private float critDamage = 1.5f;           // 暴击伤害倍率
-    [SerializeField] private float armorReduceMul = 0.3f;       // 护甲免伤率 R（v0.7.1 接线结算）
-    [SerializeField] private float armorLossMul = 1.0f;         // 护甲扣减率 L（v0.7.1 接线结算）
-
-    [Header("法力（v0.6.2，不可自动回复）")]
-    [SerializeField] private float maxMana = 0f;                // 未选职业时为 0（旧场景兼容），回复只能靠法力瓶/击杀法力球/技能宠物
+    // 数值真值在 ClassData（职业 SO），由 ApplyClass 全权写入，不再开放序列化（v0.7.x 去重复：原序列化默认值会被 ApplyClass 整体覆盖，属"填了没用"的假入口；moveSpeed 随后亦收编为第七维）。
+    // 未选职业（旧场景 v0_4/v0_5）时保持下列安全常量：UI 显示 0/占位，结算不崩（无除零、无空引用），移速兜底 5 保证旧场景可动。
+    private float moveSpeed = 5f;                               // 基础移速（七维之一；无职业兜底 5，与任务书 §一 暂定值一致）
+    private float maxHP = 0f;                                   // HP 上限（显示走 Health，此值仅 ApplyClass 后有意义）
+    private float maxArmor = 0f;                                // 护甲上限：0 → 护甲条显示 0，ApplyArmorDamage 全额扣血
+    private float attack = 0f;                                  // 角色攻击力（基础攻击区的一半，另一半为武器攻击）
+    private float critRate = 0f;                                // 暴击率
+    private float critDamage = 1f;                              // 暴击伤害倍率（1 = 不暴击数值不变）
+    private float armorReduceMul = 0f;                          // 护甲免伤率 R（v0.7.1 接线结算）
+    private float armorLossMul = 1f;                            // 护甲扣减率 L（v0.7.1 接线结算，须 > 0）
+    private float maxMana = 0f;                                 // 未选职业时为 0，回复只能靠法力瓶/击杀法力球/技能宠物
 
     public float MaxHP => maxHP;
     public float MaxArmor => maxArmor;
@@ -34,6 +31,9 @@ public class PlayerStats : MonoBehaviour
     public ClassData CurrentClass { get; private set; }
 
     public System.Action OnStatsChanged;
+
+    /// <summary>职业应用完成事件（ApplyClass 末尾触发）：SkillExecutor 订阅重装配三槽（准备房间选职业后技能立即可用）。</summary>
+    public System.Action<ClassData> OnClassApplied;
 
     void Awake()
     {
@@ -89,9 +89,9 @@ public class PlayerStats : MonoBehaviour
     }
 
     /// <summary>
-    /// 应用职业配置（v0.6.2 / v0.7.0 六维）：写入 HP/护甲/法力上限与攻击/暴击/暴伤/护甲双倍率，
+    /// 应用职业配置（v0.6.2 / v0.7.0 七维）：写入 HP/护甲/法力上限与移速/攻击/暴击/暴伤/护甲双倍率，
     /// 回满当前值，记录 CurrentClass。HP 上限经 Health.Initialize 写入（Health 是 HP 唯一数据源）。
-    /// 全部变更走 OnStatsChanged 刷新 UI。
+    /// 全部变更走 OnStatsChanged 刷新 UI；末尾触发 OnClassApplied（SkillExecutor 据此重装配技能三槽）。
     /// </summary>
     public void ApplyClass(ClassData classData)
     {
@@ -101,12 +101,14 @@ public class PlayerStats : MonoBehaviour
         maxHP = classData.MaxHP;
         maxArmor = classData.MaxArmor;
         maxMana = classData.MaxMana;
+        moveSpeed = classData.MoveSpeed;
 
         attack = classData.Attack;
         critRate = classData.CritRate;
         critDamage = classData.CritDamage;
-        armorReduceMul = classData.ArmorReduceMul;
-        armorLossMul = classData.ArmorLossMul;
+        // 减伤甲数值下限（v0.7.1，公式文档 §六-8）：R∈[0,0.9] 防 100% 免伤，L>0；序列化入口已删，钳制随 ApplyClass 生效
+        armorReduceMul = Mathf.Clamp(classData.ArmorReduceMul, 0f, 0.9f);
+        armorLossMul = Mathf.Max(classData.ArmorLossMul, 0.01f);
 
         CurrentArmor = maxArmor;
         CurrentMana = maxMana;
@@ -115,12 +117,6 @@ public class PlayerStats : MonoBehaviour
             h.Initialize(classData.MaxHP);
 
         OnStatsChanged?.Invoke();
-    }
-
-    void OnValidate()
-    {
-        // 减伤甲数值下限（v0.7.1，公式文档 §六-8）：R∈[0,0.9] 防 100% 免伤，L>0
-        armorReduceMul = Mathf.Clamp(armorReduceMul, 0f, 0.9f);
-        armorLossMul = Mathf.Max(armorLossMul, 0.01f);
+        OnClassApplied?.Invoke(classData);
     }
 }

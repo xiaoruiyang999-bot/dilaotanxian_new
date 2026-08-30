@@ -21,7 +21,7 @@ public class PlayerInteractor : MonoBehaviour
     [SerializeField] private float detectInterval = 0.1f;
 
     [Header("候选反馈（普通交互物）")]
-    [SerializeField] private float highlightScale = 1.1f;
+    [SerializeField] private float highlightScale = 1.25f;  // v0.7.5 与 Player.prefab 序列化值同步（prefab 生效值 1.25，自检清单双写规则）
     [SerializeField] private float highlightDuration = 0.6f;
     [SerializeField] private float hintHeightOffset = 0.9f;     // "按 E"标签相对候选中心的抬升
     [SerializeField] private int hintFontSize = 16;             // "按 E"字号

@@ -48,6 +48,11 @@ public class PlayerController : MonoBehaviour
         if (skillExecutor == null)
             skillExecutor = gameObject.AddComponent<SkillExecutor>();
 
+        // v0.7.5：序列帧动画器运行时挂载（同 SkillExecutor 模式；FrameAnimator 无 RequireComponent，补挂安全）
+        // 纯表现层：组件自身驱动行走/停帧/镜像与置白，本类不持有引用
+        if (GetComponent<FrameAnimator>() == null)
+            gameObject.AddComponent<FrameAnimator>();
+
         if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
         // 监听死亡事件

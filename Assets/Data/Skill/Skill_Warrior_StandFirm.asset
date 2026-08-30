@@ -12,12 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 17b1e031a4d047e48a17e7509d7401ba, type: 3}
   m_Name: Skill_Warrior_StandFirm
   m_EditorClassIdentifier: 
-  displayName: 屹立不倒·占位
-  skillType: 0
-  manaCost: 20
-  cooldown: 8
+  displayName: 屹立不倒
+  skillType: 1
+  manaCost: 0
+  cooldown: 12
   damageMultiplier: 1
   aoeRadius: 2.5
   iconColor: {r: 0.43922, g: 0.50196, b: 0.56471, a: 1}
+  buffDuration: 5
+  buffDamageTakenMul: 0.5
+  buffAttackSpeedMul: 1.25
+  buffMoveSpeedMul: 1.2
+  buffDamageDealtMul: 1
+  weaknessDuration: 3
+  weaknessAttackSpeedMul: 0.5
+  weaknessMoveSpeedMul: 0.65
   level: 1
   damageMultiplierByLevel: []

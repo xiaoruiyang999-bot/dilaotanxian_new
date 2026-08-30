@@ -36,10 +36,15 @@ public class Health : MonoBehaviour, IDamageable
 
         float damageToHealth = damage;
 
+        // Buff 受击减伤（v0.7.5：屹立不倒 0.5 = 受伤减半）：乘在护甲结算之前；
+        // 敌人/旧场景无 BuffManager，TryGetComponent 为空 → 行为不变
+        if (TryGetComponent<BuffManager>(out var buffs))
+            damageToHealth *= buffs.DamageTakenMultiplier;
+
         // 玩家（有 PlayerStats）：减伤甲结算（v0.7.1，有甲减伤+扣甲，护甲归零全额扣血）
         if (TryGetComponent<PlayerStats>(out var stats))
         {
-            damageToHealth = stats.ApplyArmorDamage(damage);
+            damageToHealth = stats.ApplyArmorDamage(damageToHealth);
         }
 
         // 应用剩余伤害到生命值

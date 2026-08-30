@@ -22,6 +22,12 @@ public struct DamageContext
     /// <summary>暴击伤害倍率（如 1.5）。</summary>
     public float critDamage;
 
+    /// <summary>
+    /// 真实伤害（v0.7.5 裸绞）：&gt; 0 时本包为纯真伤——DamageResolver.Deal 跳过 Roll 与护甲结算，
+    /// 直接扣 trueDamage。默认 0 = 不启用，既有全部构建点零差异。
+    /// </summary>
+    public float trueDamage;
+
     /// <summary>最近一次 Roll() 是否暴击（供表现层读取）。</summary>
     public bool IsCrit { get; private set; }
 

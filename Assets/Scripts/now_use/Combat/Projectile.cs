@@ -102,7 +102,8 @@ public class Projectile : MonoBehaviour
                 DamageContext ctx = new DamageContext
                 {
                     baseAttack = ownerStats.Attack + data.Damage,
-                    multiplier = damageMul,
+                    // v0.7.5：输出倍率通道，命中时刻查询（发射后开强力一击也吃加成）；无 BuffManager 为 1 零差异
+                    multiplier = damageMul * BuffManager.DamageDealtMulOf(owner),
                     critRate = ownerStats.CritRate,
                     critDamage = ownerStats.CritDamage
                 };

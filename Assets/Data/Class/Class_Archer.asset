@@ -17,6 +17,7 @@ MonoBehaviour:
   maxHP: 4
   maxArmor: 5
   maxMana: 60
+  moveSpeed: 5
   classColor: {r: 0.15294, g: 0.68235, b: 0.37647, a: 1}
   availableWeapons:
   - {fileID: 11400000, guid: cbb8b7dec5e2747fdcd181e4d37b3250, type: 2}
