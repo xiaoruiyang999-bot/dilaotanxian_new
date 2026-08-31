@@ -1,8 +1,9 @@
 using UnityEngine;
 
 /// <summary>
-/// walk-over 交互基类（计划书评审意见 #8：走过去触发，不改输入系统）。
-/// Trigger 检测 Player → 一次性触发 ApplyEffect → 视觉压暗为已消耗态。
+/// E 键交互基类（v0.6.1，计划书 4.3：全部交互统一走 E 键，原为 walk-over 触发）。
+/// PlayerInteractor 探测到最近候选并提示"按 E"，玩家按 E → Interact()：
+/// 一次性消耗 → ApplyEffect → 视觉压暗为已消耗态。
 /// 子类只实现效果本身；触发/消耗/表现由基类收口。
 /// </summary>
 [RequireComponent(typeof(Collider2D))]
@@ -15,16 +16,23 @@ public abstract class Interactable : MonoBehaviour
     /// <summary>是否已消耗（M2·v0.7.1 转 protected：商店余额不足时需重置为可再次触发）。</summary>
     protected bool consumed;
 
+    /// <summary>是否已消耗（一次性交互完成后为 true，供 PlayerInteractor 过滤候选）。</summary>
+    public bool IsConsumed => consumed;
+
     protected virtual void Awake()
     {
         if (visual == null) visual = GetComponent<SpriteRenderer>();
     }
 
-    private void OnTriggerEnter2D(Collider2D other)
+    /// <summary>
+    /// E 键交互入口（v0.6.1，由 PlayerInteractor 调用）：
+    /// 一次性消耗，触发效果与已消耗表现。已消耗后重复调用无副作用。
+    /// </summary>
+    public virtual void Interact(Collider2D player)
     {
-        if (consumed || !other.CompareTag("Player")) return;
+        if (consumed) return;
         consumed = true;
-        OnConsumed(other);
+        OnConsumed(player);
     }
 
     /// <summary>消耗钩子（v0.5.4）：默认 = 旧行为（立即结算 + 压暗）；宝箱（先演动画）/传送门（不压暗）覆盖。</summary>

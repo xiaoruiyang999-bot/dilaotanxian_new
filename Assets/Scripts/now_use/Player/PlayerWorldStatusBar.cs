@@ -2,7 +2,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 玩家世界空间状态条（头顶：红 HP 条 + 蓝护甲条）。
+/// 玩家世界空间状态条（头顶：钢灰护甲条 + 红 HP 条 + 蓝法力条；黄体力条已于 v0.7.0 下线，法力条 v0.7.1 追加）。
+/// 法力条仅在 MaxMana>0（已选职业）时显示，旧场景无职业时自动隐藏。
 /// 实现模式与 WorldSpaceHealthBar 相同：运行时自建 World Space Canvas 挂到全局 WorldUIRoot 下，
 /// LateUpdate 跟随锚点、只平移不旋转。
 /// 数据源：Health.OnHealthChanged / PlayerStats.OnStatsChanged，订阅后立即刷新一次，避免时序问题。
@@ -24,7 +25,8 @@ public class PlayerWorldStatusBar : MonoBehaviour
     [SerializeField] private Sprite barSprite;
     [SerializeField] private Color backgroundColor = new Color(0.2f, 0.2f, 0.2f, 1f);
     [SerializeField] private Color hpColor = new Color(0.9f, 0.1f, 0.1f, 1f);
-    [SerializeField] private Color armorColor = new Color(0.2f, 0.5f, 0.95f, 1f);
+    [SerializeField] private Color armorColor = new Color(0.4392f, 0.502f, 0.5647f, 1f);   // 钢灰 #708090
+    [SerializeField] private Color manaColor = new Color(0.2039f, 0.5961f, 0.8588f, 1f);    // 法力蓝 #3498DB
 
     [Header("Canvas 设置（UI 像素）")]
     [Tooltip("Canvas 在 UI 像素空间下的宽高")]
@@ -42,6 +44,8 @@ public class PlayerWorldStatusBar : MonoBehaviour
     private Transform canvasTransform;
     private Image hpFill;
     private Image armorFill;
+    private Image manaFill;
+    private GameObject manaBarRoot;   // 法力条整体（显隐用）
     private Vector3 anchorBaseOffset; // 锚点相对玩家中心的世界偏移（已去除初始旋转影响），不随旋转变化
 
     void Awake()
@@ -122,8 +126,16 @@ public class PlayerWorldStatusBar : MonoBehaviour
 
     private void OnStatsChanged()
     {
-        if (armorFill != null && stats != null)
+        if (stats == null) return;
+        if (armorFill != null)
             armorFill.fillAmount = stats.MaxArmor > 0 ? stats.CurrentArmor / stats.MaxArmor : 0f;
+        if (manaFill != null)
+        {
+            bool hasMana = stats.MaxMana > 0f;
+            if (manaBarRoot != null && manaBarRoot.activeSelf != hasMana)
+                manaBarRoot.SetActive(hasMana);
+            manaFill.fillAmount = hasMana ? stats.CurrentMana / stats.MaxMana : 0f;
+        }
     }
 
     /// <summary>
@@ -176,9 +188,12 @@ public class PlayerWorldStatusBar : MonoBehaviour
 
         Sprite sprite = barSprite != null ? barSprite : CreateDefaultSprite();
 
-        // 护甲条（上）与 HP 条（下），均以 Canvas 顶部为基准向下排布
+        // 护甲条（上）、HP 条（中）、法力条（下），均以 Canvas 顶部为基准向下排布
         armorFill = CreateBar("ArmorBar", Vector2.zero, armorBarSize, armorColor, sprite);
         hpFill = CreateBar("HPBar", new Vector2(0f, -(armorBarSize.y + barSpacing)), hpBarSize, hpColor, sprite);
+        manaFill = CreateBar("ManaBar", new Vector2(0f, -(armorBarSize.y + barSpacing + hpBarSize.y + barSpacing)), armorBarSize, manaColor, sprite);
+        manaBarRoot = manaFill.transform.parent.gameObject;
+        manaBarRoot.SetActive(false);   // 初始隐藏，OnStatsChanged 按 MaxMana 决定是否显示
     }
 
     /// <summary>

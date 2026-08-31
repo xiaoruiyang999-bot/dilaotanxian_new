@@ -26,34 +26,70 @@
         {
           "name": "Dash",
           "type": "Button",
-          "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          "id": "76ea7f4e-e4d4-45e9-bf27-6b966925a91f",
           "expectedControlType": "Button",
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
         },
         {
-          "name": "Transform",
+          "name": "Sprint",
           "type": "Button",
-          "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+          "id": "66e08737-dd5d-47ab-b0d3-e256419032a6",
           "expectedControlType": "Button",
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
         },
         {
-          "name": "MetaShop",
+          "name": "Interact",
           "type": "Button",
-          "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+          "id": "55c94636-90a8-4042-8a38-07c41edd5782",
           "expectedControlType": "Button",
           "processors": "",
           "interactions": "",
           "initialStateCheck": false
         },
         {
-          "name": "Pause",
+          "name": "Cancel",
           "type": "Button",
-          "id": "a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d",
+          "id": "55994c4c-4a54-4049-847b-fb31979a7c4b",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "Skill",
+          "type": "Button",
+          "id": "65e02a82-d24d-4eb0-9fcd-53979cf0b0ff",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "UseItem",
+          "type": "Button",
+          "id": "73d3eb0f-78ab-4416-92ff-95830297c924",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "Ultimate",
+          "type": "Button",
+          "id": "57212f56-5cb2-451c-b156-95fd3314b8ff",
+          "expectedControlType": "Button",
+          "processors": "",
+          "interactions": "",
+          "initialStateCheck": false
+        },
+        {
+          "name": "WeaponSkill",
+          "type": "Button",
+          "id": "1b3dc8aa-d493-4239-9eae-cf2fcd15a01e",
           "expectedControlType": "Button",
           "processors": "",
           "interactions": "",
@@ -129,7 +165,7 @@
         },
         {
           "name": "",
-          "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+          "id": "53cb8e6c-e26a-49d3-9911-a83c819b4d21",
           "path": "<Keyboard>/space",
           "interactions": "",
           "processors": "",
@@ -140,34 +176,78 @@
         },
         {
           "name": "",
-          "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
-          "path": "<Keyboard>/t",
+          "id": "5581b053-84de-4de1-8faa-6bf6909fb2f7",
+          "path": "<Keyboard>/leftShift",
           "interactions": "",
           "processors": "",
           "groups": "",
-          "action": "Transform",
+          "action": "Sprint",
           "isComposite": false,
           "isPartOfComposite": false
         },
         {
           "name": "",
-          "id": "f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c",
-          "path": "<Keyboard>/u",
+          "id": "1b6f4b13-5452-4f00-8537-7f048b32c830",
+          "path": "<Keyboard>/e",
           "interactions": "",
           "processors": "",
           "groups": "",
-          "action": "MetaShop",
+          "action": "Interact",
           "isComposite": false,
           "isPartOfComposite": false
         },
         {
           "name": "",
-          "id": "b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e",
+          "id": "7e0eef50-480d-453d-bda8-86aa59f63c9d",
           "path": "<Keyboard>/escape",
           "interactions": "",
           "processors": "",
           "groups": "",
-          "action": "Pause",
+          "action": "Cancel",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "d933dbcf-8974-486f-9e7f-43aeab93db4a",
+          "path": "<Keyboard>/f",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Skill",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "23597a0a-6778-451e-b335-9c616eee9b10",
+          "path": "<Keyboard>/c",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "UseItem",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "69041f5c-c885-47c1-af5e-135382c95134",
+          "path": "<Keyboard>/q",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "Ultimate",
+          "isComposite": false,
+          "isPartOfComposite": false
+        },
+        {
+          "name": "",
+          "id": "0d8b91b9-0036-4f32-99b7-733b7ae8b245",
+          "path": "<Keyboard>/r",
+          "interactions": "",
+          "processors": "",
+          "groups": "",
+          "action": "WeaponSkill",
           "isComposite": false,
           "isPartOfComposite": false
         }

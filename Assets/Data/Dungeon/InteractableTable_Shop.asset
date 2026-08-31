@@ -13,18 +13,18 @@ MonoBehaviour:
   m_Name: InteractableTable_Shop
   m_EditorClassIdentifier: Assembly-CSharp::SpawnTable
   entries:
-  - prefab: {fileID: 6773342500823421427, guid: 30adb812fb1c4a84c9b14e6bda153047, type: 3}
+  - prefab: {fileID: 2649812206430025290, guid: 4f6033d90e93e894eac7ea4065e5903c, type: 3}
     weight: 2
     minCount: 0
     destructible: 0
     hp: 0
-  - prefab: {fileID: 6773342500823421427, guid: 30adb812fb1c4a84c9b14e6bda153047, type: 3}
+  - prefab: {fileID: 443412101730695489, guid: 33a957f4fd99be44db57742963bb56c8, type: 3}
     weight: 1
     minCount: 0
     destructible: 0
     hp: 0
-  - prefab: {fileID: 6773342500823421427, guid: 30adb812fb1c4a84c9b14e6bda153047, type: 3}
-    weight: 2
+  - prefab: {fileID: 2649812206430025290, guid: 4be98d59dbc5a883b7a62e9b4c310a57, type: 3}
+    weight: 1
     minCount: 0
     destructible: 0
     hp: 0

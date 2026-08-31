@@ -6,14 +6,18 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PlayerStats))]
 [RequireComponent(typeof(Health))]
 [RequireComponent(typeof(PlayerCombat))]
+[RequireComponent(typeof(PlayerMovement))]
 public class PlayerController : MonoBehaviour
 {
     // 子组件
-    private Rigidbody2D rb;
     private PlayerStats stats;
     private Health health;
     private PlayerCombat combat;
+    private PlayerMovement movement;
+    private PlayerInteractor interactor;
     private PlayerInput playerInput;
+    private ItemInventory itemInventory;
+    private SkillExecutor skillExecutor;
 
     // 输入
     private Vector2 moveInput;
@@ -21,33 +25,33 @@ public class PlayerController : MonoBehaviour
     // 初始颜色缓存（死亡变灰后 Respawn 恢复用，v0.5.4）
     private Color initialColor;
 
-    [Header("闪避 Dash（M1·v0.6.1）")]
-    [Tooltip("冲刺速度（远高于移速）")]
-    [SerializeField] private float dashSpeed = 18f;
-    [Tooltip("冲刺持续时间（秒）")]
-    [SerializeField] private float dashDuration = 0.15f;
-    [Tooltip("冲刺冷却（秒），从冲刺结束起算")]
-    [SerializeField] private float dashCooldown = 0.9f;
-    [Tooltip("无敌帧额外延长：冲刺结束后仍免伤一小段，避免收招瞬间被弹道擦中")]
-    [SerializeField] private float iFrameBonus = 0.06f;
-
-    // Dash 运行时状态
-    private bool isDashing;
-    private float dashTimer;
-    private float dashCooldownUntil;
-    private Vector2 dashDirection;
-    // 最近一次非零移动方向：无输入触发 Dash 时的兜底朝向
-    private Vector2 facingDirection = Vector2.right;
-
     void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
-        // v0.7.1 修复：Dash 高速（18/s）下默认离散碰撞检测会概率隧穿薄墙——连续检测兜底
-        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         stats = GetComponent<PlayerStats>();
         health = GetComponent<Health>();
         combat = GetComponent<PlayerCombat>();
+        movement = GetComponent<PlayerMovement>();
         playerInput = GetComponent<PlayerInput>();
+
+        // v0.6.1：交互器运行时挂载（编辑器运行期间不改 prefab YAML；prefab 已挂则直接用）
+        interactor = GetComponent<PlayerInteractor>();
+        if (interactor == null)
+            interactor = gameObject.AddComponent<PlayerInteractor>();
+
+        // v0.7.2：道具背包运行时挂载（同交互器模式；ItemPickup 拾取时兜底再查一次）
+        itemInventory = GetComponent<ItemInventory>();
+        if (itemInventory == null)
+            itemInventory = gameObject.AddComponent<ItemInventory>();
+
+        // v0.7.4：技能执行器运行时挂载（同 ItemInventory 模式；SkillExecutor 无 RequireComponent，补挂安全）
+        skillExecutor = GetComponent<SkillExecutor>();
+        if (skillExecutor == null)
+            skillExecutor = gameObject.AddComponent<SkillExecutor>();
+
+        // v0.7.5：序列帧动画器运行时挂载（同 SkillExecutor 模式；FrameAnimator 无 RequireComponent，补挂安全）
+        // 纯表现层：组件自身驱动行走/停帧/镜像与置白，本类不持有引用
+        if (GetComponent<FrameAnimator>() == null)
+            gameObject.AddComponent<FrameAnimator>();
 
         if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
@@ -78,8 +82,8 @@ public class PlayerController : MonoBehaviour
         if (playerInput != null)
             playerInput.onActionTriggered -= OnActionTriggered;
 
-        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
+        if (movement != null) movement.StopImmediately();
     }
 
     // ========== Input System 回调 ==========
@@ -89,69 +93,81 @@ public class PlayerController : MonoBehaviour
         string actionName = context.action?.name;
         if (string.IsNullOrEmpty(actionName)) return;
 
+        // 职业选择 UI 打开期间（v0.6.2）：屏蔽攻击/技能/交互输入——
+        // 鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；移动不受限（出生房安全）
+        // （v0.7.0：Dash/Sprint 已下线，分发分支移除，.inputactions 中 action 保留备用）
+        // （v0.7.2：UseItem 一并屏蔽，选职业期间不消耗道具）
+        // （v0.7.4：Ultimate/WeaponSkill 一并屏蔽，与小技能同规则）
+        if (ClassSelectUI.IsOpen &&
+            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"
+                || actionName == "Ultimate" || actionName == "WeaponSkill"))
+            return;
+
         if (actionName == "Move")
         {
             moveInput = context.ReadValue<Vector2>();
+            movement.SetMoveInput(moveInput);
         }
-        else if (actionName == "Attack" && context.performed)
+        else if (actionName == "Attack")
         {
-            if (!health.IsDead)
-                combat.TryAttack();
+            // v0.6.3：started/canceled 转发按下/松开，支持长按蓄力与连发
+            if (health.IsDead) return;
+            if (context.started) combat.OnAttackPressed();
+            else if (context.canceled) combat.OnAttackReleased();
         }
-        else if (actionName == "Dash" && context.performed)
+        else if (actionName == "Interact" && context.performed)
         {
-            TryStartDash();
+            interactor.OnInteractPressed();
         }
-    }
-
-    // ========== 闪避 Dash（M1·v0.6.1）==========
-
-    private void TryStartDash()
-    {
-        if (health == null || health.IsDead) return;
-        if (isDashing || Time.time < dashCooldownUntil) return;
-
-        dashDirection = moveInput.sqrMagnitude > 0.01f ? moveInput.normalized : facingDirection;
-        isDashing = true;
-        dashTimer = dashDuration;
-        // 无敌帧覆盖冲刺全程 + 收招缓冲（M1.2）
-        health.GrantIFrames(dashDuration + iFrameBonus);
+        else if (actionName == "Cancel" && context.performed)
+        {
+            // 职业选择 UI 打开时 Esc 优先关 UI（未确认不生效，可再开），否则关拾取列表
+            if (ClassSelectUI.IsOpen)
+                ClassSelectUI.Close();
+            else
+                interactor.OnCancelPressed();
+        }
+        else if (actionName == "Skill" && context.performed)
+        {
+            // v0.7.4：F = 小技能（分支选中项，SkillExecutor 槽 0）
+            if (health.IsDead) return;
+            skillExecutor.TryCastSlot(0);
+        }
+        else if (actionName == "Ultimate" && context.performed)
+        {
+            // v0.7.4：Q = 大招（SkillExecutor 槽 1，仿 UseItem 分支先判死亡）
+            if (health.IsDead) return;
+            skillExecutor.TryCastSlot(1);
+        }
+        else if (actionName == "WeaponSkill" && context.performed)
+        {
+            // v0.7.4：R = 武器技能（SkillExecutor 槽 2）
+            if (health.IsDead) return;
+            skillExecutor.TryCastSlot(2);
+        }
+        else if (actionName == "UseItem" && context.performed)
+        {
+            // v0.7.2：使用道具栏激活项（未装备消耗品时无副作用）
+            if (health.IsDead) return;
+            itemInventory.UseActive();
+        }
     }
 
     // ========== 更新循环 ==========
 
-    void FixedUpdate()
+    void Update()
     {
-        if (health != null && health.IsDead)
-        {
-            rb.linearVelocity = Vector2.zero;
-            return;
-        }
-
-        if (isDashing)
-        {
-            dashTimer -= Time.fixedDeltaTime;
-            rb.linearVelocity = dashDirection * dashSpeed;
-            if (dashTimer <= 0f)
-            {
-                isDashing = false;
-                dashCooldownUntil = Time.time + dashCooldown;
-            }
-            return;
-        }
-
-        if (moveInput.sqrMagnitude > 0.01f)
-            facingDirection = moveInput.normalized;
-        rb.linearVelocity = moveInput.normalized * stats.MoveSpeed;
+        // 鼠标瞄准与武器朝向由 PlayerAimController + WeaponController 负责，
+        // PlayerController 不再直接旋转角色，避免与 WeaponPivot 叠加导致武器转得比鼠标快。
+        // 移动速度写入已迁移至 PlayerMovement（v0.6.0），本类不再持有 FixedUpdate。
     }
 
     // ========== 死亡处理 ==========
 
     private void OnPlayerDeath()
     {
-        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
-        isDashing = false;   // 死亡中断冲刺，冷却由 Respawn 重置
+        if (movement != null) movement.StopImmediately();
 
         // 变灰表现
         if (TryGetComponent<SpriteRenderer>(out var sr))
@@ -162,18 +178,14 @@ public class PlayerController : MonoBehaviour
     public void Respawn()
     {
         if (TryGetComponent<SpriteRenderer>(out var sr)) sr.color = initialColor;
-        rb.linearVelocity = Vector2.zero;
         moveInput = Vector2.zero;
-        isDashing = false;
-        dashCooldownUntil = 0f;
+        if (movement != null) movement.StopImmediately();
     }
 
     // 外部访问接口
     public PlayerStats GetStats() => stats;
     public Health GetHealth() => health;
     public PlayerCombat GetCombat() => combat;
-    /// <summary>最近一次非零移动方向（狼人形态等视觉系统用，v0.6.3）。</summary>
-    public Vector2 FacingDirection => facingDirection;
 
     public void TakeDamage(float damage) => health.TakeDamage(damage);
 }

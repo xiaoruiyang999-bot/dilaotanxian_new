@@ -2,7 +2,7 @@ using DG.Tweening;
 using UnityEngine;
 
 /// <summary>
-/// 传送门（v0.5.4，美术：灰石块中央嵌蓝色漩涡门）：walk-over → RunManager.NextFloor()。
+/// 传送门（v0.5.4，美术：灰石块中央嵌蓝色漩涡门）：按 E（v0.6.1）→ RunManager.NextFloor()。
 /// 漩涡动效 = 旋转臂 + 差速亮核（DOTween 无限循环，随对象销毁自动 kill）。
 /// 消耗态不压暗（覆盖基类钩子）：踩门即切楼层，对象随旧楼层销毁，无需已消耗表现。
 /// </summary>

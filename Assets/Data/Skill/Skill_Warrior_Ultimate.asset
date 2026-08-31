@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17b1e031a4d047e48a17e7509d7401ba, type: 3}
+  m_Name: Skill_Warrior_Ultimate
+  m_EditorClassIdentifier: 
+  displayName: 燃命
+  skillType: 3
+  manaCost: 30
+  cooldown: 45
+  damageMultiplier: 2.5
+  aoeRadius: 3.5
+  iconColor: {r: 1, g: 0.55, b: 0.1, a: 1}
+  buffDuration: 5
+  buffDamageTakenMul: 1
+  buffAttackSpeedMul: 1
+  buffMoveSpeedMul: 1
+  buffDamageDealtMul: 1
+  weaknessDuration: 0
+  weaknessAttackSpeedMul: 1
+  weaknessMoveSpeedMul: 1
+  dashDistance: 3
+  dashDuration: 0.2
+  dashDamageTakenMul: 0.3
+  executeThresholdNormal: 0.3
+  executeThresholdElite: 0.15
+  trueDamage: 45
+  dashHitRadius: 1
+  immuneDuration: 3
+  empowerWindow: 10
+  empowerStandFirmDuration: 6.5
+  empowerStandFirmWeaknessDuration: 1.5
+  empowerPowerStrikeDuration: 7.5
+  empowerPowerStrikeDamageDealtMul: 2.2
+  empowerExecuteTrueDamage: 75
+  empowerExecuteHeal: 10
+  level: 1
+  damageMultiplierByLevel: []

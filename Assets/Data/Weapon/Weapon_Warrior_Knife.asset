@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec09dd718dba9fd1519df413559c4d52, type: 3}
+  m_Name: Weapon_Warrior_Knife
+  m_EditorClassIdentifier: 
+  displayName: 新手长剑
+  requiredClass: 0
+  behaviorType: 0
+  attackData: {fileID: 11400000, guid: efd2bd61db974271903c607fbcc2b5a2, type: 2}
+  projectileData: {fileID: 0}
+  healAmount: 0
+  chargeRule: 1
+  chargeMaxTime: 1.2
+  chargeRangeMul: 1.8
+  chargeAngleMul: 1.5
+  chargeLengthMul: 2
+  chargeWidthMul: 1.2
+  chargeDamageMul: 2
+  chargeSpeedMul: 2
+  clipSize: 0
+  reloadTime: 0
+  autoReloadIdleTime: 0
+  fireInterval: 0
+  weaponColor: {r: 0.5843, g: 0.6471, b: 0.651, a: 1}
+  mapIcon: {fileID: 0}

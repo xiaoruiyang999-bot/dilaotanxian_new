@@ -6,6 +6,18 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/v0_5_Dungeon.unity
-    guid: 6b02f7e8be331444f95fe98c53021df6
+    path: Assets/Scenes/v0_6_PrepRoom.unity
+    guid: a5155c5ab99827e95aedf963e0e06611
+  - enabled: 1
+    path: Assets/Scenes/v0_6_ClassWeapon.unity
+    guid: 59105a2f9dbca52215d71eb5d1092fa8
+  - enabled: 1
+    path: Assets/Scenes/v0_7_PrepRoom.unity
+    guid: fcf179943e3d499387a0584077800211
+  - enabled: 1
+    path: Assets/Scenes/v0_7_ClassWeapon.unity
+    guid: 29e12d631b59467d9dde8b1469155b23
+  - enabled: 1
+    path: Assets/Scenes/SampleScene.unity
+    guid: 8c9cfa26abfee488c85f1582747f6a02
   m_configObjects: {}

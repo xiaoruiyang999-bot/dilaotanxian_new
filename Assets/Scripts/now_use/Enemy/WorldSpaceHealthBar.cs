@@ -6,10 +6,14 @@ using UnityEngine.UI;
 /// v0.4 修改：支持 Health（玩家/通用）和 EnemyHealth（敌人）。
 /// v0.4.2 修改：引入 HealthBarAnchor，血条挂载到独立的 WorldUIRoot 下，
 ///             完全脱离敌人 Transform 层级，不跟随敌人旋转/缩放。
+/// v0.7.1 修改：双条化——数据源为 EnemyHealth 且有护甲（精英/Boss）时，
+///             HP 条上方加钢灰护甲细条（#708090，高约 HP 条 1/3，canvas 向上加高，pivot 底部中心不动），
+///             订阅独立 OnArmorChanged 事件；玩家/无甲敌人零变化。
 /// </summary>
 public class WorldSpaceHealthBar : MonoBehaviour
 {
     private const string WorldUIRootName = "WorldUIRoot";
+    private static readonly Color ArmorBarColor = new Color(0x70 / 255f, 0x80 / 255f, 0x90 / 255f); // 钢灰 #708090（自检清单 §3 配色表）
 
     [Header("血条锚点")]
     [Tooltip("血条将跟随此锚点的世界位置。如果未指定，自动查找名为 'HealthBarAnchor' 的子物体；若仍找不到，则使用当前 Transform。")]
@@ -35,6 +39,7 @@ public class WorldSpaceHealthBar : MonoBehaviour
     private GameObject canvasGo;
     private Transform canvasTransform;
     private Image fillImage;
+    private Image armorFillImage;   // v0.7.1 护甲条（仅有甲敌人生成，否则为 null）
     private Vector3 anchorBaseOffset; // 锚点相对敌人中心的世界偏移（已去除敌人初始旋转影响），不随旋转变化
 
     void Awake()
@@ -79,6 +84,11 @@ public class WorldSpaceHealthBar : MonoBehaviour
         {
             enemyHealth.OnHealthChanged += OnHealthChanged;
             OnHealthChanged(enemyHealth.CurrentHealth, enemyHealth.MaxHealth);
+            if (armorFillImage != null)
+            {
+                enemyHealth.OnArmorChanged += OnArmorChanged;
+                OnArmorChanged(enemyHealth.CurrentArmor, enemyHealth.MaxArmor);
+            }
         }
     }
 
@@ -87,7 +97,11 @@ public class WorldSpaceHealthBar : MonoBehaviour
         if (playerHealth != null)
             playerHealth.OnHealthChanged -= OnHealthChanged;
         else if (enemyHealth != null)
+        {
             enemyHealth.OnHealthChanged -= OnHealthChanged;
+            if (armorFillImage != null)
+                enemyHealth.OnArmorChanged -= OnArmorChanged;
+        }
     }
 
     void OnDestroy()
@@ -157,6 +171,16 @@ public class WorldSpaceHealthBar : MonoBehaviour
         canvasRect.sizeDelta = canvasSize;
         canvasRect.localScale = Vector3.one * canvasScale;
 
+        // v0.7.1 双条化：敌人有护甲（精英/Boss）时，HP 条上方加钢灰护甲细条（高约 HP 条 1/3）。
+        // canvas 向上加高（pivot 底部中心不动，血条整体向上长），HP 条保持原 canvasSize 区域。
+        float armorBarHeight = 0f;
+        bool hasArmorBar = enemyHealth != null && enemyHealth.MaxArmor > 0f;
+        if (hasArmorBar)
+        {
+            armorBarHeight = canvasSize.y / 3f;
+            canvasRect.sizeDelta = new Vector2(canvasSize.x, canvasSize.y + armorBarHeight);
+        }
+
         // 背景
         GameObject bgGo = new GameObject("Background");
         bgGo.transform.SetParent(canvasGo.transform, false);
@@ -170,7 +194,7 @@ public class WorldSpaceHealthBar : MonoBehaviour
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
         bgRect.offsetMin = Vector2.zero;
-        bgRect.offsetMax = Vector2.zero;
+        bgRect.offsetMax = new Vector2(0f, -armorBarHeight); // 有护甲条时 HP 条让出顶部区域
 
         // 填充
         GameObject fillGo = new GameObject("Fill");
@@ -188,11 +212,52 @@ public class WorldSpaceHealthBar : MonoBehaviour
         fillRect.anchorMax = Vector2.one;
         fillRect.offsetMin = Vector2.zero;
         fillRect.offsetMax = Vector2.zero;
+
+        // v0.7.1 护甲条：HP 条正上方的钢灰细条（独立背景 + 填充）
+        if (hasArmorBar)
+        {
+            GameObject armorBgGo = new GameObject("ArmorBackground");
+            armorBgGo.transform.SetParent(canvasGo.transform, false);
+
+            Image armorBgImage = armorBgGo.AddComponent<Image>();
+            armorBgImage.color = backgroundColor;
+            armorBgImage.sprite = barSprite;
+
+            RectTransform armorBgRect = armorBgImage.rectTransform;
+            armorBgRect.anchorMin = new Vector2(0f, 1f);
+            armorBgRect.anchorMax = new Vector2(1f, 1f);
+            armorBgRect.pivot = new Vector2(0.5f, 1f);
+            armorBgRect.offsetMin = new Vector2(0f, -armorBarHeight);
+            armorBgRect.offsetMax = Vector2.zero;
+
+            GameObject armorFillGo = new GameObject("ArmorFill");
+            armorFillGo.transform.SetParent(armorBgGo.transform, false);
+            armorFillImage = armorFillGo.AddComponent<Image>();
+            armorFillImage.color = ArmorBarColor;
+            armorFillImage.sprite = barSprite;
+            armorFillImage.type = Image.Type.Filled;
+            armorFillImage.fillMethod = Image.FillMethod.Horizontal;
+            armorFillImage.fillOrigin = 0;
+            armorFillImage.fillAmount = 1f;
+
+            RectTransform armorFillRect = armorFillImage.rectTransform;
+            armorFillRect.anchorMin = Vector2.zero;
+            armorFillRect.anchorMax = Vector2.one;
+            armorFillRect.offsetMin = Vector2.zero;
+            armorFillRect.offsetMax = Vector2.zero;
+        }
     }
 
     private void OnHealthChanged(float current, float max)
     {
         if (fillImage != null)
             fillImage.fillAmount = max > 0 ? current / max : 0f;
+    }
+
+    /// <summary>护甲条刷新（v0.7.1，独立事件，不影响 OnHealthChanged 签名）。</summary>
+    private void OnArmorChanged(float current, float max)
+    {
+        if (armorFillImage != null)
+            armorFillImage.fillAmount = max > 0 ? current / max : 0f;
     }
 }
