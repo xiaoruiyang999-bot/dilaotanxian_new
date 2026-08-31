@@ -16,7 +16,7 @@ public class EnemyAffix : MonoBehaviour
         if (stats != null) stats.ApplyMoveSpeedMultiplier(config.moveSpeedMultiplier);
 
         EnemyHealth health = GetComponent<EnemyHealth>();
-        if (health != null) health.ApplyMaxHealthMultiplier(config.healthMultiplier);
+        if (health != null) health.ScaleMaxHealth(config.healthMultiplier);
 
         transform.localScale *= config.scaleMultiplier;
         SpriteRenderer sprite = GetComponent<SpriteRenderer>();
