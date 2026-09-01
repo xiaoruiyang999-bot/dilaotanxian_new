@@ -176,6 +176,12 @@ public class WeaponHitbox : MonoBehaviour
                     damageable.TakeDamage(attackData.AttackDamage);
                 }
                 OnHit?.Invoke(damageable, hit.ClosestPoint(center));
+
+                // 命中反馈三件套（M1.5·v0.6.1，v1.0.8 自 MCP 分支恢复）：音效 + 打击停顿 + 轻震屏。
+                // 玩家与敌人共用本组件，双方命中都有反馈。
+                AudioManager.PlaySFX("hit");
+                HitStop.Request(0.03f);
+                CameraFollow.ShakeMain(0.05f, 0.08f);
             }
         }
     }

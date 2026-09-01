@@ -176,7 +176,5 @@ now_use/
 | PortalInteractable | 传送门（v0.5.4）：石块漩涡动效，按 E → RunManager.NextFloor |
 | ManaOrb | 击杀掉落小法力球（v0.6.3）：walk-over 自动吸附（不占 E、不进拾取列表），AddMana 后飞入销毁 |
 
-## 明确不在用（留在档案目录）
-- `v0_2/CharacterInput.cs`、`v0_2/WarriorCharacter.cs` — v0.2 旧场景专用
-- `v0_3/Enemy.cs`、`v0_3/WarriorAttack.cs`、`v0_3/Interfaces/IAttack.cs` — 已弃用
-- `Framework/DamageSystem.cs`、`Framework/DetectionSystem.cs` — 未被任何脚本引用
+## 已删除的归档（v1.0.2 死代码清理）
+- `v0_2/`、`v0_3/`、`Framework/` 等归档脚本与 v0_1~v0_4 旧场景已删除（仍编译进 Assembly-CSharp 且零引用），历史可从 git 找回，详见根目录 `v1.0.2_死代码清理.md`。

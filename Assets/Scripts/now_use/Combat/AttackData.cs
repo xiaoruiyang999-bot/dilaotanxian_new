@@ -60,6 +60,9 @@ public class AttackData : ScriptableObject
     [Tooltip("可命中目标的 LayerMask")]
     [SerializeField] private LayerMask targetLayer;
 
+    [Tooltip("投射物/冲锋判定视为障碍的 LayerMask（LOS 与挡弹用；资产里字段一直在）")]
+    [SerializeField] private LayerMask obstacleLayer;
+
     [Header("动画")]
     [Tooltip("动画播放方式")]
     [SerializeField] private AttackAnimationType animationType = AttackAnimationType.Arc;
@@ -70,6 +73,30 @@ public class AttackData : ScriptableObject
     [Tooltip("Active阶段中触发命中的时间点比例（0=开始，1=结束）")]
     [Range(0f, 1f)]
     [SerializeField] private float activeMomentRatio = 0.5f;
+
+    [Header("敌人多招选择")]
+    [Tooltip("Distance 模式下的适用距离。x=最小、y=最大；0~0 表示不限距离。")]
+    [SerializeField] private Vector2 distanceRange = Vector2.zero;
+    [Tooltip("Weighted 模式下的抽取权重；0 表示不参与权重随机。")]
+    [SerializeField] private int weight = 1;
+
+    [Header("特殊攻击类型（v1.0.13 自 MCP 分支还原：数据资产里的同名字段一直都在，只是类字段曾被合并砍掉）")]
+    [Tooltip("召唤攻击：Active 开始时生成小兵（EnemyCombat.SummonMinions）")]
+    [SerializeField] private bool isSummon;
+    [Tooltip("召唤的敌人 prefab（isSummon=true 时需要）")]
+    [SerializeField] private GameObject summonPrefab;
+    [Tooltip("每次召唤数量")]
+    [Range(1, 5)]
+    [SerializeField] private int summonCount = 2;
+    [Tooltip("召唤半径（小兵出生在以自身为中心的此半径内）")]
+    [SerializeField] private float summonRadius = 2f;
+
+    [Tooltip("冲锋攻击：Active 期间朝锁定方向高速位移，撞墙/撞目标停止（近战判定照常）")]
+    [SerializeField] private bool isCharge;
+    [Tooltip("冲锋速度倍率（×自身移速）")]
+    [SerializeField] private float chargeSpeedMultiplier = 3f;
+    [Tooltip("冲锋时碰到此层停止位移（墙体/障碍等），与 TargetLayer 一起 OR 用")]
+    [SerializeField] private LayerMask chargerCollisionLayer;
 
     public AttackShape AttackShape => attackShape;
 
@@ -86,6 +113,27 @@ public class AttackData : ScriptableObject
     public AttackAnimationType AnimationType => animationType;
     public Ease AttackEase => attackEase;
     public float ActiveMomentRatio => activeMomentRatio;
+    public Vector2 DistanceRange => distanceRange;
+    public float MinDistance => distanceRange.x;
+    public float MaxDistance => distanceRange.y;
+    public int Weight => weight;
+
+    public bool IsInDistanceRange(float distance)
+    {
+        if (distanceRange.x <= 0f && distanceRange.y <= 0f) return true;
+        if (distance < distanceRange.x) return false;
+        return distanceRange.y <= 0f || distance <= distanceRange.y;
+    }
+
+    // v1.0.13 特殊攻击类型（自 MCP 分支还原）
+    public bool IsSummon => isSummon;
+    public GameObject SummonPrefab => summonPrefab;
+    public int SummonCount => summonCount;
+    public float SummonRadius => summonRadius;
+    public bool IsCharge => isCharge;
+    public float ChargeSpeedMultiplier => chargeSpeedMultiplier;
+    public LayerMask ChargerCollisionLayer => chargerCollisionLayer;
+    public LayerMask ObstacleLayer => obstacleLayer;
 
     /// <summary>
     /// 创建运行时副本（v0.6.3 蓄力系统：近战装备武器的参数缩放只作用于副本）。
@@ -124,5 +172,8 @@ public class AttackData : ScriptableObject
         recoveryTime = Mathf.Max(0.001f, recoveryTime);
         attackRange = Mathf.Max(0.01f, attackRange);
         attackCooldown = Mathf.Max(0f, attackCooldown);
+        distanceRange.x = Mathf.Max(0f, distanceRange.x);
+        distanceRange.y = Mathf.Max(0f, distanceRange.y);
+        weight = Mathf.Max(0, weight);
     }
 }

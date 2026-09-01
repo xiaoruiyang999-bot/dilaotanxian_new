@@ -59,24 +59,22 @@ public static class EnemySpawner
             if (floorNumber >= 9 && room.Type == RoomType.Boss)
             {
                 var eh = go.GetComponent<EnemyHealth>();
-                if (eh != null) eh.ApplyMaxHealthMultiplier(1.5f);
+                if (eh != null) eh.ScaleMaxHealth(1.5f);
                 var sr = go.GetComponent<SpriteRenderer>();
                 if (sr != null) sr.color = new Color(1f, 0.45f, 0.3f);
                 go.name += "·终焉";
                 Debug.Log($"[M3] 最终 Boss 已强化：{go.name}（HP ×1.5）");
             }
 
-            // v0.5.4.1：注入战斗专用随机源，确保招式选择同 seed 可复现
-            var enemyCombat = go.GetComponent<EnemyCombat>();
+            // 每个敌人消费房间 RNG 派生的独立随机源：AI 横移、招式选择与召唤落点
+            // 在相同地牢 seed 下保持可复现，同时避免同房敌人行为完全同步。
             var enemyAI = go.GetComponent<EnemyAI>();
             if (enemyAI != null)
                 enemyAI.SetBehaviorRng(new System.Random(rng.Next()));
+
+            var enemyCombat = go.GetComponent<EnemyCombat>();
             if (enemyCombat != null)
-            {
-                // 每个敌人用独立子 seed，避免敌人间招式选择完全同步
-                var combatRng = new System.Random(rng.Next());
-                enemyCombat.SetCombatRng(combatRng);
-            }
+                enemyCombat.SetCombatRng(new System.Random(rng.Next()));
 
             // v0.5.4 楼层 HP 缩放（dmgMul 预留恒 1，见 EnemyStats.ApplyFloorScale 注释）
             if (config != null && floorNumber > 1)

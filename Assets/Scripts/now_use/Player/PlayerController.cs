@@ -93,12 +93,9 @@ public class PlayerController : MonoBehaviour
         string actionName = context.action?.name;
         if (string.IsNullOrEmpty(actionName)) return;
 
-        // 职业选择 UI 打开期间（v0.6.2）：屏蔽攻击/技能/交互输入——
-        // 鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；移动不受限（出生房安全）
-        // （v0.7.0：Dash/Sprint 已下线，分发分支移除，.inputactions 中 action 保留备用）
-        // （v0.7.2：UseItem 一并屏蔽，选职业期间不消耗道具）
-        // （v0.7.4：Ultimate/WeaponSkill 一并屏蔽，与小技能同规则）
-        if (ClassSelectUI.IsOpen &&
+        // 选择类 UI 打开期间：屏蔽攻击/技能/交互输入——鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；
+        // 移动不受限（出生房安全）。角色选择页（v1.0.8）与职业选择页同规则。
+        if ((ClassSelectUI.IsOpen || CharacterSelectUI.IsOpen) &&
             (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"
                 || actionName == "Ultimate" || actionName == "WeaponSkill"))
             return;
@@ -121,9 +118,11 @@ public class PlayerController : MonoBehaviour
         }
         else if (actionName == "Cancel" && context.performed)
         {
-            // 职业选择 UI 打开时 Esc 优先关 UI（未确认不生效，可再开），否则关拾取列表
+            // 选择类 UI 打开时 Esc 优先逐级关 UI（未确认不生效），否则关拾取列表
             if (ClassSelectUI.IsOpen)
                 ClassSelectUI.Close();
+            else if (CharacterSelectUI.IsOpen)
+                CharacterSelectUI.Close();
             else
                 interactor.OnCancelPressed();
         }

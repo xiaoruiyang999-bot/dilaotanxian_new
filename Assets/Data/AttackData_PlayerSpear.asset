@@ -16,7 +16,7 @@ MonoBehaviour:
   windupTime: 0.25
   activeDuration: 0.22
   recoveryTime: 0.33
-  attackRange: 2.4
+  attackRange: 3.2
   attackAngle: 60
   attackDamage: 30
   attackCooldown: 0.5

@@ -29,10 +29,13 @@ public class SlotBarUI : MonoBehaviour
     private static readonly Color BgColor = new Color(0.12f, 0.12f, 0.12f, 0.9f);   // 深色底（SlotFrame 缺失时的占位回退）
     private static readonly string[] SlotLabels = { "小技能", "大招", "武器技能", "道具栏" };
 
+    /// <summary>主槽按键角标（v1.0.6 用户需求④）：三技能槽 + 道具栏对应键位，背包格无。</summary>
+    private static readonly string[] SlotKeyHints = { "F", "Q", "R", "C" };
+
     // ========== 格子美术（SlotFrame，v0.7.3） ==========
 
-    /// <summary>SlotFrame 资产路径（美术导入处；构建时需复制到 Resources/Art/UI/）。</summary>
-    private const string SlotFrameEditorPath = "Assets/Art/UI/SlotFrame.jpg";
+    /// <summary>SlotFrame 资产路径（已迁入 Resources/Art/UI/，编辑器与构建同源）。</summary>
+    private const string SlotFrameEditorPath = "Assets/Resources/Art/UI/SlotFrame.jpg";
     private const string SlotFrameResourcesPath = "Art/UI/SlotFrame";
     private static Sprite slotFrame;
 
@@ -68,6 +71,7 @@ public class SlotBarUI : MonoBehaviour
         public TMP_Text Label;
         public TMP_Text CenterText;
         public TMP_Text CountBadge;
+        public TMP_Text KeyBadge;   // v1.0.6：左下角按键角标（F/Q/R/C）
     }
 
     private ItemInventory inventory;
@@ -235,12 +239,13 @@ public class SlotBarUI : MonoBehaviour
         root.anchoredPosition = new Vector2(-Margin, Margin);
         // 注：不要在 root 上设 localScale——Overlay Canvas 根 RectTransform 被引擎驱动会每帧重置，缩放用 CanvasScaler.scaleFactor（EnsureExists）
 
-        // 四槽横排（pivot 右下：从右往左排，slot3 道具栏贴右缘）
+        // 四槽横排（pivot 右下：从右往左排，slot3 道具栏贴右缘）+ 按键角标
         for (int i = 0; i < 4; i++)
         {
             float centerX = -(SlotSize * 0.5f) - (3 - i) * (SlotSize + Gap);
             mainSlots[i] = CreateSlot($"Slot_{SlotLabels[i]}", root,
                 new Vector2(centerX, SlotSize * 0.5f), SlotSize, false, -1);
+            mainSlots[i].KeyBadge = CreateKeyBadge((RectTransform)mainSlots[i].Bg.transform, SlotKeyHints[i]);
         }
 
         // 背包 3 格：道具栏上方横排，右缘与道具栏对齐
@@ -251,6 +256,27 @@ public class SlotBarUI : MonoBehaviour
             packSlots[i] = CreateSlot($"Backpack_{i}", root,
                 new Vector2(centerX, centerY), PackSize, true, i);
         }
+    }
+
+    /// <summary>左下角按键角标（v1.0.6 需求④）：金色小字标明槽位对应键位。</summary>
+    private TMP_Text CreateKeyBadge(RectTransform slotBg, string key)
+    {
+        GameObject go = CreateUIObject($"Key_{key}", slotBg);
+        TMP_Text t = go.AddComponent<TextMeshProUGUI>();
+        t.font = TMPFontProvider.Font;
+        t.text = key;
+        t.fontSize = 14;
+        t.fontStyle = FontStyles.Bold;
+        t.color = new Color(1f, 0.82f, 0.25f, 0.95f);
+        t.alignment = TextAlignmentOptions.BottomLeft;
+        t.raycastTarget = false;
+        RectTransform rect = (RectTransform)go.transform;
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        rect.sizeDelta = new Vector2(20f, 16f);
+        rect.anchoredPosition = new Vector2(4f, 2f);
+        return t;
     }
 
     /// <summary>创建一个槽位：SlotFrame 石板框（缺失时退回白描边 1px + 深色底）+ 顶部名称 + 中央占位/色块 + 右下数量角标。</summary>

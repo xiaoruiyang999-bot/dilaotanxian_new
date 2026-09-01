@@ -254,6 +254,10 @@ public class DungeonBuilder : MonoBehaviour
         if (doorPrefab == null) return;
         if (!rooms.TryGetValue(conn.a.id, out Room ra) || !rooms.TryGetValue(conn.b.id, out Room rb)) return;
 
+        // v1.0.12 回滚 v1.0.11 的 GetCellCenterWorld"修复"：Grid 位于原点、cellSize=1（见场景
+        // Grid/Walls/Floor 三者 transform 全零），瓦片坐标即世界坐标、格子边界在整数上；
+        // doorRect.center 恰为门洞（跨两格）的几何中心，直接用即精确对齐。
+        // CellCenterWorld 会多加半格中心偏移，把门推进墙体半格（用户截图实锤），故回滚。
         Door door = Instantiate(doorPrefab, doorRect.center, Quaternion.identity, dungeonRoot);
         door.name = $"Door_{conn.a.id}_{conn.b.id}";
         door.Init(ra, rb, doorRect.size);
@@ -267,4 +271,20 @@ public class DungeonBuilder : MonoBehaviour
         Rect r = InteriorRect(node);
         return new Vector3(r.center.x, r.center.y, 0f);
     }
+
+#if UNITY_EDITOR
+    /// <summary>门对齐验收工具（v1.0.12）：逐门打印位置/缩放/开关态，配合画面核对门体与洞口是否重合。</summary>
+    [UnityEditor.MenuItem("Tools/Dungeon/Debug Dump Door Alignment")]
+    private static void DebugDumpDoors()
+    {
+        Door[] doors = FindObjectsByType<Door>(FindObjectsSortMode.None);
+        if (doors.Length == 0) { Debug.LogWarning("[Door] 当前场景无门（地牢未生成？）"); return; }
+        foreach (Door d in doors)
+        {
+            Vector3 p = d.transform.position;
+            Vector3 s = d.transform.localScale;
+            Debug.Log($"[Door] {d.name} @({p.x:F2},{p.y:F2}) 尺寸({s.x:F1}x{s.y:F1}) —— 洞口世界区域 [{p.x - s.x / 2:F1},{p.x + s.x / 2:F1}]x[{p.y - s.y / 2:F1},{p.y + s.y / 2:F1}]（门可见=相邻房 Active 锁门中）");
+        }
+    }
+#endif
 }

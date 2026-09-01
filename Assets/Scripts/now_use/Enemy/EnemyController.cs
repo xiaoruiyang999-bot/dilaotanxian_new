@@ -57,6 +57,20 @@ public class EnemyController : MonoBehaviour
         rb.linearVelocity = direction.normalized * stats.MoveSpeed;
     }
 
+    /// <summary>向指定方向移动（带速度倍率，v1.0.13 自 MCP 分支还原：远程后撤/横移、游击后撤用）</summary>
+    public void MoveTowards(Vector2 direction, float speedMultiplier)
+    {
+        if (stats == null || rb == null) return;
+        rb.linearVelocity = direction.normalized * (stats.MoveSpeed * speedMultiplier);
+    }
+
+    /// <summary>冲锋位移（v1.0.13 自 MCP 分支还原）：直接写 Rigidbody2D.velocity，
+    /// 绕过 StopMoving 后的零速限制，由 EnemyCombat.UpdateActive 每帧驱动。</summary>
+    public void SetChargeVelocity(Vector2 velocity)
+    {
+        if (rb != null) rb.linearVelocity = velocity;
+    }
+
     /// <summary>停止移动</summary>
     public void StopMoving()
     {

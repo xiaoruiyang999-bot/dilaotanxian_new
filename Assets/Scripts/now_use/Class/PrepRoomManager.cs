@@ -47,9 +47,25 @@ public class PrepRoomManager : MonoBehaviour
         SpawnDemoItems();
 
         // 死亡回来：职业保留，按上次职业立即摆好武器展台（武器需重新拾取）
-        ClassData last = RunStateCarrier.Ensure().LastChosenClass;
+        RunStateCarrier carrier = RunStateCarrier.Ensure();
+        ClassData last = carrier.LastChosenClass;
         if (last != null)
             PrepRoomPlacer.RefreshWeapons(last);
+
+        // v1.0.8 统一初始入口（两级选择，均为首次弹出、死亡不重弹）：
+        // 未选过角色 → 先角色选择页（战士/狼人，确认后自动接续职业选择页）；选过角色但未选职业 → 直接职业选择页
+        if (!carrier.CharacterChosen)
+            CharacterSelectUI.Open();
+        else if (last == null)
+            ClassSelectUI.Open();
+
+        // v1.0.6 角色外形：准备房间也同步应用（选择页即时改外形，回看玩家已是新视觉）
+        if (RunStateCarrier.Ensure().ChosenCharacter == CharacterSkin.Werewolf && p != null)
+        {
+            FrameAnimator animator = p.GetComponent<FrameAnimator>();
+            if (animator != null) animator.SetWerewolfVisual(true);
+            WerewolfTransformation.EnsureOn(p);   // v1.0.9：准备房间也能按 T 试变身
+        }
 
         Debug.Log("[Run] 准备场景就绪：选职业 → 拿武器 → E 传送门进地牢");
     }
@@ -68,7 +84,7 @@ public class PrepRoomManager : MonoBehaviour
 
     // ========== v0.7.3 正式消耗包投放 ==========
 
-    /// <summary>三种正式消耗包资产名（Assets/Data/Item/）——全项目唯一清单，
+    /// <summary>三种正式消耗包资产名（Assets/Resources/Item/）——全项目唯一清单，
     /// 准备房间投放 / 宝箱奖励池 / 商店陈列共用（v0.7.3 单点收口）。</summary>
     internal static readonly string[] ConsumableAssetNames = { "Item_HealPack", "Item_ArmorPack", "Item_ManaPack" };
 
@@ -94,7 +110,7 @@ public class PrepRoomManager : MonoBehaviour
     {
 #if UNITY_EDITOR
         ConsumableData data = UnityEditor.AssetDatabase.LoadAssetAtPath<ConsumableData>(
-            $"Assets/Data/Item/{assetName}.asset");
+            $"Assets/Resources/Item/{assetName}.asset");
         if (data == null)
             Debug.LogWarning($"[Item] 消耗品 {assetName}.asset 未找到，跳过投放。");
         return data;

@@ -1,11 +1,10 @@
 using UnityEngine;
 
 /// <summary>
-/// 全局音频管理（M1.3·v0.6.1）：SFX 按名播放 + BGM 单曲循环，SFX/BGM 双路音量。
-/// 挂载方式同 MinimapSystem：场景空对象挂本组件，Inspector 里把下载好的音效
-/// （Kenney.nl / OpenGameArt，CC0）拖进对应条目即可；BGM 在 Start 自动循环播放。
-/// 未挂载或条目未配置时所有调用静默跳过——各系统挂点（命中/受击/敌死/开门/宝箱）
-/// 一行式调用，零耦合。
+/// 全局音频管理（M1.3·v0.6.1 → v1.0.7 全局常驻）：SFX 按名播放 + BGM 单曲循环，SFX/BGM 双路音量。
+/// v1.0.7：首实例 DontDestroyOnLoad——BGM 跨场景不间断（全局生效）；各场景 AudioSystem 只作首实例来源，
+/// 后到的重复实例静默禁用（不抢播）。三场景音效表/BGM 配置一致，任意场景启动效果相同。
+/// 未挂载或条目未配置时所有调用静默跳过——各系统挂点一行式调用，零耦合。
 /// SFX 用 PlayOneShot：天然支持同帧多次命中叠加播放，无需多源轮询池。
 /// </summary>
 public class AudioManager : MonoBehaviour
@@ -49,14 +48,15 @@ public class AudioManager : MonoBehaviour
 
     void Awake()
     {
-        // 重复挂载兜底：以先到者为准（单场景游戏，正常只有一份）
+        // 全局常驻（v1.0.7）：首个实例 DontDestroyOnLoad——BGM 跨场景不间断（全局生效），SFX 静态入口同源；
+        // 后续场景里的 AudioSystem 重复实例静默禁用（组件禁用不跑 Start，不会抢播 BGM），随各自场景卸载销毁
         if (Instance != null && Instance != this)
         {
-            Debug.LogWarning("[Audio] 场景中已存在 AudioManager，重复实例已禁用。", this);
             enabled = false;
             return;
         }
         Instance = this;
+        DontDestroyOnLoad(gameObject);
 
         sfxSource = gameObject.AddComponent<AudioSource>();
         sfxSource.playOnAwake = false;
@@ -70,7 +70,10 @@ public class AudioManager : MonoBehaviour
     void Start()
     {
         if (bgm != null && !bgmSource.isPlaying)
+        {
             bgmSource.Play();
+            Debug.Log("[Audio] BGM 开始全局循环播放（跨场景常驻，切换场景不打断）");
+        }
     }
 
     void OnDestroy()

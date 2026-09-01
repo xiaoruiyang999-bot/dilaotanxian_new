@@ -18,9 +18,14 @@ public class RunManager : MonoBehaviour
     [SerializeField] private GameObject portalPrefab;
 
     [Header("死亡重开")]
-    [SerializeField] private float restartDelay = 2f;
-    [Tooltip("死亡后加载的准备场景名（需在 Build Settings 中）")]
+    [Tooltip("死亡后自动返回准备场景的延迟（秒）。v1.0.5 起为结算面板留阅读时间；面板上 Esc/点击可提前返回")]
+    [SerializeField] private float restartDelay = 6f;
+    [Tooltip("重开本局加载的准备场景名（需在 Build Settings 中）")]
     [SerializeField] private string prepSceneName = "v0_7_PrepRoom";
+
+    [Header("统一入口（v1.0.6）")]
+    [Tooltip("场景内无职业时重定向回准备场景（防止绕过职业选择直连地牢；两个地牢场景均开启）")]
+    [SerializeField] private bool redirectToPrepWhenNoClass = false;
 
     public int FloorNumber { get; private set; } = 1;
     public int MainSeed { get; private set; }
@@ -39,6 +44,14 @@ public class RunManager : MonoBehaviour
     private IEnumerator InitDelayed()
     {
         yield return null;
+        // v1.0.6 统一入口：未选职业直连本场景（编辑器里 Play 了地牢场景/旧 v0_5 场景）时，
+        // 重定向回准备场景走正式流程，而不是以无职业状态裸进地牢
+        if (redirectToPrepWhenNoClass && RunStateCarrier.Ensure().LastChosenClass == null)
+        {
+            Debug.Log("[Run] 未选职业：重定向到准备场景（统一入口）");
+            SceneManager.LoadScene(prepSceneName);
+            yield break;
+        }
         MainSeed = dungeonManager.ActiveSeed;
         player = FindAnyObjectByType<PlayerController>();
         if (player == null)
@@ -49,6 +62,7 @@ public class RunManager : MonoBehaviour
         playerHealth = player.GetHealth();
         playerStats = player.GetStats();
         playerHealth.OnDeath += OnPlayerDeath;
+        RunTracker.BeginRun();          // v1.0.5 死亡结算统计：每次地牢场景加载重置，NextFloor 不重置（整局累计）
         ApplyLoadoutFromCarrier();
         SubscribeBossRoom();
         Debug.Log($"[Run] 楼层循环启动：floor=1 mainSeed={MainSeed}");
@@ -75,6 +89,15 @@ public class RunManager : MonoBehaviour
                 holder = player.gameObject.AddComponent<PlayerWeaponHolder>();
             holder.Equip(carrier.LastWeapon);   // 新玩家 Current 为空，不会触发掉落
             Debug.Log($"[Run] 应用武器：{carrier.LastWeapon.DisplayName}");
+        }
+
+        // v1.0.6 角色外形（与职业独立）：狼人 = 视觉外形 + 变身能力（T=兽化，v1.0.9 还原）
+        if (carrier.ChosenCharacter == CharacterSkin.Werewolf)
+        {
+            FrameAnimator animator = player.GetComponent<FrameAnimator>();
+            if (animator != null) animator.SetWerewolfVisual(true);
+            WerewolfTransformation.EnsureOn(player.gameObject);
+            Debug.Log("[Run] 应用外形：狼人（T=兽化）");
         }
     }
 
@@ -167,6 +190,25 @@ public class RunManager : MonoBehaviour
         var pc = FindAnyObjectByType<PlayerController>();
         if (pc == null) { Debug.LogWarning("[Run] Debug：未找到玩家"); return; }
         pc.GetHealth().TakeDamage(float.MaxValue);
+    }
+
+    [UnityEditor.MenuItem("Tools/Dungeon/Debug Apply Werewolf Visual")]
+    private static void DebugWerewolfVisual()
+    {
+        var pc = FindAnyObjectByType<PlayerController>();
+        var fa = pc != null ? pc.GetComponent<FrameAnimator>() : null;
+        if (fa == null) { Debug.LogWarning("[Run] Debug：未找到玩家 FrameAnimator"); return; }
+        RunStateCarrier.Ensure().SetCharacter(CharacterSkin.Werewolf);
+        fa.SetWerewolfVisual(true);
+        WerewolfTransformation.EnsureOn(pc.gameObject);   // v1.0.9：含变身能力（T=兽化）
+    }
+
+    [UnityEditor.MenuItem("Tools/Dungeon/Debug Toggle Beast")]
+    private static void DebugToggleBeast()
+    {
+        var wt = FindAnyObjectByType<WerewolfTransformation>();
+        if (wt == null) { Debug.LogWarning("[Run] Debug：未找到 WerewolfTransformation（先 Apply Werewolf Visual）"); return; }
+        wt.Toggle();   // 等价按 T：狼↔兽化全链路（演出/帧组/血量/数值）
     }
 #endif
 }

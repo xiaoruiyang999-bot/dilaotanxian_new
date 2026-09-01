@@ -92,11 +92,15 @@ public class Projectile : MonoBehaviour
 
         Vector2 hitPoint = other.ClosestPoint(transform.position);
 
-        // 目标层内 IDamageable → 结算伤害
-        if (((1 << other.gameObject.layer) & data.TargetLayer.value) != 0
-            && other.TryGetComponent(out IDamageable damageable))
+        // 同时检查碰撞体与根对象 Layer，并向父级查找受伤接口：恢复 MCP 分支对
+        // “子碰撞体未同步 Layer / IDamageable 挂根节点”Prefab 结构的兼容。
+        bool isTargetLayer = InLayer(other.gameObject.layer, data.TargetLayer)
+            || InLayer(other.transform.root.gameObject.layer, data.TargetLayer);
+        IDamageable damageable = isTargetLayer ? FindDamageableInParents(other.transform) : null;
+        if (damageable != null)
         {
             // v0.7.0：玩家子弹走新管线（角色攻击+子弹伤害）×damageMul(蓄力)×暴击；敌人子弹原路径
+            float dealtDamage;
             if (ownerStats != null)
             {
                 DamageContext ctx = new DamageContext
@@ -107,22 +111,38 @@ public class Projectile : MonoBehaviour
                     critRate = ownerStats.CritRate,
                     critDamage = ownerStats.CritDamage
                 };
-                DamageResolver.Deal(damageable, ctx);
+                dealtDamage = DamageResolver.Deal(damageable, ctx);
             }
             else
             {
-                damageable.TakeDamage(data.Damage * damageMul);
+                dealtDamage = data.Damage * damageMul;
+                damageable.TakeDamage(dealtDamage);
             }
+            DamagePopup.Spawn(other.bounds.center, dealtDamage);
             ProjectileVisualBuilder.SpawnHitEffect(hitPoint, data.BodyColor);
             Destroy(gameObject);
             return;
         }
 
-        // Default 层非触发器 = 墙/关闭的门/其他固体 → 撞墙销毁
-        if (other.gameObject.layer == 0)
+        // Trigger 已在上方跳过；其余非 Trigger 实体（墙、关闭的门、障碍物、无受伤接口目标）
+        // 都应挡弹，不能只认 Default 层。
+        ProjectileVisualBuilder.SpawnHitEffect(hitPoint, data.BodyColor);
+        Destroy(gameObject);
+    }
+
+    private static bool InLayer(int layer, LayerMask mask)
+    {
+        return (mask.value & (1 << layer)) != 0;
+    }
+
+    private static IDamageable FindDamageableInParents(Transform current)
+    {
+        while (current != null)
         {
-            ProjectileVisualBuilder.SpawnHitEffect(hitPoint, data.BodyColor);
-            Destroy(gameObject);
+            if (current.TryGetComponent(out IDamageable damageable))
+                return damageable;
+            current = current.parent;
         }
+        return null;
     }
 }

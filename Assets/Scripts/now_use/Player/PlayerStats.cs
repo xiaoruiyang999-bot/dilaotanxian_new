@@ -16,16 +16,22 @@ public class PlayerStats : MonoBehaviour
 
     public float MaxHP => maxHP;
     public float MaxArmor => maxArmor;
-    public float MoveSpeed => moveSpeed;
+    public float MoveSpeed => moveSpeed * BeastMoveSpeedMult;
     public float CurrentArmor { get; private set; }
     public float MaxMana => maxMana;
     public float CurrentMana { get; private set; }
 
-    public float Attack => attack;
+    public float Attack => attack * BeastDamageMult;
     public float CritRate => critRate;
     public float CritDamage => critDamage;
     public float ArmorReduceMul => armorReduceMul;
     public float ArmorLossMul => armorLossMul;
+
+    // v1.0.9 兽化乘数（WerewolfTransformation 写入，默认 1 = 不影响任何数值；
+    // 伤害乘进 Attack、移速乘进 MoveSpeed、攻速由 PlayerCombat.AttackSpeedMul 消费）
+    public float BeastDamageMult { get; set; } = 1f;
+    public float BeastMoveSpeedMult { get; set; } = 1f;
+    public float BeastAttackSpeedMult { get; set; } = 1f;
 
     /// <summary>当前职业（v0.6.2；未选择时为 null，旧场景保持现状）。</summary>
     public ClassData CurrentClass { get; private set; }

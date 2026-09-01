@@ -83,6 +83,7 @@ public class PlayerCombat : MonoBehaviour
     private PlayerMovement playerMovement;
     private Health health;
     private BuffManager buffManager;    // v0.7.5：延迟缓存（SkillExecutor.Awake 运行时补挂，Awake 顺序不定）
+    private PlayerStats stats;          // v1.0.9：兽化攻速乘数（AttackSpeedMul 消费）
     private FrameAnimator frameAnimator; // v0.7.6：延迟缓存（PlayerController.Awake 运行时补挂，同 buffManager 模式）
 
     // v0.7.5 攻速倍率：本次挥击实际前摇/判定时长（= 配置值 ÷ 攻速倍率），戳击进度比值同源使用
@@ -92,17 +93,22 @@ public class PlayerCombat : MonoBehaviour
     /// <summary>是否正在蓄力（v0.6.3）。</summary>
     public bool IsCharging => isCharging;
 
-    /// <summary>攻速倍率（v0.7.5 Buff 通道）：攻击间隔 ÷ 此值；无 BuffManager / 无 buff 返回 1，零行为差异。</summary>
+    /// <summary>攻速倍率（v0.7.5 Buff 通道 + v1.0.9 兽化乘数）：攻击间隔 ÷ 此值；默认项为 1，零行为差异。</summary>
     private float AttackSpeedMul()
     {
         if (buffManager == null) buffManager = GetComponent<BuffManager>();
-        return buffManager != null ? Mathf.Max(0.01f, buffManager.AttackSpeedMultiplier) : 1f;
+        float mul = buffManager != null ? Mathf.Max(0.01f, buffManager.AttackSpeedMultiplier) : 1f;
+        if (stats != null) mul *= Mathf.Max(0.01f, stats.BeastAttackSpeedMult);   // 兽化攻速（叠乘）
+        return mul;
     }
 
     void Awake()
     {
         if (attackData == null)
             Debug.LogWarning("[PlayerCombat] 未配置 AttackData，攻击无法执行。");
+
+        if (stats == null)   // v1.0.9：兽化攻速乘数消费
+            stats = GetComponent<PlayerStats>();
 
         if (aimController == null)
             aimController = GetComponent<PlayerAimController>();

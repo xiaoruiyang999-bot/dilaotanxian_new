@@ -102,6 +102,8 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     {
         if (IsDead) return;
         IsDead = true;
+        RunTracker.OnEnemyKilled();               // v1.0.5 死亡结算统计（含 Debug 菜单击杀）
+        AudioManager.PlaySFX("enemyDie");         // v1.0.5 敌死音效挂点（表未配置时静默）
         OnDeath?.Invoke();
     }
 

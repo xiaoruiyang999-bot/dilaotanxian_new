@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class SkillCatalog
 {
-    /// <summary>技能资产名清单（Assets/Data/Skill/）——全项目唯一清单。</summary>
+    /// <summary>技能资产名清单（Assets/Resources/Skill/）——全项目唯一清单。</summary>
     internal static readonly string[] AssetNames =
     {
         "Skill_Warrior_StandFirm",
@@ -63,7 +63,7 @@ public static class SkillCatalog
     private static T Load<T>(string assetName) where T : ScriptableObject
     {
 #if UNITY_EDITOR
-        T data = UnityEditor.AssetDatabase.LoadAssetAtPath<T>($"Assets/Data/Skill/{assetName}.asset");
+        T data = UnityEditor.AssetDatabase.LoadAssetAtPath<T>($"Assets/Resources/Skill/{assetName}.asset");
 #else
         T data = Resources.Load<T>($"Skill/{assetName}");
 #endif

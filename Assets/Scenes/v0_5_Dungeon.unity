@@ -119,6 +119,69 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &245590735
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 245590736}
+  - component: {fileID: 245590737}
+  m_Layer: 0
+  m_Name: AudioSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &245590736
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 245590735}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &245590737
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 245590735}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f8b578ac888f6c947a051ac7432d9c53, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  sfxEntries:
+  - id: hit
+    clip: {fileID: 8300000, guid: b640dafd40dc1184b802f5242b7fed32, type: 3}
+    volume: 0.5
+  - id: hurt
+    clip: {fileID: 8300000, guid: 53293e9798a69cb42bfd513bc8befb20, type: 3}
+    volume: 0.6
+  - id: enemyDie
+    clip: {fileID: 8300000, guid: 5f5b24aeb86c2f4439692bea4ea48fad, type: 3}
+    volume: 0.6
+  - id: door
+    clip: {fileID: 8300000, guid: a158b37a0808b31459d9644f85341aae, type: 3}
+    volume: 0.5
+  - id: chest
+    clip: {fileID: 8300000, guid: 2560ca62b1a4eeb41930907ed4a77344, type: 3}
+    volume: 0.6
+  bgm: {fileID: 8300000, guid: 5a8cac600b3f2c142ab2d9aea4f5607c, type: 3}
+  bgmVolume: 0.5
+  sfxMasterVolume: 1
 --- !u!1 &289048146
 GameObject:
   m_ObjectHideFlags: 0
@@ -729,51 +792,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1232918860
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1232918861}
-  - component: {fileID: 1232918862}
-  m_Layer: 0
-  m_Name: MetaSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1232918861
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1232918860}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1232918862
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1232918860}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 734b81caf16a1c349b7ca7c053a3c92e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MetaManager
-  shopKeyAction: MetaShop
 --- !u!1 &1250254057
 GameObject:
   m_ObjectHideFlags: 0
@@ -994,13 +1012,15 @@ MonoBehaviour:
   dungeonManager: {fileID: 1357356020}
   rewardChestPrefab: {fileID: 6358551137603142388, guid: aa0f79463f13b324c93fe34b6346b1ed, type: 3}
   portalPrefab: {fileID: 2406936545735521585, guid: 8c98270872baf6d408c9ca9c7fec7de5, type: 3}
-  restartDelay: 2
+  restartDelay: 6
+  prepSceneName: v0_7_PrepRoom
+  redirectToPrepWhenNoClass: 1
 --- !u!4 &1474215305 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
   m_PrefabInstance: {fileID: 2002241262}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1726313238
+--- !u!1 &1684019435
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1008,22 +1028,22 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1726313239}
-  - component: {fileID: 1726313240}
+  - component: {fileID: 1684019436}
+  - component: {fileID: 1684019437}
   m_Layer: 0
-  m_Name: CoinHUDSystem
+  m_Name: DeathSystem
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1726313239
+--- !u!4 &1684019436
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1726313238}
+  m_GameObject: {fileID: 1684019435}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -1032,20 +1052,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1726313240
+--- !u!114 &1684019437
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1726313238}
+  m_GameObject: {fileID: 1684019435}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bd6ea719caa480b469acce8f6d00a2b7, type: 3}
+  m_Script: {fileID: 11500000, guid: 3861704826400714b9403dc9dfdb6baf, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CoinHUD
-  stats: {fileID: 0}
-  anchoredPosition: {x: 18, y: 96}
+  m_EditorClassIdentifier: Game::DeathPanel
+  prepSceneName: v0_7_PrepRoom
 --- !u!1 &1734992715
 GameObject:
   m_ObjectHideFlags: 0
@@ -1059,6 +1078,7 @@ GameObject:
   - component: {fileID: 1734992717}
   - component: {fileID: 1734992716}
   - component: {fileID: 1734992722}
+  - component: {fileID: 1734992723}
   m_Layer: 0
   m_Name: Canvas
   m_TagString: Untagged
@@ -1164,7 +1184,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hpBar: {fileID: 1802142349}
   armorBar: {fileID: 2029991313}
+  manaBar: {fileID: 0}
   player: {fileID: 0}
+--- !u!114 &1734992723
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1734992715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50d36539a56744f6acce39fc61f01112, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game::AmmoUI
+  panelOffset: {x: 0, y: 6}
+  combat: {fileID: 0}
 --- !u!1 &1757752116
 GameObject:
   m_ObjectHideFlags: 0
@@ -1625,66 +1660,6 @@ MonoBehaviour:
   m_PointerBehavior: 0
   m_CursorLockBehavior: 0
   m_ScrollDeltaPerTick: 6
---- !u!1 &2132084639
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2132084640}
-  - component: {fileID: 2132084641}
-  m_Layer: 0
-  m_Name: VictorySystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2132084640
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2132084639}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2132084641
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2132084639}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3a256b1d177fb2e46b71f6621bc2cda1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VictoryPanel
---- !u!1660057539 &9223372036854775807
-SceneRoots:
-  m_ObjectHideFlags: 0
-  m_Roots:
-  - {fileID: 6661000000000000002}
-  - {fileID: 725043939}
-  - {fileID: 806071366}
-  - {fileID: 1734992719}
-  - {fileID: 2002241262}
-  - {fileID: 2064674611}
-  - {fileID: 1757752117}
-  - {fileID: 1357356018}
-  - {fileID: 1858242685}
-  - {fileID: 1726313239}
-  - {fileID: 2132084640}
-  - {fileID: 1232918861}
 --- !u!1 &6661000000000000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -1729,3 +1704,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d475dc9ef48da054aabd8f64a5832ff5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  prepSceneName: v0_7_PrepRoom
+--- !u!1660057539 &9223372036854775807
+SceneRoots:
+  m_ObjectHideFlags: 0
+  m_Roots:
+  - {fileID: 6661000000000000002}
+  - {fileID: 725043939}
+  - {fileID: 806071366}
+  - {fileID: 1734992719}
+  - {fileID: 2002241262}
+  - {fileID: 2064674611}
+  - {fileID: 1757752117}
+  - {fileID: 1357356018}
+  - {fileID: 1858242685}
+  - {fileID: 245590736}
+  - {fileID: 1684019436}

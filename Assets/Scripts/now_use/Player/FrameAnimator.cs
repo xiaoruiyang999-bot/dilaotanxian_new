@@ -72,28 +72,28 @@ public class FrameAnimator : MonoBehaviour
     private const string SkillGroupName = "skill";
 
     // 战士行走帧硬编码路径（编辑器 AssetDatabase / 构建 Resources，SkillCatalog 同模式；帧数可变 1~8 扫描）
-    private const string EditorWalkDir = "Assets/Art/Characters/Warrior/Walk";
+    private const string EditorWalkDir = "Assets/Resources/Art/Characters/Warrior/Walk";
     private const string ResourcesWalkDir = "Art/Characters/Warrior/Walk";
 
     // 战士待机呼吸帧硬编码路径（同模式；5 帧，正面朝向，不做 flipX）
-    private const string EditorIdleDir = "Assets/Art/Characters/Warrior/idle";
+    private const string EditorIdleDir = "Assets/Resources/Art/Characters/Warrior/idle";
     private const string ResourcesIdleDir = "Art/Characters/Warrior/idle";
     private const int IdleFrameCount = 5;
 
     // v0.7.6：可选帧组目录（帧数不定，按命名前缀连续扫描 1~MaxScannedFrames，缺号即停）
-    private const string EditorWalkFrontDir = "Assets/Art/Characters/Warrior/WalkFront";
+    private const string EditorWalkFrontDir = "Assets/Resources/Art/Characters/Warrior/WalkFront";
     private const string ResourcesWalkFrontDir = "Art/Characters/Warrior/WalkFront";
     private const string WalkFrontPrefix = "warrior_walk_front_";
-    private const string EditorWalkBackDir = "Assets/Art/Characters/Warrior/WalkBack";
+    private const string EditorWalkBackDir = "Assets/Resources/Art/Characters/Warrior/WalkBack";
     private const string ResourcesWalkBackDir = "Art/Characters/Warrior/WalkBack";
     private const string WalkBackPrefix = "warrior_walk_back_";
-    private const string EditorAttackSwordDir = "Assets/Art/Characters/Warrior/AttackSword";
+    private const string EditorAttackSwordDir = "Assets/Resources/Art/Characters/Warrior/AttackSword";
     private const string ResourcesAttackSwordDir = "Art/Characters/Warrior/AttackSword";
     private const string AttackSwordPrefix = "warrior_attack_sword_";
-    private const string EditorAttackSpearDir = "Assets/Art/Characters/Warrior/AttackSpear";
+    private const string EditorAttackSpearDir = "Assets/Resources/Art/Characters/Warrior/AttackSpear";
     private const string ResourcesAttackSpearDir = "Art/Characters/Warrior/AttackSpear";
     private const string AttackSpearPrefix = "warrior_attack_spear_";
-    private const string EditorSkillDir = "Assets/Art/Characters/Warrior/Skill";
+    private const string EditorSkillDir = "Assets/Resources/Art/Characters/Warrior/Skill";
     private const string ResourcesSkillDir = "Art/Characters/Warrior/Skill";
     private const string SkillPrefix = "warrior_skill_";
     private const int MaxScannedFrames = 8;
@@ -132,6 +132,26 @@ public class FrameAnimator : MonoBehaviour
     private SpriteRenderer[] hiddenWeaponRenderers; // 覆盖播放期间被隐藏的武器视觉
     private bool[] hiddenWeaponStates;              // 各渲染器原 enabled 状态（结束逐一恢复）
 
+    // v1.0.6 狼人外形（角色选择行，与职业独立）：左右两套独立帧组不 flipX，驱动目标切到 WerewolfVisual 子物体
+    private bool werewolfMode;
+    private SpriteRenderer wwSr;                    // 狼人视觉子物体渲染器（狼人模式下的实际驱动目标）
+    private AnimGroup wwWalkL, wwWalkR, wwIdleL, wwIdleR;
+    private const string WerewolfDir = "Art/Characters/Werewolf";   // Resources 相对路径（编辑器镜像 Assets/Resources/）
+    private const string WerewolfWalkLName = "walk_l", WerewolfWalkRName = "walk_r",
+                         WerewolfIdleLName = "idle_l", WerewolfIdleRName = "idle_r";
+
+    // v1.0.9 兽化（自 v0.6.8 还原）：Beast 帧 1080px 画布自带大体型（普通狼 720），同缩放即 ~1.5×；
+    // Transform 组用于变身演出（TryBeginOverride 覆盖播放，期间武器视觉照机制隐藏）
+    private bool beastForm;
+    private AnimGroup bWalkL, bWalkR, bIdleL, bIdleR, tfL, tfR;
+    private const string BeastWalkLName = "beast_walk_l", BeastWalkRName = "beast_walk_r",
+                         BeastIdleLName = "beast_idle_l", BeastIdleRName = "beast_idle_r",
+                         TransformLName = "transform_l", TransformRName = "transform_r";
+    private Vector3 wwBaseScale = Vector3.one;      // WerewolfVisual 基准缩放（变身演出期间按膨胀系数临时放大）
+
+    /// <summary>当前驱动的渲染器：狼人模式下为 WerewolfVisual 子物体，否则为玩家自身。</summary>
+    private SpriteRenderer TargetSr => werewolfMode && wwSr != null ? wwSr : sr;
+
     void Awake()
     {
         sr = GetComponent<SpriteRenderer>();
@@ -165,8 +185,8 @@ public class FrameAnimator : MonoBehaviour
         SyncFallbackFps(); // 兜底组的 fps 跟随序列化字段，Play 模式改值实时生效
 
         // 死亡灰显期间不强制置白（PlayerController 死亡表现优先），其余情况保持白色
-        if (sr.color != Color.white && sr.color != DeathGray)
-            sr.color = Color.white;
+        if (TargetSr.color != Color.white && TargetSr.color != DeathGray)
+            TargetSr.color = Color.white;
 
         // 攻击/技能覆盖播放期间：覆盖组独占帧推进，行走/待机驱动挂起，播完自动恢复
         if (overrideGroup != null)
@@ -175,10 +195,12 @@ public class FrameAnimator : MonoBehaviour
             return;
         }
 
-        // 玩家驱动：速度决定 walk / idle（四方向组存在时按主轴分方向，否则 v0.7.5 水平驱动）
+        // 玩家驱动：狼人外形走左右组驱动；速度决定 walk / idle（四方向组存在时按主轴分方向，否则 v0.7.5 水平驱动）
         if (rb != null)
         {
-            if (walkFrontGroup != null || walkBackGroup != null)
+            if (werewolfMode)
+                UpdateWerewolfDrive();
+            else if (walkFrontGroup != null || walkBackGroup != null)
                 UpdateFourWayDrive();
             else
                 UpdateSideDrive();
@@ -211,7 +233,7 @@ public class FrameAnimator : MonoBehaviour
         }
 
         Sprite next = current != null ? current.frames[frameIndex] : null;
-        if (next != null) sr.sprite = next;
+        if (next != null) TargetSr.sprite = next;
     }
 
     /// <summary>v0.7.5 水平驱动（四方向组全缺时的原样行为）：水平速度决定 walk / idle。</summary>
@@ -336,7 +358,7 @@ public class FrameAnimator : MonoBehaviour
         frameIndex = 0;
         frameDir = 1;
         frameTimer = 0f;
-        sr.sprite = g.frames[0];
+        TargetSr.sprite = g.frames[0];
 
         HideWeaponVisuals();
         return true;
@@ -355,7 +377,7 @@ public class FrameAnimator : MonoBehaviour
         {
             frameIndex = idx;
             Sprite next = overrideGroup.frames[frameIndex];
-            if (next != null) sr.sprite = next;
+            if (next != null) TargetSr.sprite = next;
         }
 
         if (overrideTimer <= 0f)
@@ -410,8 +432,8 @@ public class FrameAnimator : MonoBehaviour
         frameIndex = 0;
         frameDir = 1;
         frameTimer = 0f;
-        if (sr != null && g.frames[0] != null)
-            sr.sprite = g.frames[0];
+        if (TargetSr != null && g.frames[0] != null)
+            TargetSr.sprite = g.frames[0];
     }
 
     /// <summary>停止播放并停在当前组第 1 帧（当 idle 回退）。</summary>
@@ -421,14 +443,15 @@ public class FrameAnimator : MonoBehaviour
         frameIndex = 0;
         frameDir = 1;
         frameTimer = 0f;
-        if (sr != null && current.frames != null && current.frames.Length > 0 && current.frames[0] != null)
-            sr.sprite = current.frames[0];
+        if (TargetSr != null && current.frames != null && current.frames.Length > 0 && current.frames[0] != null)
+            TargetSr.sprite = current.frames[0];
         current = null;
     }
 
-    /// <summary>设置水平镜像（素材左向：向右走传 true）。</summary>
+    /// <summary>设置水平镜像（素材左向：向右走传 true）。狼人模式忽略（左右两套素材不做 flipX）。</summary>
     public void SetFlipX(bool flip)
     {
+        if (werewolfMode) return;
         if (sr != null) sr.flipX = flip;
     }
 
@@ -441,6 +464,186 @@ public class FrameAnimator : MonoBehaviour
                 return groups[i];
         }
         return null;
+    }
+
+    // ========== v1.0.6 狼人外形（角色选择行，与职业独立） ==========
+
+    /// <summary>
+    /// 启用狼人外形（RunStateCarrier.ChosenCharacter → RunManager/PrepRoomManager 场景应用侧调用）。
+    /// 单向开关：切回战士走场景重载（新玩家实例默认战士外形，再按载体决定是否套狼人）。
+    /// 帧：Resources/Art/Characters/Werewolf/{Walk_L,Walk_R,Idle_L,Idle_R}（001.png 起连续编号），左右两套不做 flipX。
+    /// Walk 组缺失 → 保持战士外形并警告。
+    /// 【美术资产缺失】狼人攻击/技能/四方向帧未产出：攻击回退 DOTween 武器挥砍（武器可见），仅侧面行走/待机；
+    /// 死亡灰显对狼人渲染器暂不生效（PlayerController 置灰的是玩家自身 sr）。
+    /// </summary>
+    public void SetWerewolfVisual(bool on)
+    {
+        if (on == werewolfMode) return;
+        if (!on)
+        {
+            // v1.0.9 还原战士（选择页即时改选用）：销毁狼人视觉、清狼人组、恢复自身渲染器与战士组缓存
+            if (wwSr != null) Destroy(wwSr.gameObject);
+            wwSr = null;
+            foreach (AnimGroup g in new[] { wwWalkL, wwWalkR, wwIdleL, wwIdleR, bWalkL, bWalkR, bIdleL, bIdleR, tfL, tfR })
+                if (g != null) groups.Remove(g);
+            wwWalkL = wwWalkR = wwIdleL = wwIdleR = bWalkL = bWalkR = bIdleL = bIdleR = tfL = tfR = null;
+            werewolfMode = false;
+            beastForm = false;
+            if (sr != null) sr.enabled = true;
+            walkGroup = FindGroup(WalkGroupName);
+            idleGroup = FindGroup(IdleGroupName);
+            walkFrontGroup = FindGroup(WalkFrontGroupName);
+            walkBackGroup = FindGroup(WalkBackGroupName);
+            current = null;
+            return;
+        }
+
+        wwWalkL = BuildWerewolfGroup(WerewolfWalkLName, "Walk_L", walkFps, loop: true);
+        wwWalkR = BuildWerewolfGroup(WerewolfWalkRName, "Walk_R", walkFps, loop: true);
+        wwIdleL = BuildWerewolfGroup(WerewolfIdleLName, "Idle_L", idleFps, loop: false, pingPong: true);
+        wwIdleR = BuildWerewolfGroup(WerewolfIdleRName, "Idle_R", idleFps, loop: false, pingPong: true);
+        if (wwWalkL == null || wwWalkR == null)
+        {
+            Debug.LogWarning("[FrameAnimator] 狼人行走帧缺失（Resources/Art/Characters/Werewolf/Walk_L|Walk_R），保持战士外形。");
+            wwWalkL = wwWalkR = wwIdleL = wwIdleR = null;
+            return;
+        }
+        if (wwIdleL == null) wwIdleL = wwWalkL;   // 待机缺失回退对应朝向行走组
+        if (wwIdleR == null) wwIdleR = wwWalkR;
+
+        // v1.0.9 兽化/变身组（缺失不阻断：兽化直接跳过演出，变身回退即时切换）
+        bWalkL = BuildWerewolfGroup(BeastWalkLName, "BeastWalk_L", walkFps, loop: true);
+        bWalkR = BuildWerewolfGroup(BeastWalkRName, "BeastWalk_R", walkFps, loop: true);
+        bIdleL = BuildWerewolfGroup(BeastIdleLName, "BeastIdle_L", idleFps, loop: true);
+        bIdleR = BuildWerewolfGroup(BeastIdleRName, "BeastIdle_R", idleFps, loop: true);
+        tfL = BuildWerewolfGroup(TransformLName, "Transform_L", 4f, loop: false);
+        tfR = BuildWerewolfGroup(TransformRName, "Transform_R", 4f, loop: false);
+
+        groups.Add(wwWalkL); groups.Add(wwWalkR); groups.Add(wwIdleL); groups.Add(wwIdleR);
+        foreach (AnimGroup g in new[] { bWalkL, bWalkR, bIdleL, bIdleR, tfL, tfR })
+            if (g != null) groups.Add(g);
+
+        CreateWerewolfVisual(wwWalkR);
+        werewolfMode = true;
+        if (sr != null) sr.enabled = false;   // 隐藏战士视觉
+        current = wwIdleR;                    // 初始右向待机
+        frameIndex = 0;
+        Debug.Log("[FrameAnimator] 已应用狼人外形（walk/idle 左右组" + (bWalkL != null ? " + 兽化/变身组" : "") + "）");
+    }
+
+    /// <summary>切换兽化形态（v1.0.9）：换兽化帧组驱动；Beast 帧 1080px 画布自带 ~1.5× 体型，
+    /// 子物体缩放回基准（变身演出的临时膨胀在此复位）。切回普通狼同理。</summary>
+    public void SetBeastForm(bool on)
+    {
+        if (!werewolfMode) return;
+        if (on == beastForm) return;
+        beastForm = on;
+        if (wwSr != null) wwSr.transform.localScale = wwBaseScale;   // 膨胀复位
+        current = null;                                                // 驱动下一帧按新形态接管
+    }
+
+    /// <summary>兽化形态标记（WerewolfTransformation 查询用）。</summary>
+    public bool IsBeastForm => beastForm;
+
+    /// <summary>最近一次水平移动方向（+1 右 / -1 左；狼人变身选 Transform_L/R 组用，v1.0.9）。</summary>
+    public float LastHorizontalInput { get; private set; } = 1f;
+
+    /// <summary>变身帧组帧数（WerewolfTransformation 对齐演出时长用；组缺失返回 0）。</summary>
+    public int TransformFrameCount(bool left)
+    {
+        AnimGroup g = left ? tfL : tfR;
+        return g?.frames?.Length ?? 0;
+    }
+
+    /// <summary>变身演出期间的视觉膨胀（v0.6.5 原逻辑：基准 ×factor，factor 1→1.5 线性）。</summary>
+    public void SetWerewolfVisualGrow(float factor)
+    {
+        if (wwSr != null)
+            wwSr.transform.localScale = Vector3.Scale(wwBaseScale, new Vector3(factor, factor, 1f));
+    }
+
+    /// <summary>播变身动画（v1.0.9：TryBeginOverride 覆盖播放，非循环，播完驱动自动接管）。组缺失返回 false。</summary>
+    public bool PlayTransform(bool left, float duration)
+    {
+        AnimGroup g = left ? tfL : tfR;
+        return g != null && TryBeginOverride(g, duration);
+    }
+
+    /// <summary>兽化/狼形态驱动（v1.0.10 修正）：
+    /// ① 任意方向移动（含纯垂直）都播行走循环——狼人无正/背帧，统一用左右组；
+    /// ② 停步 Idle 用「最后移动方向」的朝向组（此前取停步瞬间 vx 符号≈0 恒偏右，兽化分支同样错）。</summary>
+    private void UpdateWerewolfDrive()
+    {
+        Vector2 v = rb.linearVelocity;
+        bool moving = v.magnitude > MoveSpeedThreshold;
+        if (moving && Mathf.Abs(v.x) > 0.01f)                    // 有水平分量才更新朝向记忆；纯垂直移动保持原朝向
+            LastHorizontalInput = v.x < 0f ? -1f : 1f;
+        bool left = LastHorizontalInput < 0f;
+
+        if (beastForm && bWalkL != null && bWalkR != null)
+        {
+            if (moving)
+                Play(left ? BeastWalkLName : BeastWalkRName);
+            else if (bIdleL != null && bIdleR != null)
+                Play(left ? BeastIdleLName : BeastIdleRName);
+            else
+                Play(left ? WerewolfIdleLName : WerewolfIdleRName);   // 兽化待机缺失回退普通狼
+            return;
+        }
+
+        if (moving)
+            Play(left ? WerewolfWalkLName : WerewolfWalkRName);
+        else
+            Play(left ? WerewolfIdleLName : WerewolfIdleRName);
+    }
+
+    /// <summary>
+    /// 创建狼人视觉子物体并校准缩放（v1.0.9 等比例修正）：
+    /// 按素材原生宽高比渲染——方形 720px 帧在两轴用同一世界尺寸系数 k（不再强设 0.6 宽高比，那是变形根源）；
+    /// 目标高 ≈ 战士视觉高 ×1.95 ≈ 旧版 wolfScale 0.25×7.2 = 1.8 世界单位的体量；
+    /// 子缩放按玩家 lossyScale 反解，玩家根缩放无论均匀与否都保持等比。体型微调改 WerewolfVisual localScale。
+    /// </summary>
+    private void CreateWerewolfVisual(AnimGroup sampleGroup)
+    {
+        GameObject go = new GameObject("WerewolfVisual");
+        go.transform.SetParent(transform, false);
+        wwSr = go.AddComponent<SpriteRenderer>();
+        wwSr.sortingOrder = sr != null ? sr.sortingOrder : 10;
+        wwSr.sprite = sampleGroup.frames[0];
+
+        float warriorH = sr != null && framesValid ? sr.bounds.size.y : 0.93f;
+        float k = (warriorH * 0.975f) / 7.2f;   // v1.0.10 用户标定：原 ×1.95 太大，减半（≈0.9u，与战士视觉等高量级）；兽化帧 1080px 同缩放自动 ≈1.5×
+        Vector3 lossy = transform.lossyScale;
+        wwBaseScale = new Vector3(
+            k / Mathf.Max(Mathf.Abs(lossy.x), 1e-4f),
+            k / Mathf.Max(Mathf.Abs(lossy.y), 1e-4f),
+            1f);
+        go.transform.localScale = wwBaseScale;
+    }
+
+    private static AnimGroup BuildWerewolfGroup(string groupName, string subDir, float fps, bool loop, bool pingPong = false)
+    {
+        Sprite[] frames = LoadWerewolfFrames(subDir);
+        if (frames == null) return null;
+        return new AnimGroup { name = groupName, frames = frames, fps = fps, loop = loop, pingPong = pingPong };
+    }
+
+    /// <summary>狼人帧加载：001.png 起连续编号扫描（现有 3~8 帧，上限 31 保险；编辑器 AssetDatabase / 构建 Resources 同构）。</summary>
+    private static Sprite[] LoadWerewolfFrames(string subDir)
+    {
+        List<Sprite> frames = new List<Sprite>();
+        for (int i = 1; i <= 31; i++)
+        {
+            string fileName = i.ToString("000");
+#if UNITY_EDITOR
+            Sprite s = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Resources/{WerewolfDir}/{subDir}/{fileName}.png");
+#else
+            Sprite s = Resources.Load<Sprite>($"{WerewolfDir}/{subDir}/{fileName}");
+#endif
+            if (s == null) break;
+            frames.Add(s);
+        }
+        return frames.Count > 0 ? frames.ToArray() : null;
     }
 
     /// <summary>序列化组为空时按硬编码路径加载战士行走帧 + 待机呼吸 5 帧（SkillCatalog 同模式）。</summary>

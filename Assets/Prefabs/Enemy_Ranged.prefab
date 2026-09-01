@@ -48,10 +48,6 @@ PrefabInstance:
       propertyPath: m_Color.r
       value: 0.4
       objectReference: {fileID: 0}
-    - target: {fileID: 4736793112043146767, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: muzzle
-      value: 
-      objectReference: {fileID: 2125659511975442313}
     - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackData
       value: 
@@ -88,6 +84,14 @@ PrefabInstance:
       propertyPath: 'attackDataSet.Array.data[0]'
       value: 
       objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value: 
+      objectReference: {fileID: 11400000, guid: a100ba02de884a4aadb6af15a56f4cf1, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: projectileData
+      value: 
+      objectReference: {fileID: 11400000, guid: 3c6e35a7c3504d058e71d486ff084320, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

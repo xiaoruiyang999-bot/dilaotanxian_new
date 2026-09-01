@@ -11,7 +11,7 @@ PrefabInstance:
     - target: {fileID: 562794154036049862, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: behaviorConfig
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 11400000, guid: 7b0cbc65fdc7447797ce37c215f59958, type: 2}
     - target: {fileID: 1048759183800617251, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
       value: 130
@@ -67,7 +67,7 @@ PrefabInstance:
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackData
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 11400000, guid: a200ba02de884a4aadb6af15a56f4cf2, type: 2}
     - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: attackDataSet.Array.size
       value: 1

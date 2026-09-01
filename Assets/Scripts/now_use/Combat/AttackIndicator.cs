@@ -57,7 +57,6 @@ public class AttackIndicator : MonoBehaviour
     private float currentAngle = 360f;
     private float currentWidth = 0.2f;
     private Vector2 currentDirection = Vector2.right;
-    private float boxWidth = 0.2f;   // Box 形状的宽度（v0.6.3）
 
     public Color WarningColor => warningColor;
     public Color DangerColor => dangerColor;
@@ -275,7 +274,7 @@ public class AttackIndicator : MonoBehaviour
     {
         shape = ShapeType.Box;
         currentRadius = Mathf.Max(0.01f, length);   // 复用 radius 字段存长度
-        boxWidth = Mathf.Max(0.01f, width);
+        currentWidth = Mathf.Max(0.01f, width);
         RebuildMesh();
     }
 
@@ -366,34 +365,11 @@ public class AttackIndicator : MonoBehaviour
             case ShapeType.Sector:
                 BuildSectorMesh();
                 break;
-            case ShapeType.Box:
-                BuildBoxMesh();
-                break;
             case ShapeType.Circle:
             default:
                 BuildCircleMesh();
                 break;
         }
-    }
-
-    /// <summary>矩形 Mesh（v0.6.3）：从原点沿 currentDirection 伸出 currentRadius 长、boxWidth 宽。</summary>
-    private void BuildBoxMesh()
-    {
-        if (indicatorMesh == null) return;
-
-        float halfW = boxWidth * 0.5f;
-        Vector2 dir = currentDirection.normalized;
-        Vector2 perp = new Vector2(-dir.y, dir.x) * halfW;
-        Vector2 tip = dir * currentRadius;
-
-        indicatorMesh.Clear();
-        indicatorMesh.vertices = new Vector3[]
-        {
-            -perp, perp, tip + perp, tip - perp
-        };
-        indicatorMesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
-        indicatorMesh.RecalculateNormals();
-        indicatorMesh.RecalculateBounds();
     }
 
     private void UpdateSpriteVisual()

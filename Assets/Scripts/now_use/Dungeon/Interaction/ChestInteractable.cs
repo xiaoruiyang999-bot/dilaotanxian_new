@@ -29,6 +29,7 @@ public class ChestInteractable : Interactable
 
     protected override void OnConsumed(Collider2D player)
     {
+        AudioManager.PlaySFX("chest");   // v1.0.5 开箱音效挂点（表未配置时静默）
         if (lidTop == null || lidBottom == null)
         {
             // 防御：prefab 未接线时退回旧行为，不卡死

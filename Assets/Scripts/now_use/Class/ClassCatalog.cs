@@ -24,9 +24,9 @@ public static class ClassCatalog
     {
         classes = new ClassData[3];
 #if UNITY_EDITOR
-        classes[0] = UnityEditor.AssetDatabase.LoadAssetAtPath<ClassData>("Assets/Data/Class/Class_Warrior.asset");
-        classes[1] = UnityEditor.AssetDatabase.LoadAssetAtPath<ClassData>("Assets/Data/Class/Class_Archer.asset");
-        classes[2] = UnityEditor.AssetDatabase.LoadAssetAtPath<ClassData>("Assets/Data/Class/Class_Mage.asset");
+        classes[0] = UnityEditor.AssetDatabase.LoadAssetAtPath<ClassData>("Assets/Resources/Class/Class_Warrior.asset");
+        classes[1] = UnityEditor.AssetDatabase.LoadAssetAtPath<ClassData>("Assets/Resources/Class/Class_Archer.asset");
+        classes[2] = UnityEditor.AssetDatabase.LoadAssetAtPath<ClassData>("Assets/Resources/Class/Class_Mage.asset");
 #else
         classes[0] = Resources.Load<ClassData>("Class/Class_Warrior");
         classes[1] = Resources.Load<ClassData>("Class/Class_Archer");

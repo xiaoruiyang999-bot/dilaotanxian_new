@@ -52,6 +52,9 @@ public class Health : MonoBehaviour, IDamageable
         {
             CurrentHealth = Mathf.Max(CurrentHealth - damageToHealth, 0f);
             OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+            // 受击反馈（M1.5·v0.6.1，v1.0.8 自 MCP 分支恢复震屏）：音效 + 重震屏
+            AudioManager.PlaySFX("hurt");
+            CameraFollow.ShakeMain(0.18f, 0.2f);
         }
 
         if (CurrentHealth <= 0f) Die();
@@ -67,6 +70,15 @@ public class Health : MonoBehaviour, IDamageable
     {
         if (IsDead) return;
         CurrentHealth = Mathf.Min(CurrentHealth + amount, maxHealth);
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+    }
+
+    /// <summary>上限与当前血等比 ×multiplier（v0.6.9 兽化血量，v1.0.9 自 MCP 分支恢复；退兽化传 1/N 等比还原）。</summary>
+    public void ScaleMaxHealth(float multiplier)
+    {
+        if (multiplier <= 0f) return;
+        maxHealth = Mathf.Max(1f, maxHealth * multiplier);
+        CurrentHealth = Mathf.Clamp(CurrentHealth * multiplier, 0f, maxHealth);
         OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }
 
