@@ -5,6 +5,10 @@ using UnityEngine;
 /// - 构建：Kinematic Rigidbody2D + CircleCollider2D(trigger, radius=data.Radius)
 ///   + Projectile + ProjectileVisualBuilder 视觉子物体（根旋转 = 飞行方向 Atan2 角度）；
 /// - Update 直线移动 dir × Speed×speedMul，lifetime 到期自毁（兜底）；
+/// - v1.1.13 位移段查询：每帧移动前用 OverlapBox 扫掠盒覆盖整段位移（useTriggers=false，
+///   WeaponHitbox 同款已验证签名）。根因修复"间歇性穿墙"——Update 传送式位移只在物理步采样
+///   瞬时位置（Box2D 连续检测不覆盖 Trigger 形状），帧尖峰时单帧位移可 >1 格墙厚，离散采样直接跨墙。
+///   扫掠盒命中墙/目标在命中点结算销毁，零隧穿。
 /// - OnTriggerEnter2D：跳过 owner 及其同根（防生成瞬间自伤）、跳过其他 trigger（敌人探测圈）；
 ///   命中 TargetLayer 内 IDamageable → 结算伤害（v0.7.0：玩家子弹走 DamageResolver 新管线，
 ///   敌人子弹 TakeDamage(Damage×damageMul) 原路径）+ 命中特效 + 销毁；
@@ -20,6 +24,21 @@ public class Projectile : MonoBehaviour
     private float damageMul = 1f;
     private float speedMul = 1f;
     private float lifetime;
+    private bool resolved;   // v1.1.13：扫射与 Trigger 双通道防同帧重复结算
+
+    // 位移段查询过滤器：实体碰撞才挡弹（跳过 trigger——探测圈/其他子弹），与红线"投射物查询跳过 trigger"一致
+    private static readonly ContactFilter2D sweepFilter = CreateSweepFilter();
+    // NonAlloc 静态缓冲（R10 零 GC）。用 OverlapBox 而非 CircleCast：本版本 ContactFilter2D 系
+    // Cast 重载不存在（CS1503 教训），而 (center, size, angle, filter, buffer) 是 WeaponHitbox
+    // 在用的已验证签名。
+    private static readonly Collider2D[] sweepBuffer = new Collider2D[8];
+
+    private static ContactFilter2D CreateSweepFilter()
+    {
+        var f = new ContactFilter2D();
+        f.useTriggers = false;
+        return f;
+    }
 
     /// <summary>
     /// 发射一颗子弹（PlayerCombat 远程模式调用）。
@@ -71,7 +90,43 @@ public class Projectile : MonoBehaviour
     {
         if (data == null) return;
 
-        transform.position += (Vector3)(direction * (data.Speed * speedMul * Time.deltaTime));
+        // v1.1.13 位移段查询：先测后动。扫掠盒覆盖整段位移（起点圆 → 终点圆的外接旋转矩形），
+        // 帧尖峰（deltaTime 飙大）导致的超长单帧位移也完整覆盖，杜绝跨墙；NonAlloc 零 GC。
+        Vector2 oldPos = transform.position;
+        Vector2 step = direction * (data.Speed * speedMul * Time.deltaTime);
+        float stepDist = step.magnitude;
+        if (stepDist > 0.0001f)
+        {
+            Vector2 dir = step / stepDist;
+            Vector2 center = oldPos + step * 0.5f;
+            Vector2 size = new Vector2(stepDist + data.Radius * 2f, data.Radius * 2f);
+            float angle = Vector2.SignedAngle(Vector2.right, dir);
+            int n = Physics2D.OverlapBox(center, size, angle, sweepFilter, sweepBuffer);
+
+            // 结果无排序：跳过 owner/空槽后取离起点最近者（敌人挡在墙前时优先结算敌人）
+            Collider2D best = null;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < n; i++)
+            {
+                Collider2D c = sweepBuffer[i];
+                if (c == null) continue;
+                if (owner != null && (c.transform.IsChildOf(owner.transform)
+                    || c.transform.root == owner.transform.root)) continue;   // 防自伤（枪口可能仍在玩家碰撞体内）
+                float d = Vector2.Distance(c.bounds.ClosestPoint(oldPos), oldPos);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    best = c;
+                }
+            }
+            if (best != null)
+            {
+                ResolveHit(best, best.ClosestPoint(center));
+                if (resolved) return;   // 已结算（Destroy 帧末执行）：当帧不再前进，防箭矢视觉穿出墙面
+            }
+        }
+
+        transform.position += (Vector3)step;
 
         lifetime -= Time.deltaTime;
         if (lifetime <= 0f)
@@ -79,8 +134,13 @@ public class Projectile : MonoBehaviour
     }
 
     private void OnTriggerEnter2D(Collider2D other)
+        // v1.1.13：静止贴墙/目标主动撞入等非位移接触仍走 Trigger 通道，与扫射共用结算入口
+        => ResolveHit(other, other.ClosestPoint(transform.position));
+
+    /// <summary>统一命中结算（v1.1.13 抽取自 OnTriggerEnter2D）：目标伤害或撞墙销毁。</summary>
+    private void ResolveHit(Collider2D other, Vector2 hitPoint)
     {
-        if (data == null) return;
+        if (data == null || resolved) return;
 
         // 防自伤：跳过 owner 自身/子物体/同根（生成瞬间与玩家碰撞体重叠）
         if (owner != null && (other.transform.IsChildOf(owner.transform)
@@ -90,7 +150,7 @@ public class Projectile : MonoBehaviour
         // 跳过其他触发器（敌人探测圈等）
         if (other.isTrigger) return;
 
-        Vector2 hitPoint = other.ClosestPoint(transform.position);
+        resolved = true;
 
         // 同时检查碰撞体与根对象 Layer，并向父级查找受伤接口：恢复 MCP 分支对
         // “子碰撞体未同步 Layer / IDamageable 挂根节点”Prefab 结构的兼容。

@@ -106,6 +106,7 @@ public class DeathPanel : MonoBehaviour
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 210;   // 低于 PausePanel(220)，高于常规 HUD
         PanelSprite.ConfigureCanvasScaler(canvasGo);
+        canvasGo.AddComponent<GraphicRaycaster>();   // v1.1.12：无它"点击任意处返回"Mask 按钮收不到指针
         panelRoot = canvasGo;
 
         // 点击任意处返回
