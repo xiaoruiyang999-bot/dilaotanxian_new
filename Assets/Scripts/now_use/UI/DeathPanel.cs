@@ -10,8 +10,7 @@ using UnityEngine.UI;
 /// Esc 或点击任意处立即返回准备房间；RunManager 的 restartDelay 作为超时兜底自动返回。
 /// 数据后端：RunTracker（击杀/时长）+ RunManager.FloorNumber（楼层唯一真源）。
 /// 挂载模式同 PausePanel：地牢场景空对象 DeathSystem；UI 运行时代码构建。
-/// 【美术资产缺失】结算面板当前为纯色块+内置字体占位；待补：面板背景框、标题字效、
-/// 数据图标（楼层/骷髅/沙漏）、死亡灰度滤镜（现仅角色变灰）。
+/// v1.1.9 已换为石板结算面板；楼层/击杀/时间图标暂用文字挂点占位。
 /// </summary>
 public class DeathPanel : MonoBehaviour
 {
@@ -106,6 +105,7 @@ public class DeathPanel : MonoBehaviour
         Canvas canvas = canvasGo.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 210;   // 低于 PausePanel(220)，高于常规 HUD
+        PanelSprite.ConfigureCanvasScaler(canvasGo);
         panelRoot = canvasGo;
 
         // 点击任意处返回
@@ -117,15 +117,22 @@ public class DeathPanel : MonoBehaviour
         mask.rectTransform.offsetMin = mask.rectTransform.offsetMax = Vector2.zero;
         mask.GetComponent<Button>().onClick.AddListener(ReturnToPrep);
 
-        Label(canvasGo.transform, "本 局 结 算", 36, new Color(0.95f, 0.35f, 0.3f), new Vector2(0.5f, 0.72f), new Vector2(500f, 50f));
+        var panel = new GameObject("StonePanel", typeof(Image));
+        panel.transform.SetParent(canvasGo.transform, false);
+        Image panelImage = panel.GetComponent<Image>();
+        PanelSprite.ApplyStonePanel(panelImage, new Color(0.08f, 0.04f, 0.04f, 0.96f));
+        panelImage.rectTransform.anchorMin = panelImage.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        panelImage.rectTransform.sizeDelta = new Vector2(820f, 505f);
+
+        Label(panel.transform, "本 局 结 算", 36, new Color(0.95f, 0.35f, 0.3f), new Vector2(0.5f, 0.84f), new Vector2(500f, 50f));
 
         int minutes = Mathf.FloorToInt(elapsed / 60f);
         int seconds = Mathf.FloorToInt(elapsed % 60f);
-        Label(canvasGo.transform, $"抵达楼层  {floor}", 24, Color.white, new Vector2(0.5f, 0.56f), new Vector2(500f, 34f));
-        Label(canvasGo.transform, $"击杀敌人  {kills}", 24, Color.white, new Vector2(0.5f, 0.46f), new Vector2(500f, 34f));
-        Label(canvasGo.transform, $"存活时长  {minutes:00}:{seconds:00}", 24, Color.white, new Vector2(0.5f, 0.36f), new Vector2(500f, 34f));
+        Label(panel.transform, $"[楼层图标待补]   抵达楼层  {floor}", 24, Color.white, new Vector2(0.5f, 0.60f), new Vector2(600f, 38f));
+        Label(panel.transform, $"[击杀图标待补]   击杀敌人  {kills}", 24, Color.white, new Vector2(0.5f, 0.48f), new Vector2(600f, 38f));
+        Label(panel.transform, $"[时间图标待补]   存活时长  {minutes:00}:{seconds:00}", 24, Color.white, new Vector2(0.5f, 0.36f), new Vector2(600f, 38f));
 
-        Label(canvasGo.transform, "Esc 或点击任意处 返回准备房间", 16, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.18f), new Vector2(600f, 26f));
+        Label(panel.transform, "Esc 或点击任意处 返回准备房间", 16, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.16f), new Vector2(600f, 26f));
 
         Debug.Log($"[Death] 本局结算：楼层 {floor} / 击杀 {kills} / 存活 {minutes:00}:{seconds:00}");
     }

@@ -1258,6 +1258,9 @@ MonoBehaviour:
   - id: chest
     clip: {fileID: 8300000, guid: 2560ca62b1a4eeb41930907ed4a77344, type: 3}
     volume: 0.6
+  - id: coin
+    clip: {fileID: 8300000, guid: acd8a1a016cc2f74181df704c699873e, type: 3}
+    volume: 0.5
   bgm: {fileID: 8300000, guid: 5a8cac600b3f2c142ab2d9aea4f5607c, type: 3}
   bgmVolume: 0.5
   sfxMasterVolume: 1

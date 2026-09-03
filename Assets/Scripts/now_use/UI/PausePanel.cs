@@ -96,6 +96,7 @@ public class PausePanel : MonoBehaviour
         Canvas canvas = canvasGo.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 220;
+        PanelSprite.ConfigureCanvasScaler(canvasGo);
         panelRoot = canvasGo;
 
         Image mask = new GameObject("Mask", typeof(Image)).GetComponent<Image>();
@@ -105,17 +106,24 @@ public class PausePanel : MonoBehaviour
         mask.rectTransform.anchorMax = Vector2.one;
         mask.rectTransform.offsetMin = mask.rectTransform.offsetMax = Vector2.zero;
 
-        Label(canvasGo.transform, "已暂停", 34, Color.white, new Vector2(0.5f, 0.78f), new Vector2(400f, 46f));
+        var panel = new GameObject("StonePanel", typeof(Image));
+        panel.transform.SetParent(canvasGo.transform, false);
+        Image panelImage = panel.GetComponent<Image>();
+        PanelSprite.ApplyStonePanel(panelImage, new Color(0.06f, 0.06f, 0.07f, 0.96f));
+        panelImage.rectTransform.anchorMin = panelImage.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        panelImage.rectTransform.sizeDelta = new Vector2(780f, 480f);
+
+        Label(panel.transform, "已暂停", 34, Color.white, new Vector2(0.5f, 1f), new Vector2(440f, 46f), new Vector2(0f, -72f));
 
         // 音量滑条 ×2（AudioManager.M5 契约：SetSfxVolume/SetBgmVolume + PlayerPrefs 键名）
-        CreateSlider(canvasGo.transform, "SFX 音量", "sfx_volume", 0.5f,
-            AudioManager.SetSfxVolume, new Vector2(0.5f, 0.58f));
-        CreateSlider(canvasGo.transform, "BGM 音量", "bgm_volume", 0.5f,
-            AudioManager.SetBgmVolume, new Vector2(0.5f, 0.48f));
+        CreateSlider(panel.transform, "SFX 音量", "sfx_volume", 0.5f,
+            AudioManager.SetSfxVolume, new Vector2(0.5f, 0.61f));
+        CreateSlider(panel.transform, "BGM 音量", "bgm_volume", 0.5f,
+            AudioManager.SetBgmVolume, new Vector2(0.5f, 0.49f));
 
         // 继续 / 重开
-        CreateButton(canvasGo.transform, "继续游戏", new Vector2(0.5f, 0.34f), Close);
-        CreateButton(canvasGo.transform, "重开本局（回准备房间）", new Vector2(0.5f, 0.24f), RestartRun);
+        CreateButton(panel.transform, "继续游戏", new Vector2(0.5f, 0.31f), Close);
+        CreateButton(panel.transform, "重开本局（回准备房间）", new Vector2(0.5f, 0.18f), RestartRun);
     }
 
     private void Close()
@@ -197,14 +205,14 @@ public class PausePanel : MonoBehaviour
         btnGo.transform.SetParent(parent, false);
         var btn = btnGo.GetComponent<Button>();
         Image img = btnGo.GetComponent<Image>();
-        img.color = new Color(0.2f, 0.18f, 0.14f, 0.95f);
         img.rectTransform.anchorMin = img.rectTransform.anchorMax = anchor;
-        img.rectTransform.sizeDelta = new Vector2(300f, 42f);
-        Label(img.rectTransform, text, 17, Color.white, new Vector2(0.5f, 0.5f), new Vector2(280f, 30f));
+        img.rectTransform.sizeDelta = new Vector2(360f, 54f);
+        PanelSprite.ApplyStoneButton(btn, img, new Color(0.2f, 0.18f, 0.14f, 0.95f));
+        Label(img.rectTransform, text, 17, Color.white, new Vector2(0.5f, 0.5f), new Vector2(340f, 34f));
         btn.onClick.AddListener(() => onClick?.Invoke());
     }
 
-    private static void Label(Transform parent, string text, int size, Color color, Vector2 anchor, Vector2 sizeDelta)
+    private static void Label(Transform parent, string text, int size, Color color, Vector2 anchor, Vector2 sizeDelta, Vector2? position = null)
     {
         // v1.0.8：照 ClassSelectUI.CreateText 已验证模式——无参 GO + 单次 AddComponent + 先 text 后 font
         //（组件进 GameObject 构造参数会产生双 TMP 组件并触发 TMP 内部 NRE）
@@ -218,7 +226,7 @@ public class PausePanel : MonoBehaviour
         t.alignment = TextAlignmentOptions.Center;
         t.raycastTarget = false;
         t.rectTransform.anchorMin = t.rectTransform.anchorMax = anchor;
-        t.rectTransform.anchoredPosition = Vector2.zero;
+        t.rectTransform.anchoredPosition = position ?? Vector2.zero;
         t.rectTransform.sizeDelta = sizeDelta;
     }
 }

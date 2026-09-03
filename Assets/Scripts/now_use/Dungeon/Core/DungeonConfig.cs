@@ -10,8 +10,9 @@ public class DungeonConfig : ScriptableObject
     [Header("地图")]
     [Tooltip("每层房间数量区间（含起始房与 Boss 房）")]
     public int roomCountMin = 8, roomCountMax = 12;
-    [Tooltip("房间内部尺寸（瓦片数），不含四周各 1 格墙")]
-    public int roomWidth = 18, roomHeight = 11;
+    [Tooltip("房间内部尺寸（瓦片数），不含四周各 1 格墙。v1.1.4 地皮契约：地皮图 85px@PPU85 = 1×1 世界单位，本值必须为整数（=地皮图块数），否则铺设错位")]
+    [Range(8, 48)] public int roomWidth = 18;
+    [Range(8, 48)] public int roomHeight = 11;
     [Tooltip("门洞宽（瓦片数）")]
     public int doorWidth = 2;
 
@@ -34,4 +35,15 @@ public class DungeonConfig : ScriptableObject
     public int enemyCountBonusPerFloor = 1;
     [Tooltip("每层敌人 HP ×(1 + N×(floor-1))")]
     public float hpMultiplierPerFloor = 0.15f;
+
+    private void OnValidate()
+    {
+        roomCountMin = Mathf.Max(2, roomCountMin);
+        roomCountMax = Mathf.Max(roomCountMin, roomCountMax);
+        roomWidth = Mathf.Clamp(roomWidth, 8, 48);
+        roomHeight = Mathf.Clamp(roomHeight, 8, 48);
+        doorWidth = Mathf.Clamp(doorWidth, 1, Mathf.Min(roomWidth, roomHeight) - 2);
+        bossCellSpan = Mathf.Clamp(bossCellSpan, 1, 4);
+        eliteCellSpan = Mathf.Clamp(eliteCellSpan, 1, 4);
+    }
 }

@@ -7,7 +7,9 @@ using UnityEngine;
 /// v0.6.3 奖励二选一：已选职业 → 本职业随机武器（WeaponPickup.Drop）/ 法力瓶，
 /// v0.7.3 扩为三权重：本职业随机武器 40% / 法力瓶 30% / 随机一种消耗包 30%（ItemPickup.Spawn 弹出，
 /// 权重序列化可调）；v0.7.5 法力瓶分支换正式法力包（Item_ManaPack，ItemPickup 进背包按 C 使用，
-/// ManaBottlePickup 退役删除）；无职业（v0_4/v0_5 旧场景）退回原治疗球（HealPickup）。
+/// ManaBottlePickup 退役删除）；v1.1.3 扩为四权重并前置金币分支（金币 25%/武器 30%/法力包 20%/消耗包 25%，
+/// 金币自 MCP 分支还原——CoinDrop 散落磁吸，不走 PopIn）；
+/// 无职业（v0_4/v0_5 旧场景）退回原治疗球（HealPickup）。
 /// </summary>
 public class ChestInteractable : Interactable
 {
@@ -19,13 +21,19 @@ public class ChestInteractable : Interactable
     [SerializeField] private float lidOffset = 0.25f;
     [SerializeField] private float openDuration = 0.35f;
 
-    [Header("奖励权重（v0.7.3，已选职业时三分支；无职业退回治疗球）")]
+    [Header("奖励权重（v0.7.3 三权重 → v1.1.3 四权重含金币，已选职业时；无职业退回治疗球）")]
+    [Tooltip("掉金币的概率（6~10 枚散落，走近磁吸入账）")]
+    [SerializeField, Range(0f, 1f)] private float coinChance = 0.25f;
     [Tooltip("掉本职业随机武器的概率")]
-    [SerializeField, Range(0f, 1f)] private float weaponChance = 0.4f;
+    [SerializeField, Range(0f, 1f)] private float weaponChance = 0.3f;
     [Tooltip("掉法力包（Item_ManaPack，进背包按 C 使用）的概率")]
-    [SerializeField, Range(0f, 1f)] private float manaBottleChance = 0.3f;
-    [Tooltip("掉随机一种消耗包（血包/甲包/魔力恢复包）的概率；三权重之和 >1 时后段被截断、<1 时余量归消耗包")]
-    [SerializeField, Range(0f, 1f)] private float consumableChance = 0.3f;
+    [SerializeField, Range(0f, 1f)] private float manaBottleChance = 0.2f;
+    [Tooltip("掉随机一种消耗包（血包/甲包/魔力恢复包）的概率；四权重之和 >1 时后段被截断、<1 时余量归消耗包")]
+    [SerializeField, Range(0f, 1f)] private float consumableChance = 0.25f;
+
+    [Header("金币数量（v1.1.3 自 MCP 分支还原）")]
+    [SerializeField, Min(1)] private int coinsMin = 6;
+    [SerializeField, Min(1)] private int coinsMax = 10;
 
     protected override void OnConsumed(Collider2D player)
     {
@@ -46,21 +54,27 @@ public class ChestInteractable : Interactable
 
     private void SpawnItem(Collider2D player)
     {
-        // v0.7.3 宝箱奖励三权重：已选职业 → 本职业随机武器 / 法力包（v0.7.5 由法力瓶换装）/ 随机消耗包（默认 40/30/30，可调）；
+        // v1.1.3 宝箱奖励四权重：已选职业 → 金币 / 本职业随机武器 / 法力包 / 随机消耗包（默认 25/30/20/25，可调）；
         // 无职业（v0_4/v0_5 旧场景）退回原 itemPrefab + HealPickup 治疗球路径
         PlayerStats stats = player != null ? player.GetComponent<PlayerStats>() : null;
         ClassData cls = stats != null ? stats.CurrentClass : null;
         if (cls != null && cls.AvailableWeapons.Count > 0)
         {
             float roll = Random.value;
-            if (roll < weaponChance)
+            if (roll < coinChance)
+            {
+                // v1.1.3 金币分支（自 MCP 分支还原）：散落 + 磁吸拾取（金币自带滑散表现，不走 PopIn）
+                CoinDrop.Spawn(transform.position, Random.Range(coinsMin, coinsMax + 1));
+                Debug.Log($"[Dungeon] 宝箱开启：掉落金币（名义权重 {coinChance:P0}，走近自动吸附）");
+            }
+            else if (roll < coinChance + weaponChance)
             {
                 WeaponData data = cls.AvailableWeapons[Random.Range(0, cls.AvailableWeapons.Count)];
                 WeaponPickup pickup = WeaponPickup.Drop(data, transform.position);
                 if (pickup != null) PopIn(pickup.transform);
                 Debug.Log($"[Dungeon] 宝箱开启：掉落武器 {(data != null ? data.DisplayName : "?")}（走近按 E 拾取）");
             }
-            else if (roll < weaponChance + manaBottleChance)
+            else if (roll < coinChance + weaponChance + manaBottleChance)
             {
                 // v0.7.5：法力瓶 → 正式法力包（ItemPickup 进背包按 C 使用，行为差异用户已确认）
                 ConsumableData manaPack = PrepRoomManager.LoadConsumable("Item_ManaPack");

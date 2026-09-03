@@ -51,6 +51,13 @@ public class DungeonBuilder : MonoBehaviour
     /// layoutSeed 用于派生每个房间的内容子 seed（同 seed 下地图与内容完全一致）。</summary>
     private int floorTheme = 1;   // M3：当前层主题缓存
 
+    // v1.1.4 地皮分层：terrainMask=逻辑层（草/土二值+距离场），groundTileset=视觉素材库。
+    // 素材加载失败（Resources 缺失）时 terrainMask 为 null，全层自动回退旧的平色地板+房型着色路径。
+    private TerrainMask terrainMask;
+    private GroundTileset groundTileset;
+    private int terrainDecoSeed;
+    private readonly HashSet<Vector2Int> groundCells = new HashSet<Vector2Int>();
+
     public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
         floorTheme = floorNumber;   // M3：主题缓存
@@ -59,6 +66,24 @@ public class DungeonBuilder : MonoBehaviour
         doorW = config.doorWidth;
 
         ClearAll();
+
+        // v1.1.4 地皮总纲 1~4 步：噪声逻辑层（世界绝对坐标采样，跨房间连续）→ 小簇修正 → 距离场。
+        // 地形 seed 与装饰 seed 均派生自 layoutSeed：同 seed 复现门禁不变，两个随机场互不相同。
+        terrainMask = null;
+        groundTileset = GroundTileset.Load();
+        if (groundTileset != null && layout.rooms.Count > 0)
+        {
+            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+            foreach (RoomNode node in layout.rooms)
+            {
+                RectInt r = TileRect(node);
+                minX = Mathf.Min(minX, r.xMin); minY = Mathf.Min(minY, r.yMin);
+                maxX = Mathf.Max(maxX, r.xMax); maxY = Mathf.Max(maxY, r.yMax);
+            }
+            terrainMask = TerrainMask.Generate(new RectInt(minX, minY, maxX - minX, maxY - minY), layoutSeed ^ 0x7EA9);
+            terrainDecoSeed = layoutSeed ^ 0xC0FFEE;
+        }
+
         foreach (RoomNode node in layout.rooms) PaintRoom(node);
 
         // 先开门洞（记录门洞矩形），后建 Room，最后建 Door（Door 需要两侧 Room 已存在）
@@ -68,6 +93,8 @@ public class DungeonBuilder : MonoBehaviour
             Rect? r = CarveDoor(conn);
             if (r.HasValue) doorRects[conn] = r.Value;
         }
+
+        BuildRoadMaskSurface();
         foreach (RoomNode node in layout.rooms) CreateRoomObject(node);
         foreach (KeyValuePair<RoomConnection, Rect> kv in doorRects) CreateDoor(kv.Key, kv.Value);
 
@@ -97,6 +124,7 @@ public class DungeonBuilder : MonoBehaviour
     {
         floorTilemap.ClearAllTiles();
         wallsTilemap.ClearAllTiles();
+        groundCells.Clear();
         rooms.Clear();
         for (int i = dungeonRoot.childCount - 1; i >= 0; i--)
         {
@@ -154,6 +182,11 @@ public class DungeonBuilder : MonoBehaviour
                 {
                     wallsTilemap.SetTile(pos, wallTile);
                 }
+                else if (terrainMask != null)
+                {
+                    // RoadMask 路径只登记可见地面格；实际颜色由整层 Mask Shader 一次绘制。
+                    groundCells.Add(new Vector2Int(pos.x, pos.y));
+                }
                 else
                 {
                     floorTilemap.SetTile(pos, floorTile);
@@ -207,9 +240,30 @@ public class DungeonBuilder : MonoBehaviour
     {
         var pos = new Vector3Int(x, y, 0);
         wallsTilemap.SetTile(pos, null);
-        floorTilemap.SetTile(pos, floorTile);
+        if (terrainMask != null)
+            groundCells.Add(new Vector2Int(x, y));
+        else
+            floorTilemap.SetTile(pos, floorTile);
     }
 
+    private void BuildRoadMaskSurface()
+    {
+        if (terrainMask == null || groundCells.Count == 0) return;
+
+        var go = new GameObject("RoadMaskGround");
+        go.transform.SetParent(dungeonRoot, false);
+        var surface = go.AddComponent<RoadMaskGroundSurface>();
+        TilemapRenderer floorRenderer = floorTilemap.GetComponent<TilemapRenderer>();
+        if (surface.Build(terrainMask, groundCells, floorRenderer, terrainDecoSeed)) return;
+
+        // Shader 或纹理缺失时回退现有逐格绘制，保证地牢仍可用。
+        foreach (Vector2Int cell in groundCells)
+        {
+            var pos = new Vector3Int(cell.x, cell.y, 0);
+            TerrainPainter.PaintCell(floorTilemap, pos, terrainMask, groundTileset, terrainDecoSeed);
+        }
+        if (Application.isPlaying) Destroy(go); else DestroyImmediate(go);
+    }
     // ---------- Room / Door 实例化 ----------
 
     private void CreateRoomObject(RoomNode node)
@@ -277,7 +331,7 @@ public class DungeonBuilder : MonoBehaviour
     [UnityEditor.MenuItem("Tools/Dungeon/Debug Dump Door Alignment")]
     private static void DebugDumpDoors()
     {
-        Door[] doors = FindObjectsByType<Door>(FindObjectsSortMode.None);
+        Door[] doors = FindObjectsByType<Door>(FindObjectsInactive.Exclude);   // 去掉过时的 FindObjectsSortMode（仅调试工具，顺序无意义）
         if (doors.Length == 0) { Debug.LogWarning("[Door] 当前场景无门（地牢未生成？）"); return; }
         foreach (Door d in doors)
         {

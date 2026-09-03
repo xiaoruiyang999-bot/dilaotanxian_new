@@ -12,7 +12,8 @@ using UnityEngine.UI;
 /// 流程：首次进入准备场景自动弹出 → 点角色按钮（高亮）→ 确认 → 写入 RunStateCarrier.ChosenCharacter
 /// （死亡保留）→ 若尚未选职业则自动接续弹出职业选择页。Esc 关闭（未确认不生效）。
 /// 打开期间 PlayerController 查询 IsOpen 屏蔽攻击/技能/交互输入。
-/// 【美术资产缺失】面板为纯色块+内置字体占位；待补：角色立绘/按钮框图/标题字效。
+/// v1.1.6：主面板接入石板 9-Slice 母版（与 ClassSelectUI 同款，PanelSprite 统一入口，素材缺失回退纯色）；
+/// 新角色行：Build 里向 panelRect 追加 BuildCharacterButton 即可。待补：角色立绘/标题字效。
 /// </summary>
 public class CharacterSelectUI : MonoBehaviour
 {
@@ -84,27 +85,29 @@ public class CharacterSelectUI : MonoBehaviour
         Canvas canvas = canvasGo.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 205;   // 略高于 ClassSelectUI(200)：角色页在前、职业页在后接续弹出
+        PanelSprite.ConfigureCanvasScaler(canvasGo);
         canvasGo.AddComponent<GraphicRaycaster>();
 
         GameObject panel = new GameObject("Panel", typeof(RectTransform));
         panel.transform.SetParent(canvasGo.transform, false);
         Image panelImg = panel.AddComponent<Image>();
-        panelImg.color = new Color(0f, 0f, 0f, 0.85f);
+        PanelSprite.ApplyStonePanel(panelImg, new Color(0f, 0f, 0f, 0.85f));   // v1.1.6 石板 9-Slice 母版
         RectTransform panelRect = (RectTransform)panel.transform;
         panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = new Vector2(0.5f, 0.5f);
         panelRect.anchoredPosition = Vector2.zero;
-        panelRect.sizeDelta = new Vector2(600f, 500f);
+        panelRect.sizeDelta = new Vector2(900f, 555f);   // 接近原图 594:366，避免整体比例失真
 
-        Label(panelRect, "选择你的角色", 30, Color.white, new Vector2(0.5f, 1f), new Vector2(0f, -42f), new Vector2(500f, 40f));
+        // 标题/副标题整体下移 26px 让出 49px 顶部砖框（v1.1.6）
+        Label(panelRect, "选择你的角色", 30, Color.white, new Vector2(0.5f, 1f), new Vector2(0f, -76f), new Vector2(600f, 44f));
         Label(panelRect, "外形与职业独立：任意角色可选任意职业与武器", 14, new Color(0.75f, 0.73f, 0.65f),
-            new Vector2(0.5f, 1f), new Vector2(0f, -74f), new Vector2(560f, 24f));
+            new Vector2(0.5f, 1f), new Vector2(0f, -114f), new Vector2(700f, 24f));
 
         warriorFrame = BuildCharacterButton(panelRect, "Btn_Character_Warrior", "战 士",
-            "经典体型 · 均衡手感", WarriorTint, new Vector2(0f, 60f));
+            "经典体型 · 均衡手感", WarriorTint, new Vector2(-190f, -2f));
         werewolfFrame = BuildCharacterButton(panelRect, "Btn_Character_Werewolf", "狼 人",
-            "狼形大体型 · 纯视觉外形（数值不变）", WerewolfTint, new Vector2(0f, -50f));
+            "狼形大体型 · 纯视觉外形（数值不变）", WerewolfTint, new Vector2(190f, -2f));
 
-        BuildConfirmButton(panelRect, new Vector2(0f, -170f));
+        BuildConfirmButton(panelRect, new Vector2(0f, -218f));
 
         canvasGo.SetActive(false);
     }
@@ -118,23 +121,32 @@ public class CharacterSelectUI : MonoBehaviour
         RectTransform frameRect = (RectTransform)frame.transform;
         frameRect.anchorMin = frameRect.anchorMax = frameRect.pivot = new Vector2(0.5f, 0.5f);
         frameRect.anchoredPosition = pos;
-        frameRect.sizeDelta = new Vector2(420f, 90f);
+        frameRect.sizeDelta = new Vector2(340f, 300f);
 
         GameObject bg = new GameObject("Bg", typeof(RectTransform));
         bg.transform.SetParent(frame.transform, false);
         Image bgImg = bg.AddComponent<Image>();
-        bgImg.color = new Color(0.1f, 0.1f, 0.14f, 0.95f);
+        bgImg.color = new Color(0.035f, 0.04f, 0.045f, 0.82f);
         RectTransform bgRect = (RectTransform)bg.transform;
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;
         bgRect.offsetMin = new Vector2(3f, 3f);
         bgRect.offsetMax = new Vector2(-3f, -3f);
 
-        Label(bgRect, title, 24, Color.white, new Vector2(0.5f, 1f), new Vector2(0f, -8f), new Vector2(400f, 34f));
-        Label(bgRect, desc, 14, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0f), new Vector2(0f, -16f), new Vector2(400f, 22f));
+        Label(bgRect, "[角色立绘待补]", 17, tint, new Vector2(0.5f, 0.5f), new Vector2(0f, 58f), new Vector2(280f, 112f));
+        Label(bgRect, title, 26, Color.white, new Vector2(0.5f, 0.5f), new Vector2(0f, -28f), new Vector2(300f, 38f));
+        Label(bgRect, desc, 14, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.5f), new Vector2(0f, -68f), new Vector2(300f, 42f));
 
-        Button btn = frame.AddComponent<Button>();
-        btn.targetGraphic = frameImg;
+        GameObject selectGo = new GameObject("Select", typeof(RectTransform));
+        selectGo.transform.SetParent(frame.transform, false);
+        Image selectImg = selectGo.AddComponent<Image>();
+        RectTransform selectRect = (RectTransform)selectGo.transform;
+        selectRect.anchorMin = selectRect.anchorMax = selectRect.pivot = new Vector2(0.5f, 0f);
+        selectRect.anchoredPosition = new Vector2(0f, 18f);
+        selectRect.sizeDelta = new Vector2(280f, 44f);   // 横向素材只做横条，不再拉成卡片
+        Label(selectRect, "选 择", 17, Color.white, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(260f, 30f));
+        Button btn = selectGo.AddComponent<Button>();
+        PanelSprite.ApplyStoneButton(btn, selectImg, new Color(0.12f, 0.12f, 0.14f, 0.95f));
         btn.onClick.AddListener(() =>
         {
             selected = name.Contains("Werewolf") ? CharacterSkin.Werewolf : CharacterSkin.Warrior;
@@ -148,15 +160,14 @@ public class CharacterSelectUI : MonoBehaviour
         GameObject go = new GameObject("Btn_Confirm", typeof(RectTransform));
         go.transform.SetParent(parent, false);
         Image img = go.AddComponent<Image>();
-        img.color = new Color(0.2f, 0.45f, 0.25f, 0.95f);
         RectTransform rect = (RectTransform)go.transform;
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = pos;
-        rect.sizeDelta = new Vector2(220f, 46f);
+        rect.sizeDelta = new Vector2(300f, 46f);
         Label(rect, "确  认", 20, Color.white, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(220f, 40f));
 
         Button btn = go.AddComponent<Button>();
-        btn.targetGraphic = img;
+        PanelSprite.ApplyStoneButton(btn, img, new Color(0.2f, 0.45f, 0.25f, 0.6f));   // v1.1.7 三态石板（缺素材回退绿）
         btn.onClick.AddListener(Confirm);
     }
 

@@ -8,18 +8,26 @@ public class CameraFollow : MonoBehaviour
     [Header("平滑参数")]
     [SerializeField] private float smoothSpeed = 10f;
     [SerializeField] private Vector3 offset = new Vector3(0f, 0f, -10f);
+    [Tooltip("将相机最终位置对齐到屏幕像素，防止 Tilemap 亚像素采样产生细缝")]
+    [SerializeField] private bool snapToScreenPixels = true;
 
     [Header("屏幕震动（M1·v0.6.1）")]
     [Tooltip("外部震动强度的全局缩放，方便整体调手感")]
     [SerializeField] private float shakeScale = 1f;
 
     private Vector3 currentVelocity;
+    private Camera attachedCamera;
 
     // 震动状态：unscaled 时间驱动，hit-stop（timeScale=0）期间照常衰减，两者叠加是经典手感组合
     private float shakeTimeRemaining;
     private float shakeTotalTime;
     private float shakeBaseIntensity;
     private static CameraFollow cachedMain;
+
+    private void Awake()
+    {
+        attachedCamera = GetComponent<Camera>();
+    }
 
     void LateUpdate()
     {
@@ -48,6 +56,18 @@ public class CameraFollow : MonoBehaviour
                 shakeTotalTime = 0f;
             }
         }
+
+        SnapCameraToScreenPixel();
+    }
+
+    private void SnapCameraToScreenPixel()
+    {
+        if (!snapToScreenPixels || attachedCamera == null || !attachedCamera.orthographic || Screen.height <= 0) return;
+        float unitsPerPixel = attachedCamera.orthographicSize * 2f / Screen.height;
+        Vector3 p = transform.position;
+        p.x = Mathf.Round(p.x / unitsPerPixel) * unitsPerPixel;
+        p.y = Mathf.Round(p.y / unitsPerPixel) * unitsPerPixel;
+        transform.position = p;
     }
 
     /// <summary>瞬移到目标位置（出生 / 楼层切换时调用，避免镜头横穿全图）。</summary>

@@ -544,6 +544,9 @@ public class EnemyCombat : MonoBehaviour
 
             GameObject minion = Instantiate(attackData.SummonPrefab, spawnPos, Quaternion.identity, transform.parent);
             minion.name = $"{attackData.SummonPrefab.name}_{name}_{i}";
+            // v1.1.3 召唤物不掉金币（防无限刷币）
+            EnemyController minionCtrl = minion.GetComponent<EnemyController>();
+            if (minionCtrl != null) minionCtrl.DropCoins = false;
             EnemyHealth mHealth = minion.GetComponent<EnemyHealth>();
             if (mHealth != null)
             {

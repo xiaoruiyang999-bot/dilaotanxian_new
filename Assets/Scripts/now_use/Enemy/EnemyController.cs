@@ -22,6 +22,14 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float hitFlashDuration = 0.15f;
     [SerializeField] private Color hitFlashColor = Color.white;
 
+    [Header("金币掉落（v1.1.3 自 MCP 分支还原）")]
+    [Tooltip("死亡是否掉落金币；逻辑开关不序列化（召唤物由 EnemyCombat 置 false 防刷币）")]
+    public bool DropCoins { get; set; } = true;
+    [Tooltip("单次掉落数量下限（含）")]
+    [SerializeField, Min(0)] private int coinsMin = 1;
+    [Tooltip("单次掉落数量上限（含）；0 = 不掉")]
+    [SerializeField, Min(0)] private int coinsMax = 3;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -124,6 +132,10 @@ public class EnemyController : MonoBehaviour
         // v0.6.3 掉落闭环：击杀掉落法力球（walk-over 吸附，数值读 EnemyStats.manaOrbValue，>0 才掉）
         if (stats != null && stats.ManaOrbValue > 0f)
             ManaOrb.Spawn(transform.position, stats.ManaOrbValue);
+
+        // v1.1.3 金币掉落（自 MCP 分支还原）：散落 + 磁吸拾取，入 PlayerStats 钱包
+        if (DropCoins && coinsMax > 0)
+            CoinDrop.Spawn(transform.position, Random.Range(coinsMin, coinsMax + 1));
 
         // 延迟销毁
         Destroy(gameObject, 0.5f);

@@ -109,13 +109,7 @@ public class WeaponHitbox : MonoBehaviour
         if (!isSwinging) return;
         if (attackData == null || weaponPivot == null) return;
 
-        float scale = weaponPivot.lossyScale.x;
-        float length = attackData.AttackRange * LengthMultiplier * scale;
-        // v0.6.3：宽度实时读 WeaponController.WeaponWidth（含蓄力宽度倍率），判定逻辑其余零改动
-        float width = (wc != null ? wc.WeaponWidth : weaponWidth) * scale;
-        Vector2 dir = weaponPivot.right;
-        Vector2 center = (Vector2)weaponPivot.position + dir * (length * 0.5f);
-        float angle = weaponPivot.eulerAngles.z;
+        ComputeSwingBox(out Vector2 center, out Vector2 size, out float angle);
 
         // Unity 6 新 API：OverlapBox 改用 ContactFilter2D 传参（结构体，无每帧分配）。
         // useTriggers 保持旧 NonAlloc 行为（命中的 trigger 在下方手动跳过）。
@@ -124,7 +118,7 @@ public class WeaponHitbox : MonoBehaviour
         filter.useTriggers = true;
 
         int count = Physics2D.OverlapBox(
-            center, new Vector2(length, width), angle, filter, hitBuffer);
+            center, size, angle, filter, hitBuffer);
 
         for (int i = 0; i < count; i++)
         {
@@ -184,6 +178,36 @@ public class WeaponHitbox : MonoBehaviour
                 CameraFollow.ShakeMain(0.05f, 0.08f);
             }
         }
+    }
+
+    /// <summary>
+    /// 计算当前判定盒世界几何（Tick 判定与调试可视化共用的同一份计算，不自算第二套）。
+    /// 前置条件与 Tick 相同：isSwinging 且 attackData/weaponPivot 就绪。
+    /// </summary>
+    private void ComputeSwingBox(out Vector2 center, out Vector2 size, out float angle)
+    {
+        float scale = weaponPivot.lossyScale.x;
+        float length = attackData.AttackRange * LengthMultiplier * scale;
+        // v0.6.3：宽度实时读 WeaponController.WeaponWidth（含蓄力宽度倍率），判定逻辑其余零改动
+        float width = (wc != null ? wc.WeaponWidth : weaponWidth) * scale;
+        Vector2 dir = weaponPivot.right;
+        center = (Vector2)weaponPivot.position + dir * (length * 0.5f);
+        size = new Vector2(length, width);
+        angle = weaponPivot.eulerAngles.z;
+    }
+
+    /// <summary>
+    /// 调试可视化只读接口（v1.1.1 ColliderOutlineDebug 消费）：
+    /// 挥击中返回当前判定盒世界几何；非挥击/配置缺失返回 false。
+    /// </summary>
+    public bool TryGetSwingBox(out Vector2 center, out Vector2 size, out float angle)
+    {
+        center = default;
+        size = default;
+        angle = 0f;
+        if (!isSwinging || attackData == null || weaponPivot == null) return false;
+        ComputeSwingBox(out center, out size, out angle);
+        return true;
     }
 
     /// <summary>

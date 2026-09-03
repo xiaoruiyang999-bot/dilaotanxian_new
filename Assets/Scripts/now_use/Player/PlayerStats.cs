@@ -94,6 +94,36 @@ public class PlayerStats : MonoBehaviour
         return true;
     }
 
+    // ========== 金币钱包（v1.1.3 自 MCP 分支还原） ==========
+    // 单局货币：死亡重开 = 整场景重载 + 新玩家实例 → 天然清零；
+    // 楼层过渡为原地重建（RunManager.NextFloor 不换场景）→ 局内跨层累积。
+    // 变更走专用 OnCoinsChanged（CoinHUD 订阅），不并进 OnStatsChanged 以免整块属性 UI 逐币重刷。
+
+    private int coins;
+
+    /// <summary>当前金币数。</summary>
+    public int Coins => coins;
+
+    /// <summary>金币变化事件（参数 = 变化后的余额）。</summary>
+    public System.Action<int> OnCoinsChanged;
+
+    /// <summary>获得金币（≤0 忽略）。</summary>
+    public void AddCoins(int amount)
+    {
+        if (amount <= 0) return;
+        coins += amount;
+        OnCoinsChanged?.Invoke(coins);
+    }
+
+    /// <summary>尝试花费金币：不足时不扣减并返回 false（未来商店/付费交互的消费入口）。</summary>
+    public bool TrySpendCoins(int amount)
+    {
+        if (amount < 0 || coins < amount) return false;
+        coins -= amount;
+        OnCoinsChanged?.Invoke(coins);
+        return true;
+    }
+
     /// <summary>
     /// 应用职业配置（v0.6.2 / v0.7.0 七维）：写入 HP/护甲/法力上限与移速/攻击/暴击/暴伤/护甲双倍率，
     /// 回满当前值，记录 CurrentClass。HP 上限经 Health.Initialize 写入（Health 是 HP 唯一数据源）。
