@@ -176,7 +176,7 @@ public class WeaponHitbox : MonoBehaviour
                 // v1.1.17 手感调参：击杀瞬间震颤过强（逐帧全随机方向抖动观感猛）——幅度减半 0.05→0.025、时长 0.08→0.06。
                 AudioManager.PlaySFX("hit");
                 HitStop.Request(0.03f);
-                CameraFollow.ShakeMain(0.025f, 0.06f);
+                CameraFollow.ShakeMain(0.00225f, 0.026f);
             }
         }
     }

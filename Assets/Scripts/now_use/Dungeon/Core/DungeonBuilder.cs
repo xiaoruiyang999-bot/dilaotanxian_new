@@ -58,12 +58,18 @@ public class DungeonBuilder : MonoBehaviour
     private int terrainDecoSeed;
     private readonly HashSet<Vector2Int> groundCells = new HashSet<Vector2Int>();
 
+    // v1.1.22 层次感塑形：房内挖除/墙体的复用缓冲（Decorate 内 Clear 复用，零持续分配）
+    private readonly HashSet<Vector2Int> shapeCarved = new HashSet<Vector2Int>();
+    private readonly List<Vector2Int> shapeWalls = new List<Vector2Int>(32);
+    private int layoutSeedCache;
+
     public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
         floorTheme = floorNumber;   // M3：主题缓存
         roomW = config.roomWidth;
         roomH = config.roomHeight;
         doorW = config.doorWidth;
+        layoutSeedCache = layoutSeed;   // v1.1.22：PaintRoom 塑形 rng 派生用
 
         ClearAll();
 
@@ -84,15 +90,36 @@ public class DungeonBuilder : MonoBehaviour
             terrainDecoSeed = layoutSeed ^ 0xC0FFEE;
         }
 
-        foreach (RoomNode node in layout.rooms) PaintRoom(node);
-
-        // 先开门洞（记录门洞矩形），后建 Room，最后建 Door（Door 需要两侧 Room 已存在）
+        // v1.1.22 塑形预计算：先算全部门洞矩形（纯几何）→ 建立各房门洞保护带格集，
+        // PaintRoom 塑形时保证门→中心通路永不被挖除/砌墙；开洞仍延后到刷房之后（行为不变）
         var doorRects = new Dictionary<RoomConnection, Rect>();
+        var doorCellsByRoom = new Dictionary<int, List<Vector2Int>>();
         foreach (RoomConnection conn in layout.connections)
         {
-            Rect? r = CarveDoor(conn);
-            if (r.HasValue) doorRects[conn] = r.Value;
+            Rect? r = ComputeDoorRect(conn);
+            if (!r.HasValue) continue;
+            doorRects[conn] = r.Value;
+            AddDoorCells(doorCellsByRoom, conn.a.id, r.Value);
+            AddDoorCells(doorCellsByRoom, conn.b.id, r.Value);
         }
+
+        // v1.1.28 一块厚墙：占用集（各房覆盖的粗格）→ 邻接方向判定，墙线由一侧独画、两侧共享
+        var occupied = new HashSet<Vector2Int>();
+        foreach (RoomNode node in layout.rooms)
+            for (int gy = node.gridPos.y; gy < node.gridPos.y + node.spanY; gy++)
+                for (int gx = node.gridPos.x; gx < node.gridPos.x + node.spanX; gx++)
+                    occupied.Add(new Vector2Int(gx, gy));
+
+        // v1.1.29 渲染序自上而下：下方墙格后画——竖向墙列"下图扣上图"的堆叠遮挡（prop_01 顶伸 0.47）
+        TilemapRenderer wallRenderer = wallsTilemap.GetComponent<TilemapRenderer>();
+        if (wallRenderer != null) wallRenderer.sortOrder = TilemapRenderer.SortOrder.TopLeft;
+
+        foreach (RoomNode node in layout.rooms) PaintRoom(node, doorCellsByRoom, occupied);
+        foreach (KeyValuePair<RoomConnection, Rect> kv in doorRects) OpenDoor(kv.Value);
+
+        // v1.1.29 横竖定向：按最终拓扑（含门洞打断）逐格判向重铺——上下有墙邻=竖列（仅 prop_01 堆叠），
+        // 否则横行（随机引用）。塑形墙段与门洞断口统一由此收敛，绘制期的临时铺装被覆盖。
+        ReorientWalls();
 
         BuildRoadMaskSurface();
         foreach (RoomNode node in layout.rooms) CreateRoomObject(node);
@@ -114,8 +141,11 @@ public class DungeonBuilder : MonoBehaviour
 
         var rng = new System.Random(layoutSeed * 7919 + node.id);
         EnemySpawner.Spawn(room, profile.enemyTable, rng, floorNumber, config);
-        ObstacleSpawner.Spawn(room, profile.obstacleTable, rng);
+        // v1.1.27：障碍物职责整体移交废墟石块（StoneDecorSpawner 大石块）——未用石块的
+        // 旧障碍表（木箱）不再生成；表路径休眠保留，未来需要混搭时恢复此行即可。
+        // ObstacleSpawner.Spawn(room, profile.obstacleTable, rng);
         DecorationSpawner.Spawn(room, profile.decorationTable, rng);
+        StoneDecorSpawner.Spawn(room, rng);   // v1.1.26 废墟石块：小=无碰撞点缀，大=障碍物替代（随机引用）
         InteractableSpawner.Spawn(room, profile.interactableTable, rng);
     }
 
@@ -138,10 +168,10 @@ public class DungeonBuilder : MonoBehaviour
         }
     }
 
-    // ---------- 坐标换算（格子 = 内部 + 四周各 1 格墙；跨格房占 spanX×spanY 格） ----------
+    // ---------- 坐标换算（v1.1.28 一块厚墙：格 = 西/南各 1 格墙 + 内部；东/北墙线与邻房共享） ----------
 
-    private int CellWidth => roomW + 2;
-    private int CellHeight => roomH + 2;
+    private int CellWidth => roomW + 1;
+    private int CellHeight => roomH + 1;
 
     /// <summary>房间锚点格子原点的瓦片坐标（含墙外框左下角）。</summary>
     private Vector2Int CellOrigin(RoomNode node)
@@ -154,38 +184,37 @@ public class DungeonBuilder : MonoBehaviour
         return new RectInt(o.x, o.y, node.spanX * CellWidth, node.spanY * CellHeight);
     }
 
-    /// <summary>房间内部矩形（去四周各 1 格墙）= Room.Bounds 唯一来源。</summary>
+    /// <summary>房间内部矩形（v1.1.28：内缩西/南各 1 格墙；东/上边界即共享墙线）= Room.Bounds 唯一来源。</summary>
     private Rect InteriorRect(RoomNode node)
     {
         RectInt r = TileRect(node);
-        return new Rect(r.xMin + 1, r.yMin + 1, r.width - 2, r.height - 2);
+        return new Rect(r.xMin + 1, r.yMin + 1, r.width - 1, r.height - 1);
     }
 
     // ---------- 绘制 ----------
 
-    /// <summary>画一个房间：内部地板 + 四周一圈墙（格子间距含墙，相邻房间的墙线互不重叠）。
-    /// v0.5.3：内部地板按 RoomTypeConfig.floorTint 着色（alpha=0 不着色；需 FloorTile 解锁 LockColor）。</summary>
-    private void PaintRoom(RoomNode node)
+    /// <summary>画一个房间（v1.1.28 一块厚墙结构）：
+    /// 内部地板 = [xMin+1, xMax) × [yMin+1, yMax)；墙线 = 西列与南行本房必画（邻房共享同一列/行），
+    /// 东列/北行仅当该方向无邻房时画在自身外沿（xMax 列 / yMax 行）——任意两房间隔恰好一块厚。
+    /// v0.5.3：内部地板按 RoomTypeConfig.floorTint 着色（alpha=0 不着色）。
+    /// v1.1.22：非 Start/Boss 房塑形（角部挖除 + 模板墙，门洞/中心保护带内不动，同 seed 复现）。</summary>
+    private void PaintRoom(RoomNode node, Dictionary<int, List<Vector2Int>> doorCellsByRoom,
+        HashSet<Vector2Int> occupied)
     {
         RectInt rect = TileRect(node);
         Color tint = GetTypeConfig(node.type)?.floorTint ?? Color.clear;
         // M3·v0.8.1：房型色 × 主题色叠乘（废墟白/墓穴冷蓝/熔炉暖红，3 层一换）
         tint *= DungeonManager.GetFloorTheme(floorTheme).tint;
 
-        for (int x = 0; x < rect.width; x++)
+        for (int x = rect.xMin + 1; x < rect.xMax; x++)
         {
-            for (int y = 0; y < rect.height; y++)
+            for (int y = rect.yMin + 1; y < rect.yMax; y++)
             {
-                bool border = x == 0 || y == 0 || x == rect.width - 1 || y == rect.height - 1;
-                var pos = new Vector3Int(rect.xMin + x, rect.yMin + y, 0);
-                if (border)
-                {
-                    wallsTilemap.SetTile(pos, wallTile);
-                }
-                else if (terrainMask != null)
+                var pos = new Vector3Int(x, y, 0);
+                if (terrainMask != null)
                 {
                     // RoadMask 路径只登记可见地面格；实际颜色由整层 Mask Shader 一次绘制。
-                    groundCells.Add(new Vector2Int(pos.x, pos.y));
+                    groundCells.Add(new Vector2Int(x, y));
                 }
                 else
                 {
@@ -194,46 +223,134 @@ public class DungeonBuilder : MonoBehaviour
                 }
             }
         }
+
+        // 一块厚墙线：西列/南行必画；东列/北行无邻才画（画在自身外沿，列/行与邻房原点重合处由邻画）
+        for (int y = rect.yMin; y < rect.yMax; y++) SetWallTile(new Vector3Int(rect.xMin, y, 0));
+        for (int x = rect.xMin + 1; x < rect.xMax; x++) SetWallTile(new Vector3Int(x, rect.yMin, 0));
+        if (!HasNeighborEast(occupied, node))
+            for (int y = rect.yMin; y < rect.yMax; y++) SetWallTile(new Vector3Int(rect.xMax, y, 0));
+        if (!HasNeighborNorth(occupied, node))
+            for (int x = rect.xMin; x <= rect.xMax; x++) SetWallTile(new Vector3Int(x, rect.yMax, 0));
+
+        // ---------- v1.1.22 塑形：角部挖除 + 房内墙体/柱 ----------
+        // Start（出生/传送落点安全）与 Boss（竞技场可读性）保持完整矩形
+        if (node.type == RoomType.Start || node.type == RoomType.Boss) return;
+
+        var rng = new System.Random(layoutSeedCache * 31 + node.id * 911);
+        doorCellsByRoom.TryGetValue(node.id, out List<Vector2Int> doorCells);
+        var interior = new RectInt(rect.xMin + 1, rect.yMin + 1, rect.width - 1, rect.height - 1);
+        RoomShaper.Decorate(interior, rng, doorCells, shapeCarved, shapeWalls);
+
+        foreach (Vector2Int c in shapeCarved) ConvertToWall(c);
+        foreach (Vector2Int c in shapeWalls) ConvertToWall(c);
     }
 
-    /// <summary>在相邻房间的共用墙中段开门洞：两侧墙线一起打穿 + 铺地板。返回门洞世界矩形（供 Door 定位）。
-    /// v0.5.3.1：方向按含墙矩形相邻判定（跨格房锚点差不再轴对齐），门洞在两房内部重叠段居中。</summary>
-    private Rect? CarveDoor(RoomConnection conn)
+    /// <summary>东向是否有邻房占格（占用集按各房 span 覆盖的粗格判定）。</summary>
+    private static bool HasNeighborEast(HashSet<Vector2Int> occupied, RoomNode node)
+    {
+        int nx = node.gridPos.x + node.spanX;
+        for (int gy = node.gridPos.y; gy < node.gridPos.y + node.spanY; gy++)
+            if (occupied.Contains(new Vector2Int(nx, gy))) return true;
+        return false;
+    }
+
+    /// <summary>北向是否有邻房占格。</summary>
+    private static bool HasNeighborNorth(HashSet<Vector2Int> occupied, RoomNode node)
+    {
+        int ny = node.gridPos.y + node.spanY;
+        for (int gx = node.gridPos.x; gx < node.gridPos.x + node.spanX; gx++)
+            if (occupied.Contains(new Vector2Int(gx, ny))) return true;
+        return false;
+    }
+
+    /// <summary>铺一块墙（v1.1.28 铺装期临时图；最终横竖定向由 ReorientWalls 收敛）：
+    /// 石墙素材（宽归一+Grid 整格碰撞）缺素材回退白方块墙瓦。</summary>
+    private void SetWallTile(Vector3Int pos)
+    {
+        TileBase t = WallPropTileset.GetHorizontal(
+            Mathf.FloorToInt(TerrainMask.Hash01(pos.x, pos.y, layoutSeedCache ^ 0xA11) * 1024f));
+        wallsTilemap.SetTile(pos, t != null ? t : wallTile);
+    }
+
+    /// <summary>
+    /// 墙体横竖定向终遍（v1.1.29，开洞后执行）：格上下有墙邻 = 竖列（**仅 prop_01**，
+    /// 底对齐向上伸 0.47 + TopLeft 渲染序 → 下方块扣在上一块底部，连续墙柱堆叠）；
+    /// 其余 = 横行（非 prop_01 池随机引用）。角格（上下左右皆有邻）归竖列。
+    /// </summary>
+    private void ReorientWalls()
+    {
+        BoundsInt bounds = wallsTilemap.cellBounds;
+        for (int y = bounds.yMin; y <= bounds.yMax; y++)
+            for (int x = bounds.xMin; x <= bounds.xMax; x++)
+            {
+                var pos = new Vector3Int(x, y, 0);
+                if (wallsTilemap.GetTile(pos) == null) continue;
+
+                bool vertical = wallsTilemap.GetTile(new Vector3Int(x, y + 1, 0)) != null
+                             || wallsTilemap.GetTile(new Vector3Int(x, y - 1, 0)) != null;
+                Tile t = vertical
+                    ? WallPropTileset.GetVertical()
+                    : WallPropTileset.GetHorizontal(
+                        Mathf.FloorToInt(TerrainMask.Hash01(x, y, layoutSeedCache ^ 0xA11) * 1024f));
+                wallsTilemap.SetTile(pos, t != null ? (TileBase)t : wallTile);
+            }
+    }
+
+    /// <summary>把一个内部地板格改成墙（v1.1.22 塑形共用）：墙瓦片 + 撤地板与地面格登记（RoadMask）。</summary>
+    private void ConvertToWall(Vector2Int c)
+    {
+        var pos = new Vector3Int(c.x, c.y, 0);
+        floorTilemap.SetTile(pos, null);
+        groundCells.Remove(c);   // RoadMask：塑形格不得计入地面 Mask，否则草地画到墙上
+        SetWallTile(pos);
+    }
+
+    /// <summary>门洞矩形纯计算（v1.1.28 一块厚墙）：共享墙线 = 西房 xMax 列（即东房 xMin 列），
+    /// 单列打穿；门洞在两房内部重叠段居中。返回 null = 非相邻（生成器数据错误，Validate 自检拦截）。</summary>
+    private Rect? ComputeDoorRect(RoomConnection conn)
     {
         RectInt ra = TileRect(conn.a), rb = TileRect(conn.b);
 
-        if (rb.xMin >= ra.xMax || rb.xMax <= ra.xMin) // 东西向连接：打穿西房东墙线 + 东房西墙线
+        if (rb.xMin >= ra.xMax || rb.xMax <= ra.xMin) // 东西向：打穿共享墙列（西侧房的外沿列）
         {
-            RectInt west = rb.xMin >= ra.xMax ? ra : rb;
-            int wallX1 = west.xMax - 1;   // 西房东墙线；+1 = 东房西墙线
-            int y0 = Mathf.Max(ra.yMin, rb.yMin) + 1;   // 两房内部重叠段（不含墙）
-            int y1 = Mathf.Min(ra.yMax, rb.yMax) - 1;   // exclusive
+            int wallX = rb.xMin >= ra.xMax ? ra.xMax : rb.xMax;
+            int y0 = Mathf.Max(ra.yMin, rb.yMin) + 1;   // 两房内部重叠段（内部 = [yMin+1, yMax)）
+            int y1 = Mathf.Min(ra.yMax, rb.yMax);       // exclusive
             if (y1 - y0 < doorW) return null;           // 防御：重叠段不足（构造上不存在）
             int startY = Mathf.Clamp((y0 + y1 - doorW) / 2, y0, y1 - doorW);
-            for (int dy = 0; dy < doorW; dy++)
-            {
-                OpenDoorTile(wallX1, startY + dy);
-                OpenDoorTile(wallX1 + 1, startY + dy);
-            }
-            return new Rect(wallX1, startY, 2f, doorW);
+            return new Rect(wallX, startY, 1f, doorW);
         }
-        if (rb.yMin >= ra.yMax || rb.yMax <= ra.yMin) // 南北向连接：打穿南房北墙线 + 北房南墙线
+        if (rb.yMin >= ra.yMax || rb.yMax <= ra.yMin) // 南北向：打穿共享墙行
         {
-            RectInt south = rb.yMin >= ra.yMax ? ra : rb;
-            int wallY1 = south.yMax - 1;
+            int wallY = rb.yMin >= ra.yMax ? ra.yMax : rb.yMax;
             int x0 = Mathf.Max(ra.xMin, rb.xMin) + 1;
-            int x1 = Mathf.Min(ra.xMax, rb.xMax) - 1;
+            int x1 = Mathf.Min(ra.xMax, rb.xMax);      // exclusive
             if (x1 - x0 < doorW) return null;
             int startX = Mathf.Clamp((x0 + x1 - doorW) / 2, x0, x1 - doorW);
-            for (int dx = 0; dx < doorW; dx++)
-            {
-                OpenDoorTile(startX + dx, wallY1);
-                OpenDoorTile(startX + dx, wallY1 + 1);
-            }
-            return new Rect(startX, wallY1, doorW, 2f);
+            return new Rect(startX, wallY, doorW, 1f);
         }
-        // 非相邻属生成器数据错误（Validate 自检会拦截），此处静默忽略
         return null;
+    }
+
+    /// <summary>按门洞矩形开洞（v1.1.22 自 CarveDoor 拆出）：两侧墙线打穿 + 铺地板/登记地面格。</summary>
+    private void OpenDoor(Rect doorRect)
+    {
+        int x0 = Mathf.RoundToInt(doorRect.xMin), y0 = Mathf.RoundToInt(doorRect.yMin);
+        int w = Mathf.RoundToInt(doorRect.width), h = Mathf.RoundToInt(doorRect.height);
+        for (int x = x0; x < x0 + w; x++)
+            for (int y = y0; y < y0 + h; y++)
+                OpenDoorTile(x, y);
+    }
+
+    /// <summary>门洞保护带格集收集（v1.1.22）：门洞矩形覆盖的整格写入对应房间的列表（两侧房都收）。</summary>
+    private static void AddDoorCells(Dictionary<int, List<Vector2Int>> byRoom, int roomId, Rect doorRect)
+    {
+        if (!byRoom.TryGetValue(roomId, out var list)) byRoom[roomId] = list = new List<Vector2Int>(8);
+        int x0 = Mathf.FloorToInt(doorRect.xMin), y0 = Mathf.FloorToInt(doorRect.yMin);
+        int x1 = Mathf.CeilToInt(doorRect.xMax), y1 = Mathf.CeilToInt(doorRect.yMax);
+        for (int x = x0; x < x1; x++)
+            for (int y = y0; y < y1; y++)
+                list.Add(new Vector2Int(x, y));
     }
 
     private void OpenDoorTile(int x, int y)
@@ -250,19 +367,14 @@ public class DungeonBuilder : MonoBehaviour
     {
         if (terrainMask == null || groundCells.Count == 0) return;
 
-        var go = new GameObject("RoadMaskGround");
-        go.transform.SetParent(dungeonRoot, false);
-        var surface = go.AddComponent<RoadMaskGroundSurface>();
-        TilemapRenderer floorRenderer = floorTilemap.GetComponent<TilemapRenderer>();
-        if (surface.Build(terrainMask, groundCells, floorRenderer, terrainDecoSeed)) return;
-
-        // Shader 或纹理缺失时回退现有逐格绘制，保证地牢仍可用。
+        // v1.1.25：恢复原套件逐格铺装（等比例 1 图=1 格，85px@PPU85 契约自适应）——
+        // RoadMask 整层 mesh 单底图平铺观感单一（用户反馈），mesh+shader 路径休眠保留，
+        // 待底图升级为多变体图集后可重启（恢复下方 surface.Build 调用即可）。
         foreach (Vector2Int cell in groundCells)
         {
             var pos = new Vector3Int(cell.x, cell.y, 0);
             TerrainPainter.PaintCell(floorTilemap, pos, terrainMask, groundTileset, terrainDecoSeed);
         }
-        if (Application.isPlaying) Destroy(go); else DestroyImmediate(go);
     }
     // ---------- Room / Door 实例化 ----------
 
