@@ -65,6 +65,7 @@ public class PrepRoomManager : MonoBehaviour
             FrameAnimator animator = p.GetComponent<FrameAnimator>();
             if (animator != null) animator.SetWerewolfVisual(true);
             WerewolfTransformation.EnsureOn(p);   // v1.0.9：准备房间也能按 T 试变身
+            WerewolfDash.EnsureOn(p);   // v1.1.42 狼人冲刺（场景应用侧同挂）
         }
 
         Debug.Log("[Run] 准备场景就绪：选职业 → 拿武器 → E 传送门进地牢");
@@ -160,6 +161,7 @@ public class PrepRoomManager : MonoBehaviour
             Texture2D tex = Texture2D.whiteTexture;
             whiteSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
                 new Vector2(0.5f, 0.5f), tex.width);
+            whiteSprite.name = "RT_whiteSprite";   // v1.1.40：运行时精灵必须命名
         }
         return whiteSprite;
     }

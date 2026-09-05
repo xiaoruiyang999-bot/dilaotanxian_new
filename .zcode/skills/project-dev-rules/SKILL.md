@@ -36,6 +36,7 @@ description: 本 Unity 地牢 Roguelite 项目的开发红线与架构规则（�
 - **R13** 集合引用比较陷阱：FrameAnimator.Play 复制新 List，外部引用比较恒不等→每帧重播卡帧 0。跨对象状态跟踪用枚举/标记
 - **R14** Play 中改代码不热生效：editor_stop → asset_refresh 等编译 → editor_play；日志验证看格式特征（新增字段出现=新代码生效）
 - **R15** 战斗房关门不得直接消费 `OnTriggerEnter2D`（只代表刚相交）：Enter/Stay 中须等玩家 `Collider2D.bounds` 完整落入 `Room.Bounds` 再 `Room.Enter()`，否则门会在角色横跨门洞时启用碰撞夹人；固定内缩量不等价于完整进入
+- **R16** 房内生成只按最终 `RoomPlan` 绘制一次：Carved 深层格必须撤销 groundCells/Floor/Walls；每次 Shape 重试从 baseProtect 克隆，禁止轮廓保护跨尝试累积；障碍必须在临时集合中形成完整小岛候选，经格级+玩家口径验证和评分后一次提交，禁止增量回滚误删旧格；所有内容落点须先消费最终 `RoomPlan.SpawnCells`（3×3 无墙可走地面），再做距门与 NonAlloc 物理检测（v1.1.46）
 
 ## 速查
 - 键位（v0.7.5）：WASD / 左键攻击 / E=交互·拾取 / F=小技能 / Q=大招 / R=武器技能 / C=用道具 / Esc=暂停（Dash/Sprint 已下线；狼人 T 已随 v0.5 体系退役）

@@ -20,6 +20,7 @@ public class Projectile : MonoBehaviour
     private ProjectileData data;
     private Vector2 direction;
     private GameObject owner;
+    private Transform ownerRoot;       // 发射瞬间缓存根节点，统一排除射手及其子碰撞体
     private PlayerStats ownerStats;   // v0.7.0：owner 根上的 PlayerStats；非空 = 玩家子弹（走新管线），空 = 敌人子弹（原路径）
     private float damageMul = 1f;
     private float speedMul = 1f;
@@ -78,6 +79,7 @@ public class Projectile : MonoBehaviour
         this.data = data;
         direction = dir;
         this.owner = owner;
+        ownerRoot = owner != null ? owner.transform.root : null;
         this.damageMul = damageMul;
         this.speedMul = speedMul;
         lifetime = data.Lifetime;
@@ -110,8 +112,8 @@ public class Projectile : MonoBehaviour
             {
                 Collider2D c = sweepBuffer[i];
                 if (c == null) continue;
-                if (owner != null && (c.transform.IsChildOf(owner.transform)
-                    || c.transform.root == owner.transform.root)) continue;   // 防自伤（枪口可能仍在玩家碰撞体内）
+                if (ownerRoot != null && (c.transform.IsChildOf(ownerRoot)
+                    || c.transform.root == ownerRoot)) continue;   // 防自伤（发射时快照根；射手已销毁则 fake-null 自动放行）
                 float d = Vector2.Distance(c.bounds.ClosestPoint(oldPos), oldPos);
                 if (d < bestDist)
                 {
@@ -135,16 +137,16 @@ public class Projectile : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
         // v1.1.13：静止贴墙/目标主动撞入等非位移接触仍走 Trigger 通道，与扫射共用结算入口
-        => ResolveHit(other, other.ClosestPoint(transform.position));
+        => ResolveHit(other, other != null ? other.ClosestPoint(transform.position) : transform.position);
 
     /// <summary>统一命中结算（v1.1.13 抽取自 OnTriggerEnter2D）：目标伤害或撞墙销毁。</summary>
     private void ResolveHit(Collider2D other, Vector2 hitPoint)
     {
-        if (data == null || resolved) return;
+        if (data == null || resolved || other == null) return;
 
-        // 防自伤：跳过 owner 自身/子物体/同根（生成瞬间与玩家碰撞体重叠）
-        if (owner != null && (other.transform.IsChildOf(owner.transform)
-            || other.transform.root == owner.transform.root))
+        // 防自伤：跳过 owner 自身/子物体/同根（发射时快照的根；射手已销毁则放行正常结算）
+        if (ownerRoot != null && (other.transform.IsChildOf(ownerRoot)
+            || other.transform.root == ownerRoot))
             return;
 
         // 跳过其他触发器（敌人探测圈等）

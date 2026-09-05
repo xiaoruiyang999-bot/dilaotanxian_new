@@ -121,6 +121,7 @@ public class ItemPickup : MonoBehaviour, IPickupable
         Texture2D tex = Texture2D.whiteTexture;
         whiteSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
             new Vector2(0.5f, 0.5f), tex.width);
+        whiteSprite.name = "RT_ItemWhite";   // v1.1.40：运行时精灵必须命名
         return whiteSprite;
     }
 }

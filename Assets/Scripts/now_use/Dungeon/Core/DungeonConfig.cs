@@ -16,6 +16,16 @@ public class DungeonConfig : ScriptableObject
     [Tooltip("门洞宽（瓦片数）")]
     public int doorWidth = 2;
 
+    [Header("楼层入场表现")]
+    [Tooltip("生成新楼层时，墙体以独立视觉层逐块从上方坠落；真实墙体碰撞始终保持在最终位置")]
+    public bool wallDropEnabled = true;
+    [Tooltip("墙块初始位于最终位置上方多少世界单位")]
+    [Range(1f, 16f)] public float wallDropHeight = 7f;
+    [Tooltip("单块墙从开始下落到落地的时间")]
+    [Range(0.15f, 1.5f)] public float wallDropDuration = 0.5f;
+    [Tooltip("所有墙块开始下落的错峰时间范围；越大越接近逐块搭建")]
+    [Range(0f, 3f)] public float wallDropStagger = 1.1f;
+
     [Header("特殊房间（v0.5.3 启用）")]
     public int treasureCount = 1;
     public int shopCount = 1;
@@ -30,6 +40,12 @@ public class DungeonConfig : ScriptableObject
     [Tooltip("Elite 房占 N×1 或 1×N 个粗格（尽力满足，失败回退 1×1）")]
     public int eliteCellSpan = 2;
 
+    [Header("战斗房（v1.1.46）")]
+    [Tooltip("普通战斗房占 N×N 个粗格（2 = 2×2 ≈4×面积；失败回退 2×1/1×2 ≈2×面积，再保 1×1）——战斗房至少增大一倍")]
+    public int combatCellSpan = 2;
+    [Tooltip("战斗房刷第二波怪物的概率（怪物轮次：第一波全灭后延迟增援，两波全灭才开门；0 = 关闭）")]
+    [Range(0f, 1f)] public float combatWaveChance = 0.35f;
+
     [Header("楼层缩放（v0.5.4 启用）")]
     [Tooltip("每层敌人数量 +N（封顶另定）")]
     public int enemyCountBonusPerFloor = 1;
@@ -43,7 +59,11 @@ public class DungeonConfig : ScriptableObject
         roomWidth = Mathf.Clamp(roomWidth, 8, 48);
         roomHeight = Mathf.Clamp(roomHeight, 8, 48);
         doorWidth = Mathf.Clamp(doorWidth, 1, Mathf.Min(roomWidth, roomHeight) - 2);
+        wallDropHeight = Mathf.Clamp(wallDropHeight, 1f, 16f);
+        wallDropDuration = Mathf.Clamp(wallDropDuration, 0.15f, 1.5f);
+        wallDropStagger = Mathf.Clamp(wallDropStagger, 0f, 3f);
         bossCellSpan = Mathf.Clamp(bossCellSpan, 1, 4);
         eliteCellSpan = Mathf.Clamp(eliteCellSpan, 1, 4);
+        combatCellSpan = Mathf.Clamp(combatCellSpan, 1, 4);
     }
 }

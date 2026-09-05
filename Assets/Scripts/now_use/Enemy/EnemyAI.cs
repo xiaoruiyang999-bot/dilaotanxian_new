@@ -35,6 +35,18 @@ public class EnemyAI : MonoBehaviour
     private float patrolWaitTimer = 0f;
     private Vector3 currentPatrolTarget;
 
+    // === v1.1.32 视觉子状态（障碍挡视野 + 50% 不丢失）与寻路跟随 ===
+    private bool losBlocked;            // 当前 LOS 被墙/障碍阻挡
+    private bool ignoringLos;           // 丢失时掷骰 50%"不丢失"——继续追（重见目标后复位）
+    private Vector3 lastSeenPosition;   // 丢失前最后目击点
+    private float lostSearchTimer;      // 丢失方向目击点搜索的剩余时长
+    private const float LostSearchDuration = 3f;
+    private readonly List<Vector2> path = new List<Vector2>(32);   // 复用航点缓冲
+    private int pathIndex;
+    private float repathTimer;
+    private Vector2 pathGoal;
+    private int visionMask = -1;
+
     // === v0.5.4.2 行为专用字段 ===
     private bool isSkirmishRetreating;
     private float skirmishRetreatTimer;
@@ -136,8 +148,9 @@ public class EnemyAI : MonoBehaviour
 
     void Update()
     {
+        if (this == null || gameObject == null) return;   // v1.1.37：楼层清理 Destroy 后同帧残余 Update 守卫
         if (target == null) TryAcquireTarget();
-        if (health != null && health.IsDead) return;
+        if (health == null || health.IsDead) return;      // health fake-null（同房清理）一并拦截
 
         // Without target, fall back to patrol-only movement
         if (target == null)
@@ -177,6 +190,115 @@ public class EnemyAI : MonoBehaviour
         }
     }
 
+    // ========== v1.1.32 视觉与寻路 ==========
+
+    /// <summary>
+    /// 追击视野判定：墙/障碍（Default 墙 Tilemap + Obstacle 层）阻挡即"看不见"。
+    /// 刚丢失时一次性掷骰：50% 忽略丢失继续追（ignoringLos，直至重见目标复位）；
+    /// 50% 进入目击点搜索（LostSearchDuration 秒内走向 lastSeenPosition，超时/到达即弃目标）。
+    /// </summary>
+    private void UpdateVision()
+    {
+        if (perception == null || target == null || this == null) return;   // this==null：销毁残余帧
+        if (visionMask < 0) visionMask = LayerMask.GetMask("Default", "Obstacle");
+
+        bool visible = perception.HasLineOfSight(target, visionMask, 0);
+        if (visible)
+        {
+            losBlocked = false;
+            ignoringLos = false;
+            lastSeenPosition = target.position;
+            lostSearchTimer = LostSearchDuration;
+            return;
+        }
+
+        if (!losBlocked)   // 刚丢失：一次性 50% 掷骰
+        {
+            losBlocked = true;
+            ignoringLos = behaviorRng != null && behaviorRng.Next(2) == 0;
+        }
+        if (!ignoringLos) lostSearchTimer -= Time.deltaTime;
+    }
+
+    /// <summary>当前有效追击目标点：看得见/忽略丢失→玩家实时位置；丢失搜索期→最后目击点。</summary>
+    private Vector2 ChaseGoal => (losBlocked && !ignoringLos) ? (Vector2)lastSeenPosition : (Vector2)target.position;
+
+    /// <summary>丢失搜索是否已到头（超时或已抵达目击点）。</summary>
+    private bool LostSearchExhausted =>
+        losBlocked && !ignoringLos &&
+        (lostSearchTimer <= 0f || Vector2.Distance(transform.position, lastSeenPosition) < 0.6f);
+
+    /// <summary>
+    /// v1.1.32 寻路追击移动：直线体宽通畅→直接走（原行为）；被挡→A* 求最短绕行路径
+    /// （0.35s 节流重算，目标点漂移 >1.5 强制重算），沿航点推进——不再贴墙滑行。
+    /// </summary>
+    private void MoveWithPathing(Vector2 goal)
+    {
+        Vector2 pos = transform.position;
+        Vector2 delta = goal - pos;
+        float dist = delta.magnitude;
+        if (dist < 0.05f) { controller.StopMoving(); return; }
+        Vector2 dir = delta / dist;
+
+        if (EnemyPathfinder.BodyLineClear(pos, goal, transform))
+        {
+            controller.MoveTowards(dir);
+            controller.FaceTowards(dir);
+            repathTimer = 0f;
+            path.Clear();
+            return;
+        }
+
+        repathTimer -= Time.deltaTime;
+        bool goalMoved = (goal - pathGoal).sqrMagnitude > 1.5f * 1.5f;
+        if (repathTimer <= 0f || path.Count == 0 || goalMoved || pathIndex >= path.Count)
+        {
+            if (EnemyPathfinder.FindPath(pos, goal, transform, path))
+            {
+                pathGoal = goal;
+                pathIndex = 1;   // 0 号是自身起点附近
+                repathTimer = 0.35f;
+            }
+            else
+            {
+                controller.MoveTowards(dir);   // 寻路失败回退直线（体面降级）
+                controller.FaceTowards(dir);
+                repathTimer = 0.2f;
+                return;
+            }
+        }
+
+        // 沿航点推进（v1.1.35 防御钳制：索引越界即整路径作废重算，绝不向上抛）
+        if (pathIndex < 0 || pathIndex >= path.Count)
+        {
+            pathIndex = 0;
+            path.Clear();
+            repathTimer = 0f;
+            controller.MoveTowards(dir);
+            controller.FaceTowards(dir);
+            return;
+        }
+        while (pathIndex < path.Count && Vector2.Distance(pos, path[pathIndex]) < 0.35f) pathIndex++;
+        if (pathIndex >= path.Count) { controller.MoveTowards(dir); controller.FaceTowards(dir); return; }
+        Vector2 wp = path[pathIndex];
+        Vector2 wdir = (wp - pos).normalized;
+        controller.MoveTowards(wdir);
+        controller.FaceTowards(wdir);
+    }
+
+    /// <summary>追击公共前置：视觉判定 + 丢失弃目标（各行为 UpdateChase_* 开头调用）。</summary>
+    private void ChasePrelude(float distToTarget)
+    {
+        UpdateVision();
+        if (LostSearchExhausted)
+        {
+            combat.SetTarget(null);
+            losBlocked = false;
+            ignoringLos = false;
+            ChangeState(State.ReturnToPatrol);
+        }
+    }
+
     // ========== 被攻击回调 ==========
     private void OnDamaged()
     {
@@ -209,6 +331,9 @@ public class EnemyAI : MonoBehaviour
     // ========== Chase ==========
     private void UpdateChase(float distToTarget)
     {
+        ChasePrelude(distToTarget);   // v1.1.32 视觉判定 + 丢失弃目标（状态可能已切走）
+        if (currentState != State.Chase) return;
+
         switch (Behavior)
         {
             case EnemyBehaviorType.Ranged:
@@ -233,9 +358,7 @@ public class EnemyAI : MonoBehaviour
     // --- Melee 近战追击 ---
     private void UpdateChase_Melee(float distToTarget)
     {
-        Vector2 dir = (target.position - transform.position).normalized;
-        controller.MoveTowards(dir);
-        controller.FaceTowards(dir);
+        MoveWithPathing(ChaseGoal);   // v1.1.32：挡路时 A* 绕行，不贴墙滑
         combat.SetTarget(target);
 
         if (combat.IsInAttackRange(target) && combat.CanAttack)
@@ -290,7 +413,7 @@ public class EnemyAI : MonoBehaviour
         }
         else if (rangedMoveMode == RangedMoveMode.Approach)
         {
-            controller.MoveTowards(dirToTarget);
+            MoveWithPathing(target.position);   // v1.1.32 寻路绕行（保持距离型只在接近段需要绕障）
         }
         else
         {
@@ -367,7 +490,7 @@ public class EnemyAI : MonoBehaviour
         }
         else if (combat.IsInAttackRange(target) && combat.CanAttack)
         {
-            // 进入攻击范围：突进→攻击→标记后退
+            // 进入攻击范围：突进→攻击→标记后退（近距短冲，直线即可）
             controller.MoveTowards(dirToTarget);
             if (combat.TryStartAttack(target))
             {
@@ -376,8 +499,8 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // 不在攻击范围：靠近
-            controller.MoveTowards(dirToTarget);
+            // 不在攻击范围：靠近（v1.1.32 寻路绕行）
+            MoveWithPathing(ChaseGoal);
         }
 
         if (distToTarget > stats.LosePlayerRange)
@@ -411,8 +534,8 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // 不在范围：直线追击
-            controller.MoveTowards(dirToTarget);
+            // 不在范围：追击（v1.1.32 寻路绕行；锁定冲锋仍是直线，由 EnemyCombat 驱动）
+            MoveWithPathing(ChaseGoal);
         }
 
         if (distToTarget > stats.LosePlayerRange)

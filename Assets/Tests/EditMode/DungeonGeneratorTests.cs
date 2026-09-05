@@ -60,4 +60,37 @@ public class DungeonGeneratorTests
                 $"seed={seed} 存在 {layout.rooms.Count - visited.Count} 个从起始房不可达的房间");
         }
     }
+
+    /// <summary>
+    /// v1.1.46 战斗房整格扩展门禁：普通 Combat 房至少增大一倍（2×2 ≈4×面积 或 2×1/1×2 ≈2×面积），
+    /// 扩展失败才保 1×1（尽力满足策略）。统计 100 seed 的达成率并保证大房占比 ≥80%
+    ///（邻接生长布局有天然空闲角，低于该值说明扩展器退化）。
+    /// </summary>
+    [Test]
+    public void CombatRooms_AtLeastDoubleSize_MajorityOfSeeds()
+    {
+        var rngMeta = new System.Random(20260906);
+        int combatTotal = 0, expanded = 0, square = 0;
+
+        for (int i = 0; i < 100; i++)
+        {
+            DungeonLayout layout = DungeonGenerator.Generate(MakeConfig(), rngMeta.Next());
+            foreach (RoomNode r in layout.rooms)
+            {
+                if (r.type != RoomType.Combat) continue;
+                combatTotal++;
+                if (r.spanX >= 2 || r.spanY >= 2)
+                {
+                    expanded++;
+                    if (r.spanX >= 2 && r.spanY >= 2) square++;
+                }
+            }
+        }
+
+        Assert.That(combatTotal, Is.GreaterThan(200), "100 层 Combat 房样本量异常");
+        float expandRate = expanded / (float)combatTotal;
+        Debug.Log($"[CombatSpan] Combat 房 {combatTotal} 个：扩成 ≥2×1 = {expanded}（{expandRate:P0}，其中 2×2 = {square}）");
+        Assert.That(expandRate, Is.GreaterThanOrEqualTo(0.8f),
+            $"战斗房 ≥2 倍面积达成率仅 {expandRate:P0}（目标 ≥80%）");
+    }
 }

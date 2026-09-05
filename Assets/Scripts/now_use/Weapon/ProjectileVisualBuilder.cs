@@ -29,6 +29,7 @@ public static class ProjectileVisualBuilder
             Texture2D tex = Texture2D.whiteTexture;
             whiteSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
                 new Vector2(0.5f, 0.5f), tex.width);   // 1×1 单位方块
+            whiteSprite.name = "RT_ProjWhite";   // v1.1.40：运行时精灵必须命名
         }
         return whiteSprite;
     }
@@ -56,6 +57,7 @@ public static class ProjectileVisualBuilder
             tex.Apply();
             circleSprite = Sprite.Create(tex, new Rect(0, 0, size, size),
                 new Vector2(0.5f, 0.5f), size);   // 1×1 单位圆
+            circleSprite.name = "RT_ProjCircle";   // v1.1.40：运行时精灵必须命名
         }
         return circleSprite;
     }

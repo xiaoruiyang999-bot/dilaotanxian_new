@@ -23,6 +23,16 @@ public static class RoomSizeExpander
                 TryExpandRect(layout.bossRoom, occupied, rng);
         }
 
+        // Combat（v1.1.46）：普通战斗房至少一倍大——2×2 优先（≈4×面积），
+        // 失败回退 2×1/1×2（≈2×面积），再失败保 1×1（尽力满足，与 Boss 同策略）。
+        // 排在 Elite 前：Combat 数量多（战斗体验主体），Elite 房本就强化、让位零星格子。
+        foreach (RoomNode r in layout.rooms)
+        {
+            if (r.type != RoomType.Combat || config.combatCellSpan < 2) continue;
+            if (!TryExpandSquare(r, config.combatCellSpan, occupied, rng))
+                TryExpandRect(r, occupied, rng);
+        }
+
         // Elite：向任一方向扩展 1 格（2×1 或 1×2），失败保持 1×1
         foreach (RoomNode r in layout.rooms)
         {

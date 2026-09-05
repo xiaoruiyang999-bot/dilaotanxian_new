@@ -1,4 +1,3 @@
-using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,8 +8,9 @@ using UnityEngine.UI;
 /// 角色选择界面（v1.0.8）：选择角色外形——战士 / 狼人。
 /// 与职业选择（ClassSelectUI：战士/弓手/法师=数值与武器）是两个正交维度：
 /// 角色=纯视觉外形（FrameAnimator 帧组），职业=数值/武器/技能，任意组合互不冲突。
-/// 流程：首次进入准备场景自动弹出 → 点角色按钮（高亮）→ 确认 → 写入 RunStateCarrier.ChosenCharacter
-/// （死亡保留）→ 若尚未选职业则自动接续弹出职业选择页。Esc 关闭（未确认不生效）。
+/// 流程：首次进入准备场景自动弹出 → **点颜色卡=选中（高亮预览），点"选 择"键=确定**（v1.1.31 修正语义）
+/// → 写入 RunStateCarrier.ChosenCharacter（死亡保留）→ 若尚未选职业则自动接续弹出职业选择页。
+/// Esc 关闭（不选择不生效）。
 /// 打开期间 PlayerController 查询 IsOpen 屏蔽攻击/技能/交互输入。
 /// v1.1.6：主面板接入石板 9-Slice 母版（与 ClassSelectUI 同款，PanelSprite 统一入口，素材缺失回退纯色）；
 /// 新角色行：Build 里向 panelRect 追加 BuildCharacterButton 即可。待补：角色立绘/标题字效。
@@ -25,7 +25,6 @@ public class CharacterSelectUI : MonoBehaviour
     private GameObject canvasGo;
     private Image warriorFrame, werewolfFrame;
     private CharacterSkin selected;
-    private bool confirming;
 
     private static readonly Color WarriorTint = new Color(0.30f, 0.55f, 0.95f);   // 战士：蓝
     private static readonly Color WerewolfTint = new Color(0.35f, 0.85f, 0.45f);  // 狼人：绿
@@ -54,9 +53,8 @@ public class CharacterSelectUI : MonoBehaviour
     private void Show()
     {
         EnsureEventSystem();
-        selected = RunStateCarrier.Ensure().ChosenCharacter;   // 默认当前外形（可改选）
+        selected = RunStateCarrier.Ensure().ChosenCharacter;   // 默认当前外形（高亮指示）
         RefreshHighlights();
-        confirming = false;
         canvasGo.SetActive(true);
         IsOpen = true;
     }
@@ -65,7 +63,6 @@ public class CharacterSelectUI : MonoBehaviour
     {
         canvasGo.SetActive(false);
         IsOpen = false;
-        confirming = false;
     }
 
     void OnDestroy()
@@ -103,11 +100,11 @@ public class CharacterSelectUI : MonoBehaviour
             new Vector2(0.5f, 1f), new Vector2(0f, -114f), new Vector2(700f, 24f));
 
         warriorFrame = BuildCharacterButton(panelRect, "Btn_Character_Warrior", "战 士",
-            "经典体型 · 均衡手感", WarriorTint, new Vector2(-190f, -2f));
+            "经典体型 · 均衡手感", WarriorTint, new Vector2(-190f, -30f));
         werewolfFrame = BuildCharacterButton(panelRect, "Btn_Character_Werewolf", "狼 人",
-            "狼形大体型 · 纯视觉外形（数值不变）", WerewolfTint, new Vector2(190f, -2f));
+            "狼形大体型 · 纯视觉外形（数值不变）", WerewolfTint, new Vector2(190f, -30f));
 
-        BuildConfirmButton(panelRect, new Vector2(0f, -218f));
+        // v1.1.30：确认键移除——点击卡片/选择键即选中即确定
 
         canvasGo.SetActive(false);
     }
@@ -147,7 +144,19 @@ public class CharacterSelectUI : MonoBehaviour
         Label(selectRect, "选 择", 17, Color.white, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(260f, 30f));
         Button btn = selectGo.AddComponent<Button>();
         PanelSprite.ApplyStoneButton(btn, selectImg, new Color(0.12f, 0.12f, 0.14f, 0.95f));
-        btn.onClick.AddListener(() =>
+        btn.onClick.AddListener(() => Pick(name));   // "选 择"键 = 确定（应用并关闭）
+
+        // v1.1.30/31：颜色卡区域 = 仅选中（高亮预览，可反复切换比较，不应用）；
+        // 确定功能专属"选 择"键
+        Button cardBtn = frame.AddComponent<Button>();
+        cardBtn.targetGraphic = frameImg;
+        cardBtn.transition = Selectable.Transition.ColorTint;
+        var cb = cardBtn.colors;
+        cb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 0.35f);
+        cb.pressedColor = new Color(0.7f, 0.7f, 0.7f, 0.35f);
+        cb.fadeDuration = 0.08f;
+        cardBtn.colors = cb;
+        cardBtn.onClick.AddListener(() =>
         {
             selected = name.Contains("Werewolf") ? CharacterSkin.Werewolf : CharacterSkin.Warrior;
             RefreshHighlights();
@@ -155,26 +164,11 @@ public class CharacterSelectUI : MonoBehaviour
         return frameImg;
     }
 
-    private void BuildConfirmButton(Transform parent, Vector2 pos)
+    /// <summary>选中即确定（v1.1.30）：写载体、即时换形、关闭，未选职业则接续职业页。</summary>
+    private void Pick(string cardName)
     {
-        GameObject go = new GameObject("Btn_Confirm", typeof(RectTransform));
-        go.transform.SetParent(parent, false);
-        Image img = go.AddComponent<Image>();
-        RectTransform rect = (RectTransform)go.transform;
-        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
-        rect.anchoredPosition = pos;
-        rect.sizeDelta = new Vector2(300f, 46f);
-        Label(rect, "确  认", 20, Color.white, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(220f, 40f));
-
-        Button btn = go.AddComponent<Button>();
-        PanelSprite.ApplyStoneButton(btn, img, new Color(0.2f, 0.45f, 0.25f, 0.6f));   // v1.1.7 三态石板（缺素材回退绿）
-        btn.onClick.AddListener(Confirm);
-    }
-
-    private void Confirm()
-    {
-        if (confirming) return;
-        confirming = true;
+        selected = cardName.Contains("Werewolf") ? CharacterSkin.Werewolf : CharacterSkin.Warrior;
+        RefreshHighlights();
 
         RunStateCarrier.Ensure().SetCharacter(selected);
         Debug.Log($"[Character] 已选择角色外形：{selected}");
@@ -188,11 +182,16 @@ public class CharacterSelectUI : MonoBehaviour
             {
                 fa.SetWerewolfVisual(selected == CharacterSkin.Werewolf);
                 if (selected == CharacterSkin.Werewolf)
+                {
                     WerewolfTransformation.EnsureOn(pc.gameObject);
+                    WerewolfDash.EnsureOn(pc.gameObject);   // v1.1.42 狼人专属冲刺
+                }
                 else
                 {
                     WerewolfTransformation old = pc.GetComponent<WerewolfTransformation>();
                     if (old != null) Destroy(old);   // OnDestroy 复位判定缩放/数值/血条
+                    WerewolfDash dash = pc.GetComponent<WerewolfDash>();
+                    if (dash != null) Destroy(dash);   // v1.1.42 改选战士：冲刺下线
                 }
             }
         }

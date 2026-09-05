@@ -58,10 +58,14 @@ public class DungeonBuilder : MonoBehaviour
     private int terrainDecoSeed;
     private readonly HashSet<Vector2Int> groundCells = new HashSet<Vector2Int>();
 
-    // v1.1.22 层次感塑形：房内挖除/墙体的复用缓冲（Decorate 内 Clear 复用，零持续分配）
-    private readonly HashSet<Vector2Int> shapeCarved = new HashSet<Vector2Int>();
-    private readonly List<Vector2Int> shapeWalls = new List<Vector2Int>(32);
-    private int layoutSeedCache;
+    private int layoutSeedCache;   // v1.1.31 RoomPlanner rng 派生用
+    private WallDropAnimator wallDropAnimator;
+    // v1.1.41 各房可达骨架合集（PaintRoom 收集 → 开洞后 TerrainMask.ApplySkeletonBias 地皮融入）
+    private readonly HashSet<Vector2Int> skeletonCells = new HashSet<Vector2Int>();
+    // v1.1.44 per-room 骨架（SpawnContent 用：大石块避让骨架格，防止内容阶段堵死路网入口）
+    private readonly Dictionary<int, HashSet<Vector2Int>> roomSkeletons = new Dictionary<int, HashSet<Vector2Int>>();
+    // v1.1.46 最终布局的内容生成白名单：防止敌人/奖励/装饰刷进挖除空洞或房内墙。
+    private readonly Dictionary<int, List<Vector2Int>> roomSpawnCells = new Dictionary<int, List<Vector2Int>>();
 
     public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
@@ -117,9 +121,28 @@ public class DungeonBuilder : MonoBehaviour
         foreach (RoomNode node in layout.rooms) PaintRoom(node, doorCellsByRoom, occupied);
         foreach (KeyValuePair<RoomConnection, Rect> kv in doorRects) OpenDoor(kv.Value);
 
+        // v1.1.46：必须在 PaintRoom 收集完 skeletonCells 后再偏置；旧顺序在集合仍为空时调用，
+        // 实际从未生效。BuildRoadMaskSurface 尚未绘制，故此处改逻辑层仍是单次正确时机。
+        if (terrainMask != null && skeletonCells.Count > 0)
+            terrainMask.ApplySkeletonBias(skeletonCells, layoutSeed ^ 0x501);
+
         // v1.1.29 横竖定向：按最终拓扑（含门洞打断）逐格判向重铺——上下有墙邻=竖列（仅 prop_01 堆叠），
         // 否则横行（随机引用）。塑形墙段与门洞断口统一由此收敛，绘制期的临时铺装被覆盖。
         ReorientWalls();
+        FlushWallColliderChanges();
+
+        // v1.1.43 墙体入场只操作无碰撞视觉副本：真实 Walls Tilemap/Collider 已经在最终位置，
+        // 避免逐格动画触发 TilemapCollider 重建或在落地过程中夹住玩家。
+        if (Application.isPlaying && config.wallDropEnabled)
+        {
+            if (wallDropAnimator == null)
+            {
+                wallDropAnimator = GetComponent<WallDropAnimator>();
+                if (wallDropAnimator == null) wallDropAnimator = gameObject.AddComponent<WallDropAnimator>();
+            }
+            wallDropAnimator.Play(wallsTilemap, layoutSeed, config.wallDropHeight,
+                config.wallDropDuration, config.wallDropStagger);
+        }
 
         BuildRoadMaskSurface();
         foreach (RoomNode node in layout.rooms) CreateRoomObject(node);
@@ -141,20 +164,41 @@ public class DungeonBuilder : MonoBehaviour
 
         var rng = new System.Random(layoutSeed * 7919 + node.id);
         EnemySpawner.Spawn(room, profile.enemyTable, rng, floorNumber, config);
+
+        // v1.1.46 怪物轮次：掷中概率的普通战斗房追加第二波（第一波全灭 → 延迟 0.9s 增援，
+        // 两波全灭才开门，增加战斗时长与节奏起伏）。波次 rng 由房 rng 派生子流（同 seed 复现不变）。
+        if (node.type == RoomType.Combat && profile.enemyTable != null
+            && config.combatWaveChance > 0f && rng.NextDouble() < config.combatWaveChance)
+        {
+            var waveGo = new GameObject("WaveController");
+            waveGo.transform.SetParent(room.transform, false);
+            var wave = waveGo.AddComponent<RoomWaveController>();
+            wave.Setup(room, profile.enemyTable, floorNumber, config,
+                new System.Random(rng.Next()), waves: 1);
+            room.RegisterWaveProvider(wave);
+        }
         // v1.1.27：障碍物职责整体移交废墟石块（StoneDecorSpawner 大石块）——未用石块的
         // 旧障碍表（木箱）不再生成；表路径休眠保留，未来需要混搭时恢复此行即可。
         // ObstacleSpawner.Spawn(room, profile.obstacleTable, rng);
         DecorationSpawner.Spawn(room, profile.decorationTable, rng);
-        StoneDecorSpawner.Spawn(room, rng);   // v1.1.26 废墟石块：小=无碰撞点缀，大=障碍物替代（随机引用）
+        // v1.1.44：大石块避让骨架格——石块有碰撞且会砸在路网/入口上，把玩家口径验证
+        // 留下的 ≥2 宽口重新堵死（可破坏所以不硬卡，但堵主路体验差）
+        roomSkeletons.TryGetValue(node.id, out HashSet<Vector2Int> skeleton);
+        StoneDecorSpawner.Spawn(room, rng, skeleton);   // v1.1.26 废墟石块：小=无碰撞点缀，大=障碍物替代（随机引用）
+        BarrelDecorSpawner.Spawn(room, rng, skeleton);  // v1.1.45 可破坏木桶/木箱堆（小件纯装饰，同避让骨架）
         InteractableSpawner.Spawn(room, profile.interactableTable, rng);
     }
 
     /// <summary>清空 Tilemap 与全部生成物（重建 / 楼层切换共用）。</summary>
     public void ClearAll()
     {
+        if (wallDropAnimator != null) wallDropAnimator.Cancel();
         floorTilemap.ClearAllTiles();
         wallsTilemap.ClearAllTiles();
         groundCells.Clear();
+        skeletonCells.Clear();
+        roomSkeletons.Clear();
+        roomSpawnCells.Clear();
         rooms.Clear();
         for (int i = dungeonRoot.childCount - 1; i >= 0; i--)
         {
@@ -197,7 +241,7 @@ public class DungeonBuilder : MonoBehaviour
     /// 内部地板 = [xMin+1, xMax) × [yMin+1, yMax)；墙线 = 西列与南行本房必画（邻房共享同一列/行），
     /// 东列/北行仅当该方向无邻房时画在自身外沿（xMax 列 / yMax 行）——任意两房间隔恰好一块厚。
     /// v0.5.3：内部地板按 RoomTypeConfig.floorTint 着色（alpha=0 不着色）。
-    /// v1.1.22：非 Start/Boss 房塑形（角部挖除 + 模板墙，门洞/中心保护带内不动，同 seed 复现）。</summary>
+    /// v1.1.31：非 Start/Boss 房走五职责塑形管线（房形/轮廓墙/障碍/验证/重试保底）。</summary>
     private void PaintRoom(RoomNode node, Dictionary<int, List<Vector2Int>> doorCellsByRoom,
         HashSet<Vector2Int> occupied)
     {
@@ -205,24 +249,6 @@ public class DungeonBuilder : MonoBehaviour
         Color tint = GetTypeConfig(node.type)?.floorTint ?? Color.clear;
         // M3·v0.8.1：房型色 × 主题色叠乘（废墟白/墓穴冷蓝/熔炉暖红，3 层一换）
         tint *= DungeonManager.GetFloorTheme(floorTheme).tint;
-
-        for (int x = rect.xMin + 1; x < rect.xMax; x++)
-        {
-            for (int y = rect.yMin + 1; y < rect.yMax; y++)
-            {
-                var pos = new Vector3Int(x, y, 0);
-                if (terrainMask != null)
-                {
-                    // RoadMask 路径只登记可见地面格；实际颜色由整层 Mask Shader 一次绘制。
-                    groundCells.Add(new Vector2Int(x, y));
-                }
-                else
-                {
-                    floorTilemap.SetTile(pos, floorTile);
-                    if (tint.a > 0f) floorTilemap.SetColor(pos, tint);
-                }
-            }
-        }
 
         // 一块厚墙线：西列/南行必画；东列/北行无邻才画（画在自身外沿，列/行与邻房原点重合处由邻画）
         for (int y = rect.yMin; y < rect.yMax; y++) SetWallTile(new Vector3Int(rect.xMin, y, 0));
@@ -232,17 +258,53 @@ public class DungeonBuilder : MonoBehaviour
         if (!HasNeighborNorth(occupied, node))
             for (int x = rect.xMin; x <= rect.xMax; x++) SetWallTile(new Vector3Int(x, rect.yMax, 0));
 
-        // ---------- v1.1.22 塑形：角部挖除 + 房内墙体/柱 ----------
+        // ---------- v1.1.31 五职责塑形管线：房形→轮廓墙→障碍→验证（失败同 RNG 重试，保底整房） ----------
         // Start（出生/传送落点安全）与 Boss（竞技场可读性）保持完整矩形
-        if (node.type == RoomType.Start || node.type == RoomType.Boss) return;
+        RectInt interiorRect = new RectInt(rect.xMin + 1, rect.yMin + 1, rect.width - 1, rect.height - 1);
+        RoomPlan plan = RoomPlan.Plain(interiorRect);
+        if (node.type != RoomType.Start && node.type != RoomType.Boss)
+        {
+            var rng = new System.Random(layoutSeedCache * 31 + node.id * 911);
+            doorCellsByRoom.TryGetValue(node.id, out List<Vector2Int> doorCells);
+            plan = RoomPlanner.CreatePlan(interiorRect, doorCells, rng);
+        }
+        foreach (var sk in plan.Skeleton) skeletonCells.Add(sk);   // v1.1.41 地皮融入：骨架合集
+        roomSkeletons[node.id] = plan.Skeleton;   // v1.1.44 大石块避让用
+        roomSpawnCells[node.id] = new List<Vector2Int>(plan.SpawnCells);
 
-        var rng = new System.Random(layoutSeedCache * 31 + node.id * 911);
-        doorCellsByRoom.TryGetValue(node.id, out List<Vector2Int> doorCells);
-        var interior = new RectInt(rect.xMin + 1, rect.yMin + 1, rect.width - 1, rect.height - 1);
-        RoomShaper.Decorate(interior, rng, doorCells, shapeCarved, shapeWalls);
-
-        foreach (Vector2Int c in shapeCarved) ConvertToWall(c);
-        foreach (Vector2Int c in shapeWalls) ConvertToWall(c);
+        int xEnd = interiorRect.xMax, yEnd = interiorRect.yMax;
+        for (int x = interiorRect.xMin; x < xEnd; x++)
+        {
+            for (int y = interiorRect.yMin; y < yEnd; y++)
+            {
+                var cell = new Vector2Int(x, y);
+                var pos = new Vector3Int(x, y, 0);
+                if (plan.IsWall(cell))
+                {
+                    // v1.1.46 单次绘制：墙格绝不同时保留地板，避免轮廓看成贴外墙的内部墙。
+                    groundCells.Remove(cell);
+                    floorTilemap.SetTile(pos, null);
+                    SetWallTile(pos);   // 轮廓墙（交界一格）+ 障碍（分散小掩体岛）
+                }
+                else if (plan.IsWalkable(cell))
+                {
+                    if (terrainMask != null) groundCells.Add(cell);
+                    else
+                    {
+                        floorTilemap.SetTile(pos, floorTile);
+                        if (tint.a > 0f) floorTilemap.SetColor(pos, tint);
+                    }
+                }
+                else
+                {
+                    // 深层挖除格必须真正留空。旧流程先铺满内部地板、此处只“不做事”，
+                    // 造成挖除区仍有地面，轮廓 L 墙因此被误看成粘在外墙上的房内障碍。
+                    groundCells.Remove(cell);
+                    floorTilemap.SetTile(pos, null);
+                    wallsTilemap.SetTile(pos, null);
+                }
+            }
+        }
     }
 
     /// <summary>东向是否有邻房占格（占用集按各房 span 覆盖的粗格判定）。</summary>
@@ -273,6 +335,18 @@ public class DungeonBuilder : MonoBehaviour
     }
 
     /// <summary>
+    /// TilemapCollider 默认批量到物理步刷新；本层却会在同一 Build 调用末尾生成内容。
+    /// 先提交墙体变更，物理重叠检测作为布局白名单之后的第二道保险。
+    /// </summary>
+    private void FlushWallColliderChanges()
+    {
+        TilemapCollider2D wallCollider = wallsTilemap.GetComponent<TilemapCollider2D>();
+        if (wallCollider != null && wallCollider.hasTilemapChanges)
+            wallCollider.ProcessTilemapChanges();
+        Physics2D.SyncTransforms();
+    }
+
+    /// <summary>
     /// 墙体横竖定向终遍（v1.1.29，开洞后执行）：格上下有墙邻 = 竖列（**仅 prop_01**，
     /// 底对齐向上伸 0.47 + TopLeft 渲染序 → 下方块扣在上一块底部，连续墙柱堆叠）；
     /// 其余 = 横行（非 prop_01 池随机引用）。角格（上下左右皆有邻）归竖列。
@@ -294,15 +368,6 @@ public class DungeonBuilder : MonoBehaviour
                         Mathf.FloorToInt(TerrainMask.Hash01(x, y, layoutSeedCache ^ 0xA11) * 1024f));
                 wallsTilemap.SetTile(pos, t != null ? (TileBase)t : wallTile);
             }
-    }
-
-    /// <summary>把一个内部地板格改成墙（v1.1.22 塑形共用）：墙瓦片 + 撤地板与地面格登记（RoadMask）。</summary>
-    private void ConvertToWall(Vector2Int c)
-    {
-        var pos = new Vector3Int(c.x, c.y, 0);
-        floorTilemap.SetTile(pos, null);
-        groundCells.Remove(c);   // RoadMask：塑形格不得计入地面 Mask，否则草地画到墙上
-        SetWallTile(pos);
     }
 
     /// <summary>门洞矩形纯计算（v1.1.28 一块厚墙）：共享墙线 = 西房 xMax 列（即东房 xMin 列），
@@ -399,7 +464,9 @@ public class DungeonBuilder : MonoBehaviour
         contentGo.transform.localPosition = Vector3.zero;
 
         Room room = go.AddComponent<Room>();
-        room.Init(node.id, node.type, bounds, condition, contentGo.transform, node.distanceFromStart);
+        roomSpawnCells.TryGetValue(node.id, out List<Vector2Int> spawnCells);
+        room.Init(node.id, node.type, bounds, condition, contentGo.transform,
+            node.distanceFromStart, spawnCells);
         rooms[node.id] = room;
 
         // 进入触发器：四边内缩 0.5 格，保证玩家完全进房后才触发（防关门夹人）

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,9 +8,9 @@ using UnityEngine.UI;
 /// <summary>
 /// 职业选择界面（v0.6.2 阶段 B，计划书 4.5 / 美术清单第七节）。
 /// 屏幕空间 Overlay + TMP，v1.1.9 起使用石板大面板 + 三列职业卡的完整新布局。
-/// 流程：E 交互职业选择台 → Open() → 点职业按钮（职业色边框高亮，其余熄灭）
-/// → 点确认（边框 DOTween 闪烁 ≈0.3s）→ 关闭 → ApplyClass → 刷新两个武器展台。
-/// 默认高亮 RunStateCarrier.LastChosenClass（死亡重开默认上次职业）；Esc 关闭（未确认不生效）。
+/// 流程：E 交互职业选择台 → Open() → **点颜色卡=选中（高亮预览），点"选 择"键=确定**（v1.1.31 修正语义）
+/// → ApplyClass → 刷新两个武器展台 → 关闭。
+/// 默认高亮 RunStateCarrier.LastChosenClass（当前职业指示）；Esc 关闭（不选择不生效）。
 /// 打开期间 PlayerController 查询 IsOpen 屏蔽 Attack/Skill/Interact 分发（点击按钮不触发攻击）。
 /// 新增职业行：Build 里向 panel.transform 追加 BuildClassButton 即可，样式自动继承母版。
 /// </summary>
@@ -24,9 +23,7 @@ public class ClassSelectUI : MonoBehaviour
 
     private GameObject canvasGo;
     private readonly List<ClassButton> buttons = new List<ClassButton>();
-    private Image confirmFrame;
     private ClassData selected;
-    private bool confirming;
 
     private struct ClassButton
     {
@@ -62,7 +59,6 @@ public class ClassSelectUI : MonoBehaviour
         selected = RunStateCarrier.Ensure().LastChosenClass;
 
         RefreshHighlights();
-        confirming = false;
         canvasGo.SetActive(true);
         IsOpen = true;
     }
@@ -71,7 +67,6 @@ public class ClassSelectUI : MonoBehaviour
     {
         canvasGo.SetActive(false);
         IsOpen = false;
-        confirming = false;
     }
 
     void OnDestroy()
@@ -85,7 +80,6 @@ public class ClassSelectUI : MonoBehaviour
 
     private void Select(ClassData data)
     {
-        if (confirming) return;
         selected = data;
         RefreshHighlights();
     }
@@ -100,25 +94,6 @@ public class ClassSelectUI : MonoBehaviour
             b.frame.color = b.data == selected
                 ? new Color(c.r, c.g, c.b, 1f)
                 : new Color(c.r, c.g, c.b, 0.15f);
-        }
-    }
-
-    private void Confirm()
-    {
-        if (confirming || selected == null) return;
-        confirming = true;
-
-        // 确认按钮边框短暂高亮闪烁 ≈0.3s（SetLink 规范）后结算
-        if (confirmFrame != null)
-        {
-            confirmFrame.DOFade(0.2f, 0.15f)
-                .SetLoops(2, LoopType.Yoyo)
-                .SetLink(canvasGo)
-                .OnComplete(ApplyAndClose);
-        }
-        else
-        {
-            ApplyAndClose();
         }
     }
 
@@ -177,12 +152,10 @@ public class ClassSelectUI : MonoBehaviour
             ClassData data = classes[i];
             if (data == null) continue;
             buttons.Add(BuildClassButton(panel.transform, data, BuildStatLine(data),
-                new Vector2(-320f + i * 320f, -4f)));
+                new Vector2(-320f + i * 320f, -40f)));
         }
 
-        // 确认按钮（面板中间偏下，20pt，与最低职业按钮不重叠）
-        BuildConfirmButton(panel.transform, new Vector2(0f, -252f));
-
+        // v1.1.30：确认键移除——点击职业卡/选择键即选中即确定
         canvasGo.SetActive(false);
     }
 
@@ -230,30 +203,21 @@ public class ClassSelectUI : MonoBehaviour
         PanelSprite.ApplyStoneButton(btn, selectImg, new Color(0.12f, 0.12f, 0.14f, 0.95f));
         TMP_Text selectLabel = CreateText(selectGo.transform, "Label", "选 择", 16, TextAlignmentOptions.Center, Color.white);
         StretchFill((RectTransform)selectLabel.transform, 0f);
-        btn.onClick.AddListener(() => Select(data));
+        btn.onClick.AddListener(() => { Select(data); ApplyAndClose(); });   // "选 择"键 = 确定（应用并关闭）
+
+        // v1.1.30/31：颜色卡区域 = 仅选中（高亮预览，可反复切换比较，不应用）；
+        // 子物体点击事件向上冒泡到本 Button；确定功能专属"选 择"键
+        Button cardBtn = frame.AddComponent<Button>();
+        cardBtn.targetGraphic = frameImg;
+        cardBtn.transition = Selectable.Transition.ColorTint;
+        var cb = cardBtn.colors;
+        cb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 0.35f);
+        cb.pressedColor = new Color(0.7f, 0.7f, 0.7f, 0.35f);
+        cb.fadeDuration = 0.08f;
+        cardBtn.colors = cb;
+        cardBtn.onClick.AddListener(() => Select(data));
 
         return new ClassButton { data = data, frame = frameImg };
-    }
-
-    private void BuildConfirmButton(Transform parent, Vector2 pos)
-    {
-        GameObject frame = CreateUIObject("Btn_Confirm", parent);
-        confirmFrame = frame.AddComponent<Image>();
-        confirmFrame.color = new Color(0.9451f, 0.7686f, 0.0588f, 0.7f);   // 金色边框
-        RectTransform frameRect = (RectTransform)frame.transform;
-        PlaceUI(frameRect, new Vector2(0.5f, 0.5f), pos, new Vector2(300f, 46f));
-
-        GameObject bg = CreateUIObject("Bg", frame.transform);
-        Image bgImg = bg.AddComponent<Image>();
-        StretchFill((RectTransform)bg.transform, 3f);
-
-        TMP_Text label = CreateText(frame.transform, "Label", "确 认", 20,
-            TextAlignmentOptions.Center, Color.white);
-        StretchFill((RectTransform)label.transform, 0f);
-
-        Button btn = frame.AddComponent<Button>();
-        PanelSprite.ApplyStoneButton(btn, bgImg, new Color(0f, 0f, 0f, 0.5f));   // v1.1.7 三态石板
-        btn.onClick.AddListener(Confirm);
     }
 
     // ========== UI 工具 ==========

@@ -376,6 +376,9 @@ public class SkillExecutor : MonoBehaviour
             return;
         }
 
+        if (eh.IsDead) return;
+        Vector2 executePosition = eh.transform.position;
+
         bool isBoss = eh.name.Contains("Boss");
         float threshold = eh.MaxArmor > 0f ? data.ExecuteThresholdElite : data.ExecuteThresholdNormal;
         float hpRatio = eh.MaxHealth > 0f ? eh.CurrentHealth / eh.MaxHealth : 0f;
@@ -392,6 +395,11 @@ public class SkillExecutor : MonoBehaviour
             // 未达阈值 / Boss：真实伤害（绕过护甲结算）
             DamageResolver.Deal(eh, new DamageContext { trueDamage = trueDamage });
         }
+
+        // 击杀震颤只属于战士裸绞：阈值处决或本次真伤致死均触发；
+        // 普攻、其他技能及 EnemyHealth 全局死亡链路不消费该表现。
+        if (eh.IsDead)
+            ExecuteFeedback.Play(executePosition);
     }
 
     /// <summary>

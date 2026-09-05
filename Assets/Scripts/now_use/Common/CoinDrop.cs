@@ -49,6 +49,7 @@ public class CoinDrop : MonoBehaviour
                     }
                 tex.Apply();
                 coinSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 32f);
+                coinSprite.name = "RuntimeCoin";   // v1.1.40：运行时精灵必须命名（空名=内部图集查询异常）
             }
             return coinSprite;
         }

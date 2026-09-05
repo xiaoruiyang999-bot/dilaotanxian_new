@@ -133,6 +133,26 @@ public class TerrainMask
         }
     }
 
+    /// <summary>
+    /// 骨架偏置（v1.1.41 地皮融入）：土区尽量包含路径骨架——骨架格按 chance 概率置土
+    ///（非强制：保留噪声土斑的有机形态，骨架只是强吸引），随后重算距离场供装饰层。
+    /// 确定性：偏置 rng 由 seed 派生，同 seed 复现不变。
+    /// </summary>
+    public void ApplySkeletonBias(System.Collections.Generic.IEnumerable<Vector2Int> skeletonCells,
+        int seed, float chance = 0.8f)
+    {
+        bool changed = false;
+        foreach (var cell in skeletonCells)
+        {
+            if (!bounds.Contains(cell)) continue;
+            if (dirt[(cell.y - bounds.yMin) * bounds.width + (cell.x - bounds.xMin)]) continue;
+            if (Hash01(cell.x, cell.y, seed) >= chance) continue;
+            dirt[(cell.y - bounds.yMin) * bounds.width + (cell.x - bounds.xMin)] = true;
+            changed = true;
+        }
+        if (changed) ComputeDistance();
+    }
+
     // ---------- 可播种 Value Noise（Fbm 两倍频） ----------
 
     private static float Fbm(int x, int y, int seed, float frequency)

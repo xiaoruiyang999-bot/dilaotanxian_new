@@ -97,6 +97,7 @@ public class RunManager : MonoBehaviour
             FrameAnimator animator = player.GetComponent<FrameAnimator>();
             if (animator != null) animator.SetWerewolfVisual(true);
             WerewolfTransformation.EnsureOn(player.gameObject);
+            WerewolfDash.EnsureOn(player.gameObject);   // v1.1.42 狼人冲刺
             Debug.Log("[Run] 应用外形：狼人（T=兽化）");
         }
     }
@@ -201,6 +202,7 @@ public class RunManager : MonoBehaviour
         RunStateCarrier.Ensure().SetCharacter(CharacterSkin.Werewolf);
         fa.SetWerewolfVisual(true);
         WerewolfTransformation.EnsureOn(pc.gameObject);   // v1.0.9：含变身能力（T=兽化）
+        WerewolfDash.EnsureOn(pc.gameObject);   // v1.1.42 狼人冲刺
     }
 
     [UnityEditor.MenuItem("Tools/Dungeon/Debug Toggle Beast")]

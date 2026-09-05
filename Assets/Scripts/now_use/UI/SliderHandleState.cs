@@ -44,6 +44,7 @@ public class SliderHandleState : MonoBehaviour, IPointerEnterHandler, IPointerEx
                 }
             tex.Apply();
             glowSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 64f);
+            glowSprite.name = "RuntimeSliderGlow";   // v1.1.40：运行时精灵必须命名
             return glowSprite;
         }
     }

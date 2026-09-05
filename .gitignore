@@ -78,3 +78,7 @@ crashlytics-build.properties
 
 # ZCode session internals
 /.zcode/
+
+# RoomSkeletonSim 离线仿真构建产物
+Tools/RoomSkeletonSim/bin/
+Tools/RoomSkeletonSim/obj/

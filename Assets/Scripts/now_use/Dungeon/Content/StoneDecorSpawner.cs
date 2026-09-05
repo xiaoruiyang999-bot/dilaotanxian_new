@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -21,16 +22,16 @@ public static class StoneDecorSpawner
     private const float ColliderShrink = 0.8f;         // 圆石碰撞盒内缩：留角部余量防卡人卡墙
 
     // 亮度调节（v1.1.26）：1=原图亮度，<1 变暗、>1 提亮（乘色，全石块统一生效）
-    private const float Brightness = 2.15f;
+    private const float Brightness = 1.75f;
 
     private static Sprite[] smallStones, largeStones;
     private static bool loadFailed;
 
-    public static void Spawn(Room room, System.Random rng)
+    public static void Spawn(Room room, System.Random rng, HashSet<Vector2Int> avoidCells = null)
     {
         if (room == null || rng == null || !Load()) return;
 
-        // 小石块：1~4 个纯点缀（无碰撞）
+        // 小石块：1~4 个纯点缀（无碰撞，不避让骨架）
         int smallCount = rng.Next(1, 5);
         for (int i = 0; i < smallCount; i++)
         {
@@ -39,11 +40,20 @@ public static class StoneDecorSpawner
         }
 
         // 大石块：1~3 个障碍物替代（v1.1.27 承接全部障碍物职责——木箱表已停用，密度由石块独扛）
+        // v1.1.44：落点避让骨架格（细路网/入口上不放有碰撞的石块——玩家口径验证留出的
+        // ≥2 宽口不回堵；重试最多 6 次，全撞骨架则放弃该块，密度让位于可达性）
         int largeCount = rng.Next(1, 4);
         for (int i = 0; i < largeCount; i++)
         {
-            if (!SpawnPositionHelper.TryFind(room, rng, out var pos)) continue;
-            CreateStone(room, largeStones[rng.Next(largeStones.Length)], pos, rng, large: true);
+            bool placed = false;
+            for (int t = 0; t < 6 && !placed; t++)
+            {
+                if (!SpawnPositionHelper.TryFind(room, rng, out var pos)) break;
+                if (avoidCells != null
+                    && avoidCells.Contains(new Vector2Int(Mathf.FloorToInt(pos.x), Mathf.FloorToInt(pos.y)))) continue;
+                CreateStone(room, largeStones[rng.Next(largeStones.Length)], pos, rng, large: true);
+                placed = true;
+            }
         }
     }
 

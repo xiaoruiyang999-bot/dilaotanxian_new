@@ -91,6 +91,7 @@ public class ManaOrb : MonoBehaviour
 
         circleSprite = Sprite.Create(tex, new Rect(0, 0, size, size),
             new Vector2(0.5f, 0.5f), 256f);
+        circleSprite.name = "RuntimeManaOrbCircle";   // v1.1.40：运行时精灵必须命名
         return circleSprite;
     }
 }

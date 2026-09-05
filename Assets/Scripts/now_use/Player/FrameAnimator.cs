@@ -176,6 +176,13 @@ public class FrameAnimator : MonoBehaviour
             sr.sprite = walkGroup.frames[0];
         }
         // 帧组缺失/为空：不改 sprite/color，保留既有视觉（绿球或 warrior_idle 底图）兜底，不报错
+
+        // v1.1.33 首帧外形对齐（进图闪现战士的时序修复）：RunManager/PrepRoomManager 在
+        // Start + yield return null 之后才调 SetWerewolfVisual，本组件 Awake 已按战士渲染了一帧。
+        // 在首次渲染前读载体直接初始化对应外形；SetWerewolfVisual 幂等，场景侧后续调用为 no-op。
+        // 武器/属性等仍走原延迟链路，此处只对齐视觉首帧。
+        if (RunStateCarrier.Ensure().ChosenCharacter == CharacterSkin.Werewolf)
+            SetWerewolfVisual(true);
     }
 
     void Update()

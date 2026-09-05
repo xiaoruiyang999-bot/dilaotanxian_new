@@ -22,6 +22,12 @@ public static class EnemySpawner
         // v0.5.4 楼层数量递增（封顶 8/房）
         if (config != null && floorNumber > 1)
             count = Mathf.Max(Mathf.Min(count + config.enemyCountBonusPerFloor * (floorNumber - 1), 8), picks.Count);
+        // v1.1.46 大房面积自适应：战斗房整格扩展后（2×1 ≈2×面积 / 2×2 ≈4×面积），
+        // 固定 2~4 只会让大竞技场显空——面积 ≥1.9× 标准房的波次数量 ×1.5（封顶 12，
+        // 独立于楼层递增封顶，两波轮次本身已 ×2 时长，单波不过量）
+        if (config != null && room.Bounds.width * room.Bounds.height
+            >= config.roomWidth * config.roomHeight * 1.9f)
+            count = Mathf.Min(Mathf.CeilToInt(count * 1.5f), 12);
         while (picks.Count < count)
         {
             // v0.5.3.1 保底：minCount>0 的条目无视权重先行（如精英房至少 1 精英）

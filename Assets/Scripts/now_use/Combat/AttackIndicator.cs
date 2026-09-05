@@ -429,7 +429,9 @@ public class AttackIndicator : MonoBehaviour
         tex.Apply();
         tex.filterMode = FilterMode.Bilinear;
 
-        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+        var rt = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+        rt.name = "RT_AttackIndicator";   // v1.1.40：运行时精灵必须命名
+        return rt;
     }
 
     private void BuildCircleMesh()

@@ -2,10 +2,24 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
+/// 怪物轮次提供者（v1.1.46）：Room 清房前询问——还有未到来的波次则请求刷出，
+/// 不进入 Cleared。实现方（RoomWaveController）须保证 RequestNextWave 幂等
+///（延迟刷出途中重复调用无副作用）。
+/// </summary>
+public interface IWaveProvider
+{
+    /// <summary>是否还有未到来的波次（含延迟刷出途中的波）。</summary>
+    bool HasPendingWave { get; }
+    /// <summary>请求刷出下一波（幂等：已在途则忽略）。</summary>
+    void RequestNextWave();
+}
+
+/// <summary>
 /// 房间（v0.5.1 完整版）：状态机 Unvisited/Active/Cleared + 门管理 + 敌人注册与清房判定。
 /// 低耦合：不认识 EnemyAI，只认「注册了若干个会死的东西」（EnemyHealth.OnDeath 计数）。
 /// 休眠制：战斗房敌人未进房时**可见但不动**（禁用 EnemyAI/EnemyCombat + 刚体冻结），
 /// 玩家能透过门洞看到房内敌人；进房瞬间唤醒。
+/// v1.1.46：波次扩展点——清房判定前询问 IWaveProvider（怪物轮次，见 RoomWaveController）。
 /// </summary>
 public class Room : MonoBehaviour
 {
@@ -36,8 +50,17 @@ public class Room : MonoBehaviour
     /// <summary>本房间的门（只读）。生成位置规则（距门 ≥2.5 格）使用。</summary>
     public IReadOnlyList<Door> Doors => doors;
 
+    // v1.1.46：由最终 RoomPlan 提供的内容生成白名单。null 仅用于旧场景/手工测试房，
+    // 空列表则表示本房确实没有安全落点，不能退回矩形随机而刷进空洞。
+    private IReadOnlyList<Vector2Int> spawnCells;
+    public bool HasSpawnGrid => spawnCells != null;
+
+    /// <summary>波次提供者（v1.1.46 怪物轮次；空 = 单波清房，行为与旧版一致）。</summary>
+    private IWaveProvider waveProvider;
+
     public void Init(int id, RoomType type, Rect bounds, RoomClearCondition clearCondition,
-        Transform contentRoot, int distanceFromStart = 0)
+        Transform contentRoot, int distanceFromStart = 0,
+        IReadOnlyList<Vector2Int> validSpawnCells = null)
     {
         Id = id;
         Type = type;
@@ -45,12 +68,31 @@ public class Room : MonoBehaviour
         ClearCondition = clearCondition;
         ContentRoot = contentRoot;
         DistanceFromStart = Mathf.Max(0, distanceFromStart);
+        spawnCells = validSpawnCells;
+    }
+
+    /// <summary>从最终布局白名单均匀抽一个格；世界位置换算由 SpawnPositionHelper 统一完成。</summary>
+    public bool TryGetSpawnCell(System.Random rng, out Vector2Int cell)
+    {
+        if (rng != null && spawnCells != null && spawnCells.Count > 0)
+        {
+            cell = spawnCells[rng.Next(spawnCells.Count)];
+            return true;
+        }
+        cell = default;
+        return false;
     }
 
     /// <summary>登记门（Builder 建门时调用，相邻两个房间各登记一次）。</summary>
     public void RegisterDoor(Door door)
     {
         if (door != null && !doors.Contains(door)) doors.Add(door);
+    }
+
+    /// <summary>登记波次提供者（v1.1.46 怪物轮次；DungeonBuilder 对掷中轮次的战斗房调用）。</summary>
+    public void RegisterWaveProvider(IWaveProvider provider)
+    {
+        waveProvider = provider;
     }
 
     /// <summary>登记敌人并订阅死亡（v0.5.1 手工摆放 / v0.5.2 Spawner 共用此入口）。
@@ -154,10 +196,17 @@ public class Room : MonoBehaviour
 
     private void TryClearRoom()
     {
-        if (State == RoomState.Active
-            && ClearCondition == RoomClearCondition.AllEnemiesDead
-            && enemies.Count == 0)
-            SetCleared();
+        if (State != RoomState.Active
+            || ClearCondition != RoomClearCondition.AllEnemiesDead
+            || enemies.Count != 0) return;
+
+        // v1.1.46 波次扩展点：本波全灭但还有未到来的波 → 请求刷出，房门继续关着
+        if (waveProvider != null && waveProvider.HasPendingWave)
+        {
+            waveProvider.RequestNextWave();   // 幂等：延迟刷出途中重复调用无副作用
+            return;
+        }
+        SetCleared();
     }
 
     private void OnDestroy()
@@ -177,7 +226,8 @@ public class Room : MonoBehaviour
 
     private void RefreshDoors()
     {
-        foreach (Door d in doors) if (d != null) d.RefreshState();
+        doors.RemoveAll(d => d == null);   // v1.1.37：楼层清理后的死门引用直接摘除（MissingSource 族根治）
+        foreach (Door d in doors) d.RefreshState();
     }
 
     /// <summary>调试：杀光房内所有登记敌人（验收「杀光开门」用）。</summary>

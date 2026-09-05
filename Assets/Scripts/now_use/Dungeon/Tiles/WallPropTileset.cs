@@ -52,6 +52,10 @@ public static class WallPropTileset
             Sprite normalized = Sprite.Create(
                 s.texture, s.textureRect,
                 new Vector2(0.5f, 0.5f / h), tw);
+            // v1.1.40 关键修复：Sprite.Create 产出的精灵 name 为空——Tilemap 内部按精灵名查图集，
+            // 空名即抛 ArgumentException: GetSprite(x,y): SpriteAtlas does not contain a sprite with
+            // that name（本 bug 主源）。显式命名，继承源素材名可追溯。
+            normalized.name = s.name + "_wall_norm";
 
             var tile = ScriptableObject.CreateInstance<Tile>();
             tile.sprite = normalized;

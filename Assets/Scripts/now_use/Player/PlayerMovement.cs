@@ -26,6 +26,8 @@ public class PlayerMovement : MonoBehaviour
 
     // 蓄力状态（v0.6.3，由 PlayerCombat 设置）
     private bool chargeSlowing;
+    // 冲刺抑制（v1.1.42 WerewolfDash）：冲刺期间本组件不写速度，由冲刺组件直写——单一写速者
+    private bool suspended;
 
     void Awake()
     {
@@ -42,6 +44,9 @@ public class PlayerMovement : MonoBehaviour
             rb.linearVelocity = Vector2.zero;
             return;
         }
+
+        // 冲刺期间让出写速权（WerewolfDash 直写高速位移）
+        if (suspended) return;
 
         // 蓄力减速（v0.6.3，计划书 4.6）：蓄力中移速 ×0.5
         float speed = stats.MoveSpeed;
@@ -69,6 +74,9 @@ public class PlayerMovement : MonoBehaviour
     {
         chargeSlowing = on;
     }
+
+    /// <summary>冲刺抑制开关（v1.1.42 WerewolfDash 冲刺起止调用）。</summary>
+    public void SetSuspended(bool on) => suspended = on;
 
     /// <summary>立即停止所有移动（供死亡/失活/Respawn 调用）。</summary>
     public void StopImmediately()

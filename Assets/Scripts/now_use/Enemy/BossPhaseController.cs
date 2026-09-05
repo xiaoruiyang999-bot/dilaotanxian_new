@@ -4,7 +4,6 @@ using UnityEngine;
 /// <summary>
 /// Boss 阶段控制器（M3·v0.8.1）：血量阈值切换阶段。
 /// P2（HP ≤ 50%）：替换招式池（大招入池）、冷却 ×0.7（攻速 +43%）、身体染红脉冲提示。
-/// Boss 死亡：大停顿（0.25s）+ 大震屏（M1 接口复用）——Boss 战的仪式感反馈。
 /// 挂 Enemy_Boss prefab；与数值书 §5.3 的 P1/P2 行为表对应。
 /// </summary>
 public class BossPhaseController : MonoBehaviour
@@ -35,19 +34,13 @@ public class BossPhaseController : MonoBehaviour
         bodySprite = GetComponent<SpriteRenderer>();
         if (bodySprite != null) baseColor = bodySprite.color;
         if (health != null)
-        {
             health.OnHealthChanged += OnHpChanged;
-            health.OnDeath += OnBossDeath;
-        }
     }
 
     void OnDestroy()
     {
         if (health != null)
-        {
             health.OnHealthChanged -= OnHpChanged;
-            health.OnDeath -= OnBossDeath;
-        }
     }
 
     private void OnHpChanged(float current, float max)
@@ -69,13 +62,5 @@ public class BossPhaseController : MonoBehaviour
                 .SetLink(gameObject);
         AudioManager.PlaySFX("enemyDie");   // 低吼提示（未配静默）
         Debug.Log("[Boss] 进入 P2：招式池切换 + 攻速提升");
-    }
-
-    private void OnBossDeath()
-    {
-        // Boss 死亡仪式感：大停顿 + 大震屏（M1 接口）
-        HitStop.Request(0.25f);
-        CameraFollow.ShakeMain(0.5f, 0.8f);
-        Debug.Log("[Boss] Boss 死亡：大停顿 + 大震屏");
     }
 }

@@ -171,12 +171,11 @@ public class WeaponHitbox : MonoBehaviour
                 }
                 OnHit?.Invoke(damageable, hit.ClosestPoint(center));
 
-                // 命中反馈三件套（M1.5·v0.6.1，v1.0.8 自 MCP 分支恢复）：音效 + 打击停顿 + 轻震屏。
+                // 命中反馈（M1.5·v0.6.1，v1.0.8 自 MCP 分支恢复）：仅音效。
                 // 玩家与敌人共用本组件，双方命中都有反馈。
-                // v1.1.17 手感调参：击杀瞬间震颤过强（逐帧全随机方向抖动观感猛）——幅度减半 0.05→0.025、时长 0.08→0.06。
+                // v1.1.34 移除震屏 / v1.1.41 移除停帧——击杀震颤感整体移植战士技能组
+                //（ExecuteFeedback.Play：强震 0.05/0.08 + 停帧 0.08），常规命中零震颤。
                 AudioManager.PlaySFX("hit");
-                HitStop.Request(0.03f);
-                CameraFollow.ShakeMain(0.00225f, 0.026f);
             }
         }
     }

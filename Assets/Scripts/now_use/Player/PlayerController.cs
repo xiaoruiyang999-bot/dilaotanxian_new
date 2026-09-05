@@ -13,6 +13,9 @@ public class PlayerController : MonoBehaviour
     private PlayerStats stats;
     private Health health;
     private PlayerCombat combat;
+    private WerewolfDash werewolfDash;   // v1.1.42 狼人冲刺（选择狼人时 EnsureOn 装上）
+    // 最近非零移动方向：无输入冲刺时的兜底朝向（MCP 同款）
+    private Vector2 facingDirection = Vector2.right;
     private PlayerMovement movement;
     private PlayerInteractor interactor;
     private PlayerInput playerInput;
@@ -52,6 +55,9 @@ public class PlayerController : MonoBehaviour
         // 纯表现层：组件自身驱动行走/停帧/镜像与置白，本类不持有引用
         if (GetComponent<FrameAnimator>() == null)
             gameObject.AddComponent<FrameAnimator>();
+
+        // v1.1.42 狼人冲刺：懒查（选择页可能在 Awake 之后才 EnsureOn 挂组件，Dash 触发时现查最稳）
+        werewolfDash = GetComponent<WerewolfDash>();
 
         if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
@@ -103,6 +109,7 @@ public class PlayerController : MonoBehaviour
         if (actionName == "Move")
         {
             moveInput = context.ReadValue<Vector2>();
+            if (moveInput.sqrMagnitude > 0.01f) facingDirection = moveInput.normalized;
             movement.SetMoveInput(moveInput);
         }
         else if (actionName == "Attack")
@@ -125,6 +132,14 @@ public class PlayerController : MonoBehaviour
                 CharacterSelectUI.Close();
             else
                 interactor.OnCancelPressed();
+        }
+
+        else if (actionName == "Dash" && context.performed)
+        {
+            // v1.1.42 狼人冲刺（MCP Dash 动作复用 Space）：仅狼人挂了 WerewolfDash 时生效
+            if (werewolfDash == null) werewolfDash = GetComponent<WerewolfDash>();   // 懒兜底（后挂）
+            if (werewolfDash != null && !health.IsDead)
+                werewolfDash.TryDash(moveInput, facingDirection);
         }
         else if (actionName == "Skill" && context.performed)
         {
@@ -176,6 +191,7 @@ public class PlayerController : MonoBehaviour
     /// <summary>死亡重开状态恢复（v0.5.4 死亡重开流程）：颜色还原 + 速度清零（IsDead 由 Health.ResetHealth 解除）。</summary>
     public void Respawn()
     {
+        if (werewolfDash != null) werewolfDash.ResetDash();   // v1.1.42 冲刺状态/冷却复位
         if (TryGetComponent<SpriteRenderer>(out var sr)) sr.color = initialColor;
         moveInput = Vector2.zero;
         if (movement != null) movement.StopImmediately();

@@ -30,9 +30,15 @@ public class MinimapController : MonoBehaviour
     [SerializeField] private float connectionLineWidth = 3f;
     [Tooltip("当前房间描边相对房间块的外扩像素")]
     [SerializeField] private float outlineExtra = 3f;
+    [Tooltip("与已探索房直接相连、但尚未进入的房间颜色；不提前暴露房型")]
+    [SerializeField] private Color frontierRoomColor = new Color(0.42f, 0.46f, 0.52f, 0.65f);
 
     private RectTransform contentRoot;
     private readonly Dictionary<int, Room> roomsById = new Dictionary<int, Room>();
+    private readonly Dictionary<int, Image> roomBlocksById = new Dictionary<int, Image>();
+    private readonly List<ConnectionVisual> connectionVisuals = new List<ConnectionVisual>();
+    private readonly HashSet<int> exploredRoomIds = new HashSet<int>();
+    private readonly HashSet<int> frontierRoomIds = new HashSet<int>();
     private RectTransform playerDot;
     private RectTransform currentRoomOutline;
     private Text floorLabel;
@@ -43,6 +49,13 @@ public class MinimapController : MonoBehaviour
     private Vector2 mapOrigin;     // 世界包围盒左下角映射到的 content 局部坐标
 
     private static Font builtinFont;
+
+    private sealed class ConnectionVisual
+    {
+        public int A;
+        public int B;
+        public Image Image;
+    }
 
     /// <summary>内置字体公开缓存（v0.7.0：CoinHUD 等纯代码 UI 复用，同风格）。</summary>
     public static Font BuiltinFont
@@ -131,7 +144,9 @@ public class MinimapController : MonoBehaviour
         {
             if (!roomsById.TryGetValue(conn.a.id, out Room ra) || !roomsById.TryGetValue(conn.b.id, out Room rb))
                 continue;
-            DrawLine(WorldToMap(ra.Center), WorldToMap(rb.Center));
+            Image line = DrawLine(WorldToMap(ra.Center), WorldToMap(rb.Center));
+            if (line != null)
+                connectionVisuals.Add(new ConnectionVisual { A = ra.Id, B = rb.Id, Image = line });
         }
 
         // 4. 房间色块
@@ -142,6 +157,7 @@ public class MinimapController : MonoBehaviour
             // 略缩 2px 形成块间缝隙，相邻房不会糊成一片
             block.rectTransform.sizeDelta = room.Bounds.size * mapScale - Vector2.one * 2f;
             block.rectTransform.anchoredPosition = WorldToMap(room.Center);
+            roomBlocksById[room.Id] = block;
         }
 
         // 5. 当前房间描边（垫在色块下，白色底块露出边缘形成描边效果）
@@ -150,7 +166,20 @@ public class MinimapController : MonoBehaviour
         currentRoomOutline.SetAsFirstSibling();
         Room entered = null;
         foreach (KeyValuePair<int, Room> kv in roomsById)
-            if (kv.Value.State != RoomState.Unvisited) { entered = kv.Value; break; }
+        {
+            if (kv.Value.State == RoomState.Unvisited) continue;
+            exploredRoomIds.Add(kv.Key);
+            entered = kv.Value;
+        }
+
+        // 玩家出生房在 RoomTrigger 首次物理回调前也应视为已探索，避免进图首帧地图全黑。
+        if (layout.startRoom != null && roomsById.TryGetValue(layout.startRoom.id, out Room startRoom))
+        {
+            exploredRoomIds.Add(startRoom.Id);
+            if (entered == null) entered = startRoom;
+        }
+
+        RefreshFogOfWar();
         if (entered != null) MoveOutline(entered);
 
         // 6. 玩家标记（最后创建，自然置于最上层）
@@ -168,6 +197,10 @@ public class MinimapController : MonoBehaviour
             if (kv.Value != null)
                 kv.Value.OnRoomEntered -= HandleRoomEntered;
         roomsById.Clear();
+        roomBlocksById.Clear();
+        connectionVisuals.Clear();
+        exploredRoomIds.Clear();
+        frontierRoomIds.Clear();
 
         if (contentRoot != null)
             for (int i = contentRoot.childCount - 1; i >= 0; i--)
@@ -182,7 +215,42 @@ public class MinimapController : MonoBehaviour
     private void HandleRoomEntered(Room room)
     {
         if (room == null) return;
+        exploredRoomIds.Add(room.Id);
+        RefreshFogOfWar();
         MoveOutline(room);
+    }
+
+    /// <summary>
+    /// 小地图战争迷雾：已探索房显示真实房型；一步可达的未探索房仅显示位置；
+    /// 其余房间与未接触到的连接完全隐藏，避免提前泄露整层结构和特殊房类型。
+    /// </summary>
+    private void RefreshFogOfWar()
+    {
+        frontierRoomIds.Clear();
+        for (int i = 0; i < connectionVisuals.Count; i++)
+        {
+            ConnectionVisual connection = connectionVisuals[i];
+            bool aExplored = exploredRoomIds.Contains(connection.A);
+            bool bExplored = exploredRoomIds.Contains(connection.B);
+            if (aExplored && !bExplored) frontierRoomIds.Add(connection.B);
+            if (bExplored && !aExplored) frontierRoomIds.Add(connection.A);
+
+            // 只披露从已探索区域伸出去的道路；两个未知房之间的边仍属于迷雾。
+            if (connection.Image != null)
+                connection.Image.gameObject.SetActive(aExplored || bExplored);
+        }
+
+        foreach (KeyValuePair<int, Image> kv in roomBlocksById)
+        {
+            if (kv.Value == null) continue;
+            bool explored = exploredRoomIds.Contains(kv.Key);
+            bool frontier = frontierRoomIds.Contains(kv.Key);
+            kv.Value.gameObject.SetActive(explored || frontier);
+            if (explored && roomsById.TryGetValue(kv.Key, out Room room))
+                kv.Value.color = RoomColor(room.Type);
+            else if (frontier)
+                kv.Value.color = frontierRoomColor;
+        }
     }
 
     private void MoveOutline(Room room)
@@ -198,15 +266,16 @@ public class MinimapController : MonoBehaviour
     /// <summary>世界坐标 → 小地图内容局部坐标（contentRoot 中心为原点）。</summary>
     private Vector2 WorldToMap(Vector2 world) => mapOrigin + (world - worldBounds.min) * mapScale;
 
-    private void DrawLine(Vector2 a, Vector2 b)
+    private Image DrawLine(Vector2 a, Vector2 b)
     {
         Vector2 delta = b - a;
         float length = delta.magnitude;
-        if (length < 0.01f) return;
+        if (length < 0.01f) return null;
         Image line = CreateImage("Connection", contentRoot, new Color(1f, 1f, 1f, 0.35f));
         line.rectTransform.sizeDelta = new Vector2(length, connectionLineWidth);
         line.rectTransform.anchoredPosition = (a + b) * 0.5f;
         line.rectTransform.localEulerAngles = new Vector3(0f, 0f, Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+        return line;
     }
 
     /// <summary>房型配色：与 DungeonManager.OnDrawGizmos 完全一致，编辑器调试视图与游戏内观感统一。</summary>

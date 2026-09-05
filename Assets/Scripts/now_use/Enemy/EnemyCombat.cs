@@ -438,7 +438,8 @@ public class EnemyCombat : MonoBehaviour
             float checkDist = chargeVelocity.magnitude * Time.deltaTime + 0.1f;
             int stopLayer = attackData.ChargerCollisionLayer | attackData.TargetLayer;
             RaycastHit2D hit = Physics2D.Raycast(transform.position, currentChargeDirection, checkDist, stopLayer);
-            if (hit.collider != null && !hit.transform.IsChildOf(transform))
+            // v1.1.37：射线可能命中本帧已销毁对象（清理竞态），hit.collider 对 fake-null 判空即拦
+            if (hit.collider != null && hit.transform != null && !hit.transform.IsChildOf(transform))
             {
                 currentChargeDirection = Vector2.zero;
                 isCharging = false;
