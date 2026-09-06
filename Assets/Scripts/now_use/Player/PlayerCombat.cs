@@ -93,12 +93,16 @@ public class PlayerCombat : MonoBehaviour
     /// <summary>是否正在蓄力（v0.6.3）。</summary>
     public bool IsCharging => isCharging;
 
-    /// <summary>攻速倍率（v0.7.5 Buff 通道 + v1.0.9 兽化乘数）：攻击间隔 ÷ 此值；默认项为 1，零行为差异。</summary>
+    /// <summary>攻速倍率（v0.7.5 Buff 通道 + v1.0.9 兽化乘数 + v1.1.47 技能树永久加成）：攻击间隔 ÷ 此值；默认项为 1，零行为差异。</summary>
     private float AttackSpeedMul()
     {
         if (buffManager == null) buffManager = GetComponent<BuffManager>();
         float mul = buffManager != null ? Mathf.Max(0.01f, buffManager.AttackSpeedMultiplier) : 1f;
-        if (stats != null) mul *= Mathf.Max(0.01f, stats.BeastAttackSpeedMult);   // 兽化攻速（叠乘）
+        if (stats != null)
+        {
+            mul *= Mathf.Max(0.01f, stats.BeastAttackSpeedMult);   // 兽化攻速（叠乘）
+            mul *= Mathf.Max(0.01f, stats.PermAttackSpeedMult);    // 技能树攻速（v1.1.47 叠乘）
+        }
         return mul;
     }
 

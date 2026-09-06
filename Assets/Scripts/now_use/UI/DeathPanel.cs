@@ -1,5 +1,4 @@
 using System.Collections;
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -11,6 +10,7 @@ using UnityEngine.UI;
 /// 数据后端：RunTracker（击杀/时长）+ RunManager.FloorNumber（楼层唯一真源）。
 /// 挂载模式同 PausePanel：地牢场景空对象 DeathSystem；UI 运行时代码构建。
 /// v1.1.9 已换为石板结算面板；楼层/击杀/时间图标暂用文字挂点占位。
+/// v1.2.0：Label 构建迁移至 UIHelper 消除重复代码。
 /// </summary>
 public class DeathPanel : MonoBehaviour
 {
@@ -110,32 +110,27 @@ public class DeathPanel : MonoBehaviour
         panelRoot = canvasGo;
 
         // 点击任意处返回
-        Image mask = new GameObject("Mask", typeof(Image), typeof(Button)).GetComponent<Image>();
-        mask.transform.SetParent(canvasGo.transform, false);
-        mask.color = new Color(0.1f, 0f, 0f, 0.6f);
-        mask.rectTransform.anchorMin = Vector2.zero;
-        mask.rectTransform.anchorMax = Vector2.one;
-        mask.rectTransform.offsetMin = mask.rectTransform.offsetMax = Vector2.zero;
-        mask.GetComponent<Button>().onClick.AddListener(ReturnToPrep);
+        Image mask = UIHelper.CreateFullscreenMask(canvasGo.transform, new Color(0.1f, 0f, 0f, 0.6f));
+        mask.gameObject.AddComponent<Button>().onClick.AddListener(ReturnToPrep);
 
-        var panel = new GameObject("StonePanel", typeof(Image));
-        panel.transform.SetParent(canvasGo.transform, false);
-        Image panelImage = panel.GetComponent<Image>();
-        PanelSprite.ApplyStonePanel(panelImage, new Color(0.08f, 0.04f, 0.04f, 0.96f));
-        panelImage.rectTransform.anchorMin = panelImage.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-        panelImage.rectTransform.sizeDelta = new Vector2(820f, 505f);
+        Image panel = UIHelper.CreateStonePanel(canvasGo.transform, new Vector2(820f, 505f), new Color(0.08f, 0.04f, 0.04f, 0.96f));
 
-        Label(panel.transform, "本 局 结 算", 36, new Color(0.95f, 0.35f, 0.3f), new Vector2(0.5f, 0.84f), new Vector2(500f, 50f));
+        UIHelper.CreateLabel(panel.transform, "本 局 结 算", 36, new Color(0.95f, 0.35f, 0.3f), new Vector2(0.5f, 0.84f), new Vector2(500f, 50f));
 
         int minutes = Mathf.FloorToInt(elapsed / 60f);
         int seconds = Mathf.FloorToInt(elapsed % 60f);
-        Label(panel.transform, $"[楼层图标待补]   抵达楼层  {floor}", 24, Color.white, new Vector2(0.5f, 0.60f), new Vector2(600f, 38f));
-        Label(panel.transform, $"[击杀图标待补]   击杀敌人  {kills}", 24, Color.white, new Vector2(0.5f, 0.48f), new Vector2(600f, 38f));
-        Label(panel.transform, $"[时间图标待补]   存活时长  {minutes:00}:{seconds:00}", 24, Color.white, new Vector2(0.5f, 0.36f), new Vector2(600f, 38f));
+        UIHelper.CreateLabel(panel.transform, $"[楼层图标待补]   抵达楼层  {floor}", 24, Color.white, new Vector2(0.5f, 0.60f), new Vector2(600f, 38f));
+        UIHelper.CreateLabel(panel.transform, $"[击杀图标待补]   击杀敌人  {kills}", 24, Color.white, new Vector2(0.5f, 0.48f), new Vector2(600f, 38f));
+        UIHelper.CreateLabel(panel.transform, $"[时间图标待补]   存活时长  {minutes:00}:{seconds:00}", 24, Color.white, new Vector2(0.5f, 0.36f), new Vector2(600f, 38f));
 
-        Label(panel.transform, "Esc 或点击任意处 返回准备房间", 16, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.16f), new Vector2(600f, 26f));
+        // v1.1.47 魂晶结算入账（技能树货币）：每击杀 1 枚，Show 仅一次（panelRoot 判重）不会重复发放
+        SkillTreeSave.AddEssence(kills);
+        UIHelper.CreateLabel(panel.transform, $"[魂晶]   获得魂晶  +{kills}（已入账，可在准备房间技能石碑使用）", 24,
+            new Color(1f, 0.82f, 0.35f), new Vector2(0.5f, 0.25f), new Vector2(640f, 34f));
 
-        Debug.Log($"[Death] 本局结算：楼层 {floor} / 击杀 {kills} / 存活 {minutes:00}:{seconds:00}");
+        UIHelper.CreateLabel(panel.transform, "Esc 或点击任意处 返回准备房间", 16, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.14f), new Vector2(600f, 26f));
+
+        Debug.Log($"[Death] 本局结算：楼层 {floor} / 击杀 {kills} / 存活 {minutes:00}:{seconds:00} / 魂晶 +{kills}");
     }
 
     /// <summary>返回准备房间。RunManager 的延迟重开仍在跑——本场景卸载会终止其协程，不会二次加载。</summary>
@@ -147,23 +142,5 @@ public class DeathPanel : MonoBehaviour
         ClassSelectUI.Close();
         Debug.Log("[Death] 返回准备房间");
         SceneManager.LoadScene(prepSceneName);
-    }
-
-    private static void Label(Transform parent, string text, int size, Color color, Vector2 anchor, Vector2 sizeDelta)
-    {
-        // v1.0.8：照 ClassSelectUI.CreateText 已验证模式——无参 GO + 单次 AddComponent + 先 text 后 font
-        //（组件进 GameObject 构造参数会产生双 TMP 组件并触发 TMP 内部 NRE）
-        GameObject go = new GameObject("Label");
-        go.transform.SetParent(parent, false);
-        TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
-        t.text = text;
-        t.font = TMPFontProvider.Font;
-        t.fontSize = size;
-        t.color = color;
-        t.alignment = TextAlignmentOptions.Center;
-        t.raycastTarget = false;
-        t.rectTransform.anchorMin = t.rectTransform.anchorMax = anchor;
-        t.rectTransform.anchoredPosition = Vector2.zero;
-        t.rectTransform.sizeDelta = sizeDelta;
     }
 }

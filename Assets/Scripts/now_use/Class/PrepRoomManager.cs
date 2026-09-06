@@ -31,6 +31,9 @@ public class PrepRoomManager : MonoBehaviour
         // 进入地牢的传送门（房间北侧）
         PrepPortalInteractable.Create(new Vector3(0f, 4.6f, 0f), transform, dungeonSceneName);
 
+        // v1.1.47 技能石碑（传送门西侧）：E 打开局外技能树（魂晶加点）
+        SkillTreeBeacon.Create(new Vector3(-3.5f, 4.4f, 0f), transform);
+
         // 玩家出生位 + 准备场景专属换武器规则
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null)

@@ -101,7 +101,8 @@ public class PlayerController : MonoBehaviour
 
         // 选择类 UI 打开期间：屏蔽攻击/技能/交互输入——鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；
         // 移动不受限（出生房安全）。角色选择页（v1.0.8）与职业选择页同规则。
-        if ((ClassSelectUI.IsOpen || CharacterSelectUI.IsOpen) &&
+        // v1.1.47 技能树同入此列：开着时按 E 会再触发石碑开关（打开即被关掉），Attack 同理必须拦。
+        if ((ClassSelectUI.IsOpen || CharacterSelectUI.IsOpen || SkillTreeUI.IsOpen) &&
             (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"
                 || actionName == "Ultimate" || actionName == "WeaponSkill"))
             return;
@@ -126,7 +127,9 @@ public class PlayerController : MonoBehaviour
         else if (actionName == "Cancel" && context.performed)
         {
             // 选择类 UI 打开时 Esc 优先逐级关 UI（未确认不生效），否则关拾取列表
-            if (ClassSelectUI.IsOpen)
+            if (SkillTreeUI.IsOpen)
+                SkillTreeUI.Close();   // v1.1.47 技能树最上层（sortingOrder 230，可从暂停菜单盖入）
+            else if (ClassSelectUI.IsOpen)
                 ClassSelectUI.Close();
             else if (CharacterSelectUI.IsOpen)
                 CharacterSelectUI.Close();

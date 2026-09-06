@@ -14,16 +14,16 @@ public class PlayerStats : MonoBehaviour
     private float armorLossMul = 1f;                            // 护甲扣减率 L（v0.7.1 接线结算，须 > 0）
     private float maxMana = 0f;                                 // 未选职业时为 0，回复只能靠法力瓶/击杀法力球/技能宠物
 
-    public float MaxHP => maxHP;
-    public float MaxArmor => maxArmor;
-    public float MoveSpeed => moveSpeed * BeastMoveSpeedMult;
+    public float MaxHP => maxHP + PermHpBonus;
+    public float MaxArmor => maxArmor + PermArmorBonus;
+    public float MoveSpeed => moveSpeed * BeastMoveSpeedMult * PermMoveSpeedMult;
     public float CurrentArmor { get; private set; }
     public float MaxMana => maxMana;
     public float CurrentMana { get; private set; }
 
-    public float Attack => attack * BeastDamageMult;
+    public float Attack => attack * BeastDamageMult * PermDamageMult;
     public float CritRate => critRate;
-    public float CritDamage => critDamage;
+    public float CritDamage => critDamage + PermCritDamageBonus;
     public float ArmorReduceMul => armorReduceMul;
     public float ArmorLossMul => armorLossMul;
 
@@ -32,6 +32,39 @@ public class PlayerStats : MonoBehaviour
     public float BeastDamageMult { get; set; } = 1f;
     public float BeastMoveSpeedMult { get; set; } = 1f;
     public float BeastAttackSpeedMult { get; set; } = 1f;
+
+    // v1.1.47 技能树永久加成（局外解锁，RefreshSkillTreeBonuses 从 SkillTreeDef 聚合写入；
+    // 默认 0 加成 = 行为与旧版一致。攻速由 PlayerCombat.AttackSpeedMul 消费；HP 上限经 Health.Initialize）
+    public float PermDamageMult { get; set; } = 1f;
+    public float PermMoveSpeedMult { get; set; } = 1f;
+    public float PermAttackSpeedMult { get; set; } = 1f;
+    public float PermCritDamageBonus { get; set; } = 0f;
+    public float PermHpBonus { get; set; } = 0f;
+    public float PermArmorBonus { get; set; } = 0f;
+
+    /// <summary>从存档聚合技能树加成并立即生效（HP 上限经 Health.Initialize，含回满——设计选择：加点视为休整）。UI 解锁成功后调用。</summary>
+    public void RefreshSkillTreeBonuses()
+    {
+        ApplySkillTreeBonuses();
+        if (TryGetComponent<Health>(out var h))
+            h.Initialize(MaxHP);
+        CurrentArmor = MaxArmor;
+        OnStatsChanged?.Invoke();
+    }
+
+    /// <summary>只写入六个加成通道（不回血）：ApplyClass 末尾调用——它随后自己走 Initialize（含技能树 HP 加成）。</summary>
+    private void ApplySkillTreeBonuses()
+    {
+        SkillTreeDef.Aggregate(SkillTreeSave.UnlockedIds,
+            out float dmg, out float move, out float atkSpeed,
+            out float hp, out float armor, out float critDmg);
+        PermDamageMult = 1f + dmg / 100f;
+        PermMoveSpeedMult = 1f + move / 100f;
+        PermAttackSpeedMult = 1f + atkSpeed / 100f;
+        PermCritDamageBonus = critDmg / 100f;
+        PermHpBonus = hp;
+        PermArmorBonus = armor;
+    }
 
     /// <summary>当前职业（v0.6.2；未选择时为 null，旧场景保持现状）。</summary>
     public ClassData CurrentClass { get; private set; }
@@ -68,7 +101,7 @@ public class PlayerStats : MonoBehaviour
 
     public void ModifyArmor(float delta)
     {
-        CurrentArmor = Mathf.Clamp(CurrentArmor + delta, 0, maxArmor);
+        CurrentArmor = Mathf.Clamp(CurrentArmor + delta, 0, MaxArmor);   // MaxArmor 属性（含技能树加成）
         OnStatsChanged?.Invoke();
     }
 
@@ -146,11 +179,13 @@ public class PlayerStats : MonoBehaviour
         armorReduceMul = Mathf.Clamp(classData.ArmorReduceMul, 0f, 0.9f);
         armorLossMul = Mathf.Max(classData.ArmorLossMul, 0.01f);
 
-        CurrentArmor = maxArmor;
+        ApplySkillTreeBonuses();   // v1.1.47 技能树永久加成（先写通道，下面 Initialize/回满即含加成）
+
+        CurrentArmor = MaxArmor;
         CurrentMana = maxMana;
 
         if (TryGetComponent<Health>(out var h))
-            h.Initialize(classData.MaxHP);
+            h.Initialize(classData.MaxHP + PermHpBonus);
 
         OnStatsChanged?.Invoke();
         OnClassApplied?.Invoke(classData);

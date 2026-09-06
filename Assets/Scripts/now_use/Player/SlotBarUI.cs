@@ -11,10 +11,13 @@ using UnityEngine.UI;
 /// 数据缺失的槽维持"—"；Refresh 写入的"—"会被同帧渲染前的每帧推送覆盖，无闪烁）；
 /// 背包格为 Button，点击 → ItemInventory.SwapWithBackpack 与道具栏互换（无拖拽）。
 /// 数量角标：槽位右下角 14pt，count≥2 才显示，超 99 显示 99+。
-/// 布局边界核算（1920×1080）：面板 274×126 锚 BottomRight 留 20px 边距，
-/// 占 x∈[1626,1900] y∈[20,146]；AmmoUI 在屏幕左下（PlayerStatsPanel 上方），无交叠。
-/// 格子美术（v0.7.3 美术替换）：SlotFrame 石板框按固定路径加载（编辑器 AssetDatabase / 构建 Resources），
+/// 布局边界核算（1920×1080）：面板宽 274+2×decGutter（v1.1.48 两端装饰让位，decGutter≈80，
+/// 面板约 434×126）锚 BottomRight 留 20px 边距，整体 CanvasScaler.scaleFactor=1.5；
+/// 两端各一枚 2.png 尖顶石柱装饰（左镜像，底边对齐槽条底，纯展示不挡点击），
+/// 主槽行+背包格左移 decGutter，右下屏边距保持不变；AmmoUI 在屏幕左下（PlayerStatsPanel 上方），无交叠。
+/// 格子美术（v0.7.3 美术替换，v1.1.48 换 1.png）：SlotFrame 石板框按固定路径加载（编辑器 AssetDatabase / 构建 Resources），
 /// 主槽与背包格共用一张缩放适配；资产缺失时退回"白描边 + 深色底"占位，不留空。
+/// 槽内文字（v1.1.48）：槽名居中偏上、中央内容（技能名/CD/占位/道具色块）落 1.png 内场中心偏下。
 /// </summary>
 public class SlotBarUI : MonoBehaviour
 {
@@ -35,9 +38,38 @@ public class SlotBarUI : MonoBehaviour
     // ========== 格子美术（SlotFrame，v0.7.3） ==========
 
     /// <summary>SlotFrame 资产路径（已迁入 Resources/Art/UI/，编辑器与构建同源）。</summary>
-    private const string SlotFrameEditorPath = "Assets/Resources/Art/UI/SlotFrame.jpg";
+    private const string SlotFrameEditorPath = "Assets/Resources/Art/UI/SlotFrame.png";
     private const string SlotFrameResourcesPath = "Art/UI/SlotFrame";
     private static Sprite slotFrame;
+
+    // 两端装饰（v1.1.48：2.png 尖顶石柱，主槽行左右各一枚，左侧镜像对称；底边对齐槽底，尖顶高出槽位）
+    private const string EndDecorEditorPath = "Assets/Resources/Art/UI/SlotEndDecor.png";
+    private const string EndDecorResourcesPath = "Art/UI/SlotEndDecor";
+    private static Sprite endDecor;
+
+    /// <summary>加载装饰 Sprite（编辑器 AssetDatabase / 构建 Resources；缺失返回 null，装饰不画不留空）。</summary>
+    private static Sprite LoadEndDecor()
+    {
+        if (endDecor != null) return endDecor;
+#if UNITY_EDITOR
+        endDecor = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(EndDecorEditorPath);
+        if (endDecor == null)
+        {
+            foreach (Object o in UnityEditor.AssetDatabase.LoadAllAssetsAtPath(EndDecorEditorPath))
+                if (o is Sprite s) { endDecor = s; break; }
+        }
+#else
+        endDecor = Resources.Load<Sprite>(EndDecorResourcesPath);
+        if (endDecor == null)
+        {
+            Sprite[] all = Resources.LoadAll<Sprite>(EndDecorResourcesPath);
+            if (all.Length > 0) endDecor = all[0];
+        }
+#endif
+        if (endDecor == null)
+            Debug.LogWarning("[SlotBarUI] SlotEndDecor 未找到，装备槽两端装饰省略。");
+        return endDecor;
+    }
 
     /// <summary>加载格子框 Sprite（编辑器 AssetDatabase / 构建 Resources；导入为 Multiple 时取第一张切片）。缺失返回 null。</summary>
     private static Sprite LoadSlotFrame()
@@ -230,7 +262,16 @@ public class SlotBarUI : MonoBehaviour
     private void BuildPanel()
     {
         RectTransform root = (RectTransform)transform;
-        float panelWidth = 4f * SlotSize + 3f * Gap;                    // 274
+        // v1.1.48：两端装饰让位——主槽行整体左移 decGutter，面板加宽 2×decGutter（右下屏边距不变）
+        Sprite decor = LoadEndDecor();
+        float decW = 0f, decH = 0f;
+        if (decor != null)
+        {
+            decH = SlotSize * 1.35f;                                    // 尖顶高出槽位顶
+            decW = decH * decor.rect.width / decor.rect.height;         // 424×506 比例
+        }
+        float decGutter = decor != null ? decW + 8f : 0f;
+        float panelWidth = 4f * SlotSize + 3f * Gap + 2f * decGutter;
         float panelHeight = SlotSize + Gap + PackSize;                  // 126
         root.anchorMin = new Vector2(1f, 0f);
         root.anchorMax = new Vector2(1f, 0f);
@@ -239,23 +280,47 @@ public class SlotBarUI : MonoBehaviour
         root.anchoredPosition = new Vector2(-Margin, Margin);
         // 注：不要在 root 上设 localScale——Overlay Canvas 根 RectTransform 被引擎驱动会每帧重置，缩放用 CanvasScaler.scaleFactor（EnsureExists）
 
-        // 四槽横排（pivot 右下：从右往左排，slot3 道具栏贴右缘）+ 按键角标
+        // 两端装饰（v1.1.48）：2.png 尖顶石柱，底边对齐槽条底；左侧镜像与右端配对；先于槽创建=画在槽之下
+        if (decor != null)
+        {
+            CreateEndDecor(root, "EndDecor_R", new Vector2(-(decW * 0.5f), decH * 0.5f), new Vector2(decW, decH), false);
+            CreateEndDecor(root, "EndDecor_L", new Vector2(-(panelWidth - decW * 0.5f), decH * 0.5f), new Vector2(decW, decH), true);
+        }
+
+        // 四槽横排（pivot 右下：从右往左排，slot3 道具栏贴主槽行右缘；v1.1.48 左移 decGutter 让位右端装饰）+ 按键角标
         for (int i = 0; i < 4; i++)
         {
-            float centerX = -(SlotSize * 0.5f) - (3 - i) * (SlotSize + Gap);
+            float centerX = -(SlotSize * 0.5f) - (3 - i) * (SlotSize + Gap) - decGutter;
             mainSlots[i] = CreateSlot($"Slot_{SlotLabels[i]}", root,
                 new Vector2(centerX, SlotSize * 0.5f), SlotSize, false, -1);
             mainSlots[i].KeyBadge = CreateKeyBadge((RectTransform)mainSlots[i].Bg.transform, SlotKeyHints[i]);
         }
 
-        // 背包 3 格：道具栏上方横排，右缘与道具栏对齐
+        // 背包 3 格：道具栏上方横排，右缘与道具栏对齐（同移 decGutter）
         for (int i = 0; i < packSlots.Length; i++)
         {
-            float centerX = -(PackSize * 0.5f) - (packSlots.Length - 1 - i) * (PackSize + Gap);
+            float centerX = -(PackSize * 0.5f) - (packSlots.Length - 1 - i) * (PackSize + Gap) - decGutter;
             float centerY = SlotSize + Gap + PackSize * 0.5f;
             packSlots[i] = CreateSlot($"Backpack_{i}", root,
                 new Vector2(centerX, centerY), PackSize, true, i);
         }
+    }
+
+    /// <summary>两端装饰（v1.1.48）：2.png 尖顶石柱，纯展示 raycastTarget=false 不挡点击；mirrored=true 水平翻转（左端与右端配对对称）。</summary>
+    private void CreateEndDecor(RectTransform parent, string name, Vector2 center, Vector2 size, bool mirrored)
+    {
+        GameObject go = CreateUIObject(name, parent);
+        Image img = go.AddComponent<Image>();
+        img.sprite = LoadEndDecor();
+        img.raycastTarget = false;
+        RectTransform rect = (RectTransform)go.transform;
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = center;
+        if (mirrored)
+            rect.localScale = new Vector3(-1f, 1f, 1f);
     }
 
     /// <summary>左下角按键角标（v1.0.6 需求④）：金色小字标明槽位对应键位。</summary>
@@ -321,38 +386,40 @@ public class SlotBarUI : MonoBehaviour
             });
         }
 
-        // 顶部名称文字
+        // 槽名文字（v1.1.48：原贴顶→中心上方，给 1.png 内场留空间）
         GameObject labelGo = CreateUIObject("Label", bgRect);
         slot.Label = labelGo.AddComponent<TextMeshProUGUI>();
         slot.Label.font = TMPFontProvider.Font;
-        slot.Label.alignment = TextAlignmentOptions.Top;
+        slot.Label.alignment = TextAlignmentOptions.Center;
         RectTransform labelRect = (RectTransform)labelGo.transform;
         labelRect.anchorMin = new Vector2(0f, 1f);
         labelRect.anchorMax = new Vector2(1f, 1f);
         labelRect.pivot = new Vector2(0.5f, 1f);
         labelRect.sizeDelta = new Vector2(0f, 16f);
-        labelRect.anchoredPosition = new Vector2(0f, -2f);
+        labelRect.anchoredPosition = new Vector2(0f, -(size - 16f) * 0.5f);
 
-        // 中央占位文字（"—"）
+        // 中央内容（v1.1.48：锚中心→中心偏下 22%，落 1.png 内场中心偏下；技能名/CD/占位/道具色块共用此位）
         GameObject centerGo = CreateUIObject("Center", bgRect);
         slot.CenterText = centerGo.AddComponent<TextMeshProUGUI>();
         slot.CenterText.font = TMPFontProvider.Font;
         slot.CenterText.alignment = TextAlignmentOptions.Center;
+        // verticalAlignment 保持默认 Middle：文本框中点=内场中点，落槽位中心偏下
         RectTransform centerRect = (RectTransform)centerGo.transform;
-        centerRect.anchorMin = Vector2.zero;
-        centerRect.anchorMax = Vector2.one;
-        centerRect.offsetMin = Vector2.zero;
-        centerRect.offsetMax = Vector2.zero;
+        centerRect.anchorMin = new Vector2(0f, 1f);
+        centerRect.anchorMax = new Vector2(1f, 1f);
+        centerRect.pivot = new Vector2(0.5f, 1f);
+        centerRect.sizeDelta = new Vector2(-4f, -(size - 16f) * 0.5f);
+        centerRect.anchoredPosition = new Vector2(0f, -size * 0.18f);
 
-        // 道具色块（占位图标）
+        // 道具色块（占位图标；v1.1.48 随中央内容下移至内场中心偏下）
         GameObject iconGo = CreateUIObject("Icon", bgRect);
         slot.IconBlock = iconGo.AddComponent<Image>();
         RectTransform iconRect = (RectTransform)iconGo.transform;
-        iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-        iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRect.anchorMin = new Vector2(0.5f, 1f);
+        iconRect.anchorMax = new Vector2(0.5f, 1f);
         iconRect.pivot = new Vector2(0.5f, 0.5f);
         iconRect.sizeDelta = new Vector2(24f, 24f);
-        iconRect.anchoredPosition = Vector2.zero;
+        iconRect.anchoredPosition = new Vector2(0f, -(size * 0.28f));
 
         // 右下数量角标
         GameObject badgeGo = CreateUIObject("CountBadge", bgRect);

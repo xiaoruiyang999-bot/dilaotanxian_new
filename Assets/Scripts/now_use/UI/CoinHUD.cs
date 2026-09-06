@@ -12,7 +12,12 @@ using UnityEngine.UI;
 public class CoinHUD : MonoBehaviour
 {
     private const float RebindInterval = 0.5f;
-    private const float IconSize = 16f;
+    // v1.1.48：原 16px 图标/字号在 1080p HUD 中辨识度不足，整体放大并保持同一基线。
+    private const float IconSize = 28f;
+    private const float TextFontSize = 24f;
+    private const float TextWidth = 130f;
+    private const float TextHeight = 32f;
+    private const float IconTextGap = 8f;
 
     private static readonly Vector2 AnchorPos = new Vector2(18f, 96f);   // 左下角，属性面板上方
 
@@ -56,15 +61,16 @@ public class CoinHUD : MonoBehaviour
         coinText = textGo.AddComponent<TextMeshProUGUI>();
         coinText.text = "0";
         coinText.font = TMPFontProvider.Font;
-        coinText.fontSize = 16;
+        coinText.fontSize = TextFontSize;
         coinText.fontStyle = FontStyles.Bold;
         coinText.color = new Color(1f, 0.85f, 0.35f);
         coinText.alignment = TextAlignmentOptions.MidlineLeft;
         coinText.raycastTarget = false;
         coinText.rectTransform.anchorMin = coinText.rectTransform.anchorMax = Vector2.zero;
         coinText.rectTransform.pivot = Vector2.zero;
-        coinText.rectTransform.anchoredPosition = AnchorPos + new Vector2(IconSize + 6f, IconSize * 0.5f - 9f);
-        coinText.rectTransform.sizeDelta = new Vector2(90f, 18f);
+        coinText.rectTransform.anchoredPosition = AnchorPos
+            + new Vector2(IconSize + IconTextGap, (IconSize - TextHeight) * 0.5f);
+        coinText.rectTransform.sizeDelta = new Vector2(TextWidth, TextHeight);
     }
 
     void Update()

@@ -48,7 +48,7 @@ now_use/
 | PlayerUI | 屏幕左下角固定 HP/护甲/法力条（法力条 v0.6.2）；v0.7.0 体力条下线，场景残留 StaminaBar 对象运行时 SetActive(false) 兜底隐藏 |
 | PlayerWorldStatusBar | ~~头顶世界空间状态条~~（钢灰护甲 + 红 HP；黄体力条 v0.7.0 下线）。**已从 Player.prefab 移除组件（2026-08-03）**：屏幕状态条美术到位后头顶条冗余；类文件保留，想恢复在 prefab 重新 AddComponent 即可（HealthBarAnchor 子物体仍在） |
 | AmmoUI | 弹药面板（v0.6.3）：武器色块+名 + 弹夹 x/y + 换弹进度细条（运行时构建，订阅 PlayerCombat 事件；无弹夹/默认近战隐藏） |
-| SlotBarUI | 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏；技能三槽 v0.7.4 起由 SkillExecutor 每帧驱动——SetSkillDisplay 技能名+技能色 / SetSkillCooldown 文本秒数，数据缺失槽维持"—"，红闪提示施放失败）+ 道具栏上方背包 3 格（Button 点击与道具栏互换）；RuntimeInitializeOnLoadMethod 自举运行时构建，订阅 ItemInventory.OnChanged，数量角标 count≥2 显示、超 99 显示 99+；UiScale 常量整体缩放（CanvasScaler.scaleFactor，勿改根 RectTransform，自检 #23）；格子框美术 Assets/Art/UI/SlotFrame（v0.7.3 美术替换，固定路径加载，缺失退回纯色占位；打包需复制到 Resources/Art/UI/） |
+| SlotBarUI | 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏；技能三槽 v0.7.4 起由 SkillExecutor 每帧驱动——SetSkillDisplay 技能名+技能色 / SetSkillCooldown 文本秒数，数据缺失槽维持"—"，红闪提示施放失败）+ 道具栏上方背包 3 格（Button 点击与道具栏互换）；RuntimeInitializeOnLoadMethod 自举运行时构建，订阅 ItemInventory.OnChanged，数量角标 count≥2 显示、超 99 显示 99+；UiScale 常量整体缩放（CanvasScaler.scaleFactor，勿改根 RectTransform，自检 #23）；格子框美术 Assets/Resources/Art/UI/SlotFrame.png（v0.7.3 美术替换，v1.1.48 换图为 396×434 PNG，固定路径加载，缺失退回纯色占位） |
 
 ### Combat/ — 武器 / 攻击框架（Player/Enemy 共用）
 | 脚本 | 职责 |
