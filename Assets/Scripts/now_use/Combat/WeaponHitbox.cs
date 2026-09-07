@@ -66,6 +66,24 @@ public class WeaponHitbox : MonoBehaviour
     private IDamageable swingFirstTarget;
     private float swingFirstDealt;
 
+    // v1.1.48 横向攻击带（失落城堡式，仅玩家路径）：laneWidth>0 时玩家判定不再是
+    // 跟随武器旋转的细长矩形，而是"玩家前方水平带"——X=攻击距离、Y=纵深容错，
+    // 以攻击者根位置（下半身判定）为基准。敌人路径（attackerStats==null）保持旧几何。
+    private float laneWidth;
+    private float laneFacingSign = 1f;
+    /// <summary>当前攻击带纵深宽（>0 = 横向带模式；0 = 旧旋转矩形模式）。</summary>
+    public float LaneWidth => laneWidth;
+
+    /// <summary>
+    /// 进入横向攻击带模式（PlayerCombat 每段攻击开始时调用；BeginSwing 复位为 0）。
+    /// facingSign：攻击朝向（±1，失落城堡式只左右）。
+    /// </summary>
+    public void SetLaneMode(float width, float facingSign)
+    {
+        laneWidth = Mathf.Max(0f, width);
+        laneFacingSign = facingSign >= 0f ? 1f : -1f;
+    }
+
     void Awake()
     {
         // 宽度/pivot 单一数据源：存在 WeaponController 时以其为准，序列化值仅作兜底。
@@ -94,6 +112,7 @@ public class WeaponHitbox : MonoBehaviour
         hitThisSwing.Clear();
         LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
         DamageMultiplier = 1f;   // 蓄力伤害倍率复位（v0.7.0）
+        laneWidth = 0f;          // v1.1.48 横向带复位（PlayerCombat 每段按需重设）
         swingFirstTarget = null;   // 贯穿追补复位（v0.7.5 二期）
         swingFirstDealt = 0f;
         isSwinging = true;
@@ -186,10 +205,24 @@ public class WeaponHitbox : MonoBehaviour
     /// </summary>
     private void ComputeSwingBox(out Vector2 center, out Vector2 size, out float angle)
     {
-        float scale = weaponPivot.lossyScale.x;
-        float length = attackData.AttackRange * LengthMultiplier * scale;
+        // v1.1.48 玩家横向攻击带（失落城堡式）：laneWidth>0 且为玩家路径时，
+        // 判定 = 攻击者前方水平带——X 决定攻击距离，Y 是纵深容错（上下移动只负责对齐站位），
+        // 与武器旋转动画解耦（画面弧线只是表现）。敌人路径保持旧旋转矩形。
+        if (attackerStats != null && laneWidth > 0f)
+        {
+            float scale = weaponPivot != null ? weaponPivot.lossyScale.x : 1f;
+            float reach = attackData.AttackRange * LengthMultiplier * scale;
+            Vector2 foot = attackerStats.transform.position;   // 玩家根 = 下半身判定平面（v1.1.24）
+            center = new Vector2(foot.x + laneFacingSign * (reach * 0.5f + 0.35f), foot.y);
+            size = new Vector2(reach, laneWidth);
+            angle = 0f;
+            return;
+        }
+
+        float scale2 = weaponPivot.lossyScale.x;
+        float length = attackData.AttackRange * LengthMultiplier * scale2;
         // v0.6.3：宽度实时读 WeaponController.WeaponWidth（含蓄力宽度倍率），判定逻辑其余零改动
-        float width = (wc != null ? wc.WeaponWidth : weaponWidth) * scale;
+        float width = (wc != null ? wc.WeaponWidth : weaponWidth) * scale2;
         Vector2 dir = weaponPivot.right;
         center = (Vector2)weaponPivot.position + dir * (length * 0.5f);
         size = new Vector2(length, width);

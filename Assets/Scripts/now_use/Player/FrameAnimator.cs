@@ -7,8 +7,8 @@ using UnityEngine;
 /// SpriteRenderer 由组件自身 GetComponent 获取；不使用 Animator / 第三方插件。
 ///
 /// 玩家驱动（内置，Awake 时检测到 Rigidbody2D 才启用）：
-/// 每帧读 Rigidbody2D.linearVelocity，水平速度绝对值 > 0.1 播放 "walk" 组，
-/// 按速度 x 符号设 flipX（素材实为右向——v0.7.5 验收实测修正，向左走 flipX=true）；
+/// 每帧读 Rigidbody2D.linearVelocity，速度 magnitude > 0.1 播放 "walk" 组（v1.1.48 起与狼人同构：
+/// 朝向记忆 LastHorizontalInput 只在有水平分量时更新，flipX 由记忆决定——向上移动沿用移动前朝向的侧面帧），
 /// 速度 ≤ 0.1 播放 "idle" 组（正面呼吸帧，pingPong 往返，不重置 flipX，保持停步前朝向）；
 /// idle 帧缺失时回退现行为：停在 walk 第 1 帧当 idle。
 ///
@@ -16,7 +16,8 @@ using UnityEngine;
 /// 按速度主轴分方向——|vy|≥|vx| 且 vy<0 → "walk_front"（正面朝下）、vy>0 → "walk_back"（背面朝上），
 /// 否则侧面 "walk" + flipX（同上）。方向切换带 0.1s 滞回，避免斜向移动时主轴判定抖动。
 /// 回退：walk_front/walk_back 组缺失 → 该方向回退侧面 walk（vy 主导时 flipX 保持不动）；
-/// 两目录全缺 → 完全走 v0.7.5 水平驱动（零视觉回归，纯上下移动仍播 idle，与现状逐帧一致）。
+/// 两目录全缺 → 走侧面驱动（v1.1.48 起与狼人同构：magnitude 判 moving + 朝向记忆，
+/// 向上/向下移动沿用移动前朝向的侧面行走帧，不再落 idle 静止帧）。
 ///
 /// 攻击/技能覆盖播放（v0.7.6）：
 /// PlayAttack(isSpear, duration)：播 "attack_sword"/"attack_spear" 组（AttackSword/AttackSpear 目录），
@@ -243,19 +244,24 @@ public class FrameAnimator : MonoBehaviour
         if (next != null) TargetSr.sprite = next;
     }
 
-    /// <summary>v0.7.5 水平驱动（四方向组全缺时的原样行为）：水平速度决定 walk / idle。</summary>
+    /// <summary>侧面驱动（v1.1.48 起与狼人 UpdateWerewolfDrive 同构）：magnitude 判 moving + 朝向记忆 LastHorizontalInput
+    /// 决定 flipX——向上/向下移动沿用移动前朝向的侧面行走帧（不再落 idle 静止帧），停下才播 idle。</summary>
     private void UpdateSideDrive()
     {
-        float vx = rb.linearVelocity.x;
-        if (Mathf.Abs(vx) > MoveSpeedThreshold)
-        {
+        // v1.1.48：与狼人驱动（UpdateWerewolfDrive）同构——magnitude 判 moving（不再只看水平分量），
+        // 朝向记忆 LastHorizontalInput 只在有水平分量时更新：向上移动沿用移动前朝向的侧面行走帧
+        Vector2 v = rb.linearVelocity;
+        bool moving = v.magnitude > MoveSpeedThreshold;
+        if (moving && Mathf.Abs(v.x) > 0.01f)                    // 有水平分量才更新朝向记忆；纯垂直移动保持原朝向
+            LastHorizontalInput = v.x < 0f ? -1f : 1f;
+        bool left = LastHorizontalInput < 0f;
+
+        if (moving)
             Play(WalkGroupName);
-            sr.flipX = vx < 0f; // 素材实为右向（v0.7.5 验收实测修正），向左走镜像
-        }
         else
-        {
             PlayIdleOrStop();
-        }
+
+        sr.flipX = left;   // 素材实为右向（v0.7.5 验收实测修正），flipX 由朝向记忆决定（朝左镜像，纯垂直移动保持不变）
     }
 
     /// <summary>

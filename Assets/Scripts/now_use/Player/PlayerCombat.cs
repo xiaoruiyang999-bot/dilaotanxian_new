@@ -41,6 +41,17 @@ public class PlayerCombat : MonoBehaviour
     private bool activeMomentTriggered;
     private Vector2 attackDirection;
 
+    // ===== v1.1.48 连段状态（失落城堡式战斗第一批）=====
+    // 攻击不再"单次动作锁死"：提前按键进缓冲、后摇可取消点接段、段间接受窗口；
+    // 每段独立的时长/判定长度/纵深/伤害/踏步来自 MeleeComboTable，判定入口仍是 WeaponHitbox。
+    private MeleeComboStep[] comboSet = MeleeComboTable.Fallback;
+    private int comboIndex;                 // 当前段序（0 起；窗口超时归零）
+    private MeleeComboStep currentStep;     // 当前段参数快照（StartWindup 取）
+    private bool comboStepValid;            // currentStep 是否有效（防御旧路径）
+    private bool bufferedAttack;            // 攻击流程中按下的输入缓存——被听见，不吞
+    private float comboWindowTimer;         // 后摇完毕后的连段接受窗口倒计时
+    private PlayerController playerControllerCache;   // 水平朝向读取（FacingDirection）
+
     // ===== v0.6.3：三模式与武器实例 =====
     private enum CombatMode { Melee, Ranged, SelfCast }
     private CombatMode mode = CombatMode.Melee;
@@ -155,6 +166,17 @@ public class PlayerCombat : MonoBehaviour
                 EndCharge();
         }
 
+        // v1.1.48 连段窗口倒计时（后摇完毕后限时接受下一段；超时段序归零）
+        if (subPhase == SubPhase.None && comboWindowTimer > 0f)
+        {
+            comboWindowTimer -= Time.deltaTime;
+            if (comboWindowTimer <= 0f)
+            {
+                comboWindowTimer = 0f;
+                comboIndex = 0;
+            }
+        }
+
         UpdateAiming();
         UpdatePendingCharge();
         UpdateAttackState();
@@ -171,7 +193,11 @@ public class PlayerCombat : MonoBehaviour
             EndCharge();
     }
 
-    /// <summary>待蓄力计时：按住攻击键超过 chargeHoldThreshold 才真正进入蓄力（v0.6.3 点按/长按分离）。</summary>
+    /// <summary>
+    /// 待蓄力计时：按住攻击键超过 chargeHoldThreshold 才真正进入蓄力。
+    /// v1.1.48：近战按下即出招，长按转蓄力时需打断当前攻击段（连段让位蓄力）——
+    /// 远程（弓）保持旧行为（点按直射在 Release 分支之外由 TryFire 即出）。
+    /// </summary>
     private void UpdatePendingCharge()
     {
         if (!pendingCharge || isCharging || !attackHeld) return;
@@ -180,31 +206,63 @@ public class PlayerCombat : MonoBehaviour
         if (pressHoldTimer >= chargeHoldThreshold)
         {
             pendingCharge = false;
+            if (mode == CombatMode.Melee && subPhase != SubPhase.None)
+                CancelSwingForCharge();   // 打断当前段：蓄力接管
             BeginCharge();
         }
     }
 
+    /// <summary>v1.1.48：长按转蓄力时安全打断当前攻击段（收挥/收显示/复位段状态）。</summary>
+    private void CancelSwingForCharge()
+    {
+        subPhase = SubPhase.None;
+        weaponHitbox?.EndSwing();
+        weaponAnimator?.Stop();
+        weaponController?.UnlockAttackDirection();
+        HideRangeDisplay();
+        if (isThrustAttack && weaponController != null)
+            weaponController.SetCustomVisualThrustOffset(0f);
+        weaponHitbox.LengthMultiplier = 1f;
+        bufferedAttack = false;
+        comboWindowTimer = 0f;
+        comboIndex = 0;
+    }
+
     /// <summary>
-    /// 普通状态下持续更新武器朝向。
-    /// 攻击期间方向已由 WeaponController 锁定，不再更新。
+    /// 瞄准更新。v1.1.48 失落城堡式：近战瞄准 = 水平朝向（±1,0，鼠标不再决定近战方向），
+    /// 远程模式保持鼠标瞄准（弓/弩暂不在横向化范围）。
     /// </summary>
     private void UpdateAiming()
     {
         if (subPhase != SubPhase.None) return;
         if (aimController == null || weaponController == null) return;
 
-        weaponController.SetAimDirection(aimController.AimDirection);
+        Vector2 aim = mode == CombatMode.Melee ? HorizontalFacing() : aimController.AimDirection;
+        weaponController.SetAimDirection(aim);
+    }
+
+    /// <summary>玩家水平朝向（v1.1.48）：PlayerController.FacingDirection（±1,0）。</summary>
+    private Vector2 HorizontalFacing()
+    {
+        if (playerControllerCache == null) playerControllerCache = GetComponent<PlayerController>();
+        Vector2 f = playerControllerCache != null ? playerControllerCache.FacingDirection : Vector2.right;
+        return f.x < 0f ? Vector2.left : Vector2.right;
     }
 
     /// <summary>
-    /// 尝试发起一次攻击。若已在攻击流程中或冷却未好则忽略。
+    /// 尝试发起一次攻击。v1.1.48：攻击流程中不再忽略——输入进缓冲（后摇可取消点/段间窗口自动接段）；
+    /// 连段窗口内接下一段（环回），窗口外/超时从段 1 重新起手。
     /// </summary>
     public void TryAttack()
     {
         if (attackData == null) return;
-        if (subPhase != SubPhase.None) return;
-
-        StartWindup();
+        if (subPhase != SubPhase.None)
+        {
+            bufferedAttack = true;   // 输入被听见：可取消点/段末自动消费
+            return;
+        }
+        int next = comboWindowTimer > 0f ? (comboIndex + 1) % comboSet.Length : 0;
+        StartWindup(next);
     }
 
     /// <summary>
@@ -229,16 +287,19 @@ public class PlayerCombat : MonoBehaviour
             case CombatMode.Melee:
                 if (weapon != null && weapon.Data != null && weapon.Data.ChargeRule != ChargeRule.None)
                 {
-                    // 可蓄力近战（长剑/长枪）：非攻击中才进入待蓄力，长按过阈值才 BeginCharge
-                    if (subPhase == SubPhase.None && !isCharging)
+                    // v1.1.48 点按即出（失落城堡式）：可蓄力近战按下立即出招（连段/缓冲接管节奏）；
+                    // 长按超过阈值才转蓄力（UpdatePendingCharge 中打断当前段进入蓄力）——
+                    // 消灭"松开鼠标才出手"的一次按键延迟
+                    if (!isCharging)
                     {
                         pendingCharge = true;
                         pressHoldTimer = 0f;
+                        TryAttack();   // 攻击中则进缓冲（蓄力判定只看按住时长）
                     }
                 }
                 else
                 {
-                    // 默认近战 / 无蓄力规则：行为与 v0.6.2 前一致
+                    // 默认近战 / 无蓄力规则：直接出招（连段/缓冲）
                     TryAttack();
                 }
                 break;
@@ -274,11 +335,10 @@ public class PlayerCombat : MonoBehaviour
 
         if (pendingCharge && !isCharging)
         {
-            // 点按：未到蓄力阈值，按无蓄力处理
+            // v1.1.48：近战点按在阈值内松开——招已出（OnAttackPressed 即出），只清待蓄力标记；
+            // 远程弓保持旧行为（点按直射在松开时触发——远程未纳入"即出"改动）
             pendingCharge = false;
-            if (mode == CombatMode.Melee)
-                TryAttack();
-            else if (mode == CombatMode.Ranged)
+            if (mode == CombatMode.Ranged)
                 TryFire();
             return;
         }
@@ -312,6 +372,13 @@ public class PlayerCombat : MonoBehaviour
             meleeBaseAngle = meleeRuntimeCopy.AttackAngle;
             ApplyAttackDataToChain(meleeRuntimeCopy);
         }
+
+        // v1.1.48：按武器取连段表（长剑三段 / 其余单段），段序复位
+        comboSet = MeleeComboTable.ForWeapon(inst);
+        comboIndex = 0;
+        bufferedAttack = false;
+        comboWindowTimer = 0f;
+        comboStepValid = false;
 
         MountWeaponVisual(inst.Data);
         EmitWeaponDisplay(inst.Data);
@@ -363,6 +430,13 @@ public class PlayerCombat : MonoBehaviour
         weapon = null;
         DestroyMeleeRuntimeCopy();
 
+        // v1.1.48：回默认近战（空手）也走长剑三段连段表
+        comboSet = MeleeComboTable.ForWeapon(null);
+        comboIndex = 0;
+        bufferedAttack = false;
+        comboWindowTimer = 0f;
+        comboStepValid = false;
+
         if (weaponController != null)
             weaponController.ClearCustomVisual();
         chargeGlowRenderers = null;
@@ -400,6 +474,8 @@ public class PlayerCombat : MonoBehaviour
         fireCooldownTimer = 0f;
         idleTimer = 0f;
         isThrustAttack = false;
+        bufferedAttack = false;      // v1.1.48：连段缓冲随战斗状态整体复位
+        comboWindowTimer = 0f;
         if (reloadEventActive)
         {
             reloadEventActive = false;
@@ -486,6 +562,21 @@ public class PlayerCombat : MonoBehaviour
         attackIndicator.SetRadius(range * RangeDisplayScale());
         attackIndicator.SetAngle(angle);
         attackIndicator.SetDirection(dir ?? CurrentAimDirection());
+        attackIndicator.Show();
+        rangeDisplayActive = true;
+    }
+
+    /// <summary>
+    /// v1.1.48 横向攻击带范围显示（失落城堡式灰 Box）：X=判定距离、Y=纵深容错——
+    /// 与 WeaponHitbox 横向带判定共用段参数（reach×reachMul 与 laneWidth 同源）。
+    /// </summary>
+    private void ShowLaneRangeDisplay(float reach, float laneWidth, Vector2? dir = null)
+    {
+        if (attackIndicator == null) return;
+        attackIndicator.SetColor(rangeDisplayColor);
+        float scale = RangeDisplayScale();
+        attackIndicator.SetDirection(dir ?? CurrentAimDirection());
+        attackIndicator.SetBox(reach * scale, laneWidth * scale);
         attackIndicator.Show();
         rangeDisplayActive = true;
     }
@@ -838,10 +929,16 @@ public class PlayerCombat : MonoBehaviour
     // 近战三阶段状态机（逻辑与 v0.6.2 前一致）
     // ============================================================
 
-    private void StartWindup()
+    private void StartWindup(int stepIndex)
     {
+        comboIndex = stepIndex;
+        currentStep = comboSet[stepIndex];
+        comboStepValid = true;
+        bufferedAttack = false;   // 消费缓冲（本段已开始）
+
         subPhase = SubPhase.Windup;
-        windupDuration = attackData.WindupTime / AttackSpeedMul();   // v0.7.5：前摇 ÷ 攻速倍率
+        float speedMul = AttackSpeedMul();
+        windupDuration = attackData.WindupTime * currentStep.windupMul / speedMul;   // v1.1.48：段前摇倍率 ÷ 攻速
         windupTimer = windupDuration;
         activeMomentTriggered = false;
 
@@ -852,34 +949,27 @@ public class PlayerCombat : MonoBehaviour
         // 锁定当前攻击方向，由 WeaponController 负责管理 WeaponPivot
         weaponController?.LockAttackDirection();
 
-        // 缓存攻击方向，防止攻击期间鼠标移动导致判定方向与动画方向不一致
-        attackDirection = weaponController != null
-            ? weaponController.GetAimDirection()
-            : aimController != null ? aimController.AimDirection : Vector2.right;
+        // v1.1.48 失落城堡式：方向 = 水平朝向（±1,0），攻击全程朝同一侧
+        attackDirection = HorizontalFacing();
 
         OnAttackStart?.Invoke();
 
         // v0.7.6 美术线：通知 FrameAnimator 播攻击序列帧（attack_sword/attack_spear 组）。
-        // 时长 = 三阶段合计 ÷ 攻速倍率，fps 由 FrameAnimator 按帧数自动对齐；
-        // 组缺失时 PlayAttack 返回 false 完全不干预（WeaponAnimator 挥砍照旧，零回归）。
+        // 时长 = 三阶段（含段倍率）合计 ÷ 攻速倍率；组缺失时 PlayAttack 返回 false 零干预。
         if (frameAnimator == null) frameAnimator = GetComponent<FrameAnimator>();
         if (frameAnimator != null)
         {
             bool isSpear = weapon != null && weapon.Data != null
                 && weapon.Data.ChargeRule == ChargeRule.RectScale;   // FanScale=剑、RectScale=枪
-            float totalDuration = (attackData.WindupTime + attackData.ActiveDuration + attackData.RecoveryTime)
-                / AttackSpeedMul();
+            float totalDuration = (attackData.WindupTime * currentStep.windupMul
+                + attackData.ActiveDuration * currentStep.activeMul
+                + attackData.RecoveryTime * currentStep.recoveryMul) / speedMul;
             frameAnimator.PlayAttack(isSpear, totalDuration);
         }
 
-        // v0.6.3：灰色实时范围显示（蓄力释放进挥击时数值已是缩放后的副本值，重刷等于保持）
-        if (attackIndicator != null)
-        {
-            if (isThrustAttack)
-                ShowThrustRangeDisplay(attackData.AttackRange, attackDirection);
-            else
-                ShowFanRangeDisplay(attackData.AttackRange, attackData.AttackAngle, attackDirection);
-        }
+        // v1.1.48 横向攻击带范围显示（灰 Box：X=段判定距离，Y=纵深容错），
+        // 替代旧扇形——显示与 WeaponHitbox 判定同用段参数（同源）
+        ShowLaneRangeDisplay(attackData.AttackRange * currentStep.reachMul, currentStep.laneWidth, attackDirection);
     }
 
     private void UpdateAttackState()
@@ -916,12 +1006,25 @@ public class PlayerCombat : MonoBehaviour
     private void EnterActive()
     {
         subPhase = SubPhase.Active;
-        activeDuration = attackData.ActiveDuration / AttackSpeedMul();   // v0.7.5：判定/动画时长 ÷ 攻速倍率
+        activeDuration = attackData.ActiveDuration * (comboStepValid ? currentStep.activeMul : 1f) / AttackSpeedMul();
         activeTimer = activeDuration;
         activeMomentTriggered = false;
 
         // Active 开始，武器矩形检测同步启动
         weaponHitbox?.BeginSwing();
+
+        // v1.1.48 连段段参数：判定长度/伤害倍率 + 横向攻击带（纵深容错、水平朝向）
+        if (weaponHitbox != null && comboStepValid)
+        {
+            weaponHitbox.LengthMultiplier = currentStep.reachMul;
+            weaponHitbox.DamageMultiplier = currentStep.damageMul;
+            weaponHitbox.SetLaneMode(currentStep.laneWidth, attackDirection.x >= 0f ? 1f : -1f);
+        }
+
+        // v1.1.48 攻击踏步：判定开始瞬间向前一小步（追近差一点距离的敌人；冲量线性衰减 ~0.12s）
+        if (playerMovement != null && comboStepValid && currentStep.stepImpulse > 0f)
+            playerMovement.AddImpulse(new Vector2(
+                (attackDirection.x >= 0f ? 1f : -1f) * currentStep.stepImpulse, 0f), 0.12f);
 
         if (isThrustAttack)
         {
@@ -973,9 +1076,10 @@ public class PlayerCombat : MonoBehaviour
             if (weaponHitbox != null)
                 weaponHitbox.LengthMultiplier = extension;
 
-            // 范围矩形跟随判定长度实时伸缩
+            // v1.1.48 横向带显示跟随戳击伸缩（X=当前判定长度，Y=段纵深）
             if (attackIndicator != null)
-                ShowThrustRangeDisplay(attackData.AttackRange * Mathf.Max(extension, 0.05f), attackDirection);
+                ShowLaneRangeDisplay(attackData.AttackRange * Mathf.Max(extension, 0.05f),
+                    comboStepValid ? currentStep.laneWidth : 0.85f, attackDirection);
 
             if (progress < 0.5f)
                 weaponHitbox?.Tick();
@@ -985,7 +1089,6 @@ public class PlayerCombat : MonoBehaviour
         // Active 期间每帧执行一次武器矩形检测，检测窗口严格等于 Active 阶段
         weaponHitbox?.Tick();
     }
-
     /// <summary>
     /// 命中时刻回调。由 WeaponAnimator 在动画配置比例点触发。
     /// v0.4.6 起伤害由 WeaponHitbox 全程检测结算；v0.6.3 起范围显示在 EnterRecovery 统一收起，
@@ -1000,7 +1103,7 @@ public class PlayerCombat : MonoBehaviour
     private void EnterRecovery()
     {
         subPhase = SubPhase.Recovery;
-        recoveryTimer = attackData.RecoveryTime / AttackSpeedMul();   // v0.7.5：后摇 ÷ 攻速倍率
+        recoveryTimer = attackData.RecoveryTime * (comboStepValid ? currentStep.recoveryMul : 1f) / AttackSpeedMul();
 
         // Active 结束即停挥，关闭武器检测（不能等到 Recovery 之后）
         weaponHitbox?.EndSwing();
@@ -1019,15 +1122,44 @@ public class PlayerCombat : MonoBehaviour
     private void UpdateRecovery()
     {
         recoveryTimer -= Time.deltaTime;
+
+        // v1.1.48 可取消后摇：后摇跑过段 cancelRatio 且有缓冲输入 → 立即接下一段（取消剩余后摇）
+        if (bufferedAttack && comboStepValid)
+        {
+            float total = attackData.RecoveryTime * currentStep.recoveryMul / AttackSpeedMul();
+            float progress = total > 0.001f ? 1f - Mathf.Max(recoveryTimer, 0f) / total : 1f;
+            if (progress >= currentStep.cancelRatio)
+            {
+                FinishStep(chainToNext: true);
+                return;
+            }
+        }
+
         if (recoveryTimer <= 0f)
         {
-            subPhase = SubPhase.None;
-            weaponAnimator?.Stop();
-            weaponController?.UnlockAttackDirection();
-            OnAttackEnd?.Invoke();
-
-            // v0.6.3：蓄力挥击结束，副本参数与宽度倍率还原基准值
-            RestoreMeleeChargeBase();
+            // 后摇自然结束：缓冲里还有输入（按在取消点之前）也直接接段——"输入被听见"的最后一环
+            FinishStep(chainToNext: bufferedAttack);
         }
+    }
+
+    /// <summary>
+    /// 一段结束（v1.1.48）：复位段状态；chainToNext=true 立即起下一段（环回），
+    /// false 完整收招并开启连段接受窗口（窗口内接下一段/超时归零，见 Update）。
+    /// </summary>
+    private void FinishStep(bool chainToNext)
+    {
+        subPhase = SubPhase.None;
+        weaponAnimator?.Stop();
+        weaponController?.UnlockAttackDirection();
+        RestoreMeleeChargeBase();
+
+        if (chainToNext)
+        {
+            StartWindup((comboIndex + 1) % comboSet.Length);   // bufferedAttack 在 StartWindup 内消费
+            return;
+        }
+
+        OnAttackEnd?.Invoke();
+        comboWindowTimer = MeleeComboTable.ComboWindow;
     }
 }

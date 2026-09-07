@@ -11,6 +11,15 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("将相机最终位置对齐到屏幕像素，防止 Tilemap 亚像素采样产生细缝")]
     [SerializeField] private bool snapToScreenPixels = true;
 
+    [Header("像素对齐（v1.1.49）")]
+    [Tooltip("正交尺寸自动换算为『每地皮纹素 = 整数屏幕像素』——非整数缩放比下砖缝随相机移动取舍闪烁的根治；关闭则用场景原值")]
+    [SerializeField] private bool pixelPerfectOrtho = true;
+    [Tooltip("主 Tilemap（地皮）的 PPU。ortho = 屏幕高 ÷ (2×PPU×n)，n 取最贴近原视野的整数档")]
+    [SerializeField] private float tilePPU = 144f;
+    /// <summary>Awake 记录的场景原正交值（换算尽量逼近的设计视野）。</summary>
+    private float designOrthoSize;
+    private int lastScreenHeight;
+
     [Header("屏幕震动（M1·v0.6.1）")]
     [Tooltip("外部震动强度的全局缩放，方便整体调手感")]
     [SerializeField] private float shakeScale = 1f;
@@ -27,10 +36,34 @@ public class CameraFollow : MonoBehaviour
     private void Awake()
     {
         attachedCamera = GetComponent<Camera>();
+        designOrthoSize = attachedCamera != null ? attachedCamera.orthographicSize : 5f;
+        ApplyPixelPerfectOrtho();
+    }
+
+    /// <summary>
+    /// v1.1.49 整纹素正交换算：ortho = Screen.height / (2×PPU×n)，n 自动取最贴近设计视野的整数档
+    ///（每纹素恰 n 屏幕像素 → 纹素边界恒落屏幕像素边界，移动采样零漂移——屏幕像素 snap 对
+    /// 非整数缩放比无效的根治）。例：1080p/PPU144 → n=1 时 ortho=3.75；1440p → ortho=5.0。
+    /// </summary>
+    private void ApplyPixelPerfectOrtho()
+    {
+        if (!pixelPerfectOrtho || attachedCamera == null || !attachedCamera.orthographic) return;
+        if (Screen.height <= 0) return;
+
+        float texelOnePixel = Screen.height / (2f * tilePPU);
+        int n = Mathf.Max(1, Mathf.RoundToInt(texelOnePixel / designOrthoSize));
+        attachedCamera.orthographicSize = texelOnePixel / n;
     }
 
     void LateUpdate()
     {
+        // 窗口分辨率变化时重算整纹素正交档（开销：一次 int 比较）
+        if (Screen.height != lastScreenHeight)
+        {
+            lastScreenHeight = Screen.height;
+            ApplyPixelPerfectOrtho();
+        }
+
         if (target == null) return;
 
         // 目标位置 = 战士位置 + 偏移（Z轴保持-10，确保相机在2D平面之上）
@@ -57,7 +90,74 @@ public class CameraFollow : MonoBehaviour
             }
         }
 
+        ClampToMapBounds();
         SnapCameraToScreenPixel();
+    }
+
+    // ========== 地图边界锁定（v1.1.50）==========
+    // 相机中心被钳制在「地图边界内缩半屏」矩形内：角色贴近地图边缘时相机钉在边界不动
+    //（屏幕边缘恰与地图边缘齐，不露虚空）；角色往回走、跟随目标回到钳制线内相机自然恢复——
+    // 即"角色回到相机中心线附近才再次跟随"的观感。地图某轴小于屏幕时该轴居中。
+
+    [Header("地图边界锁定（v1.1.50，Inspector 可调）")]
+    [Tooltip("钳制线在半屏基础上的额外水平余量（世界单位）：正 = 屏幕边离地图边更远（少露地图）；负 = 允许多露出地图外")]
+    [SerializeField] private float boundsMarginX = 0f;
+    [Tooltip("钳制线在半屏基础上的额外垂直余量（世界单位）：正 = 少露地图；负 = 多露地图外")]
+    [SerializeField] private float boundsMarginY = 0f;
+    [Tooltip("选中相机时在 Scene 视图画出地图边界（黄）与钳制线（红）辅助手动调节")]
+    [SerializeField] private bool drawBoundsGizmos = true;
+
+    private static Rect mapBounds;
+    private static bool hasMapBounds;
+
+    /// <summary>设置地图世界边界（DungeonBuilder.Build / PrepRoomManager.Start 调用）。</summary>
+    public static void SetMapBounds(Rect worldBounds)
+    {
+        mapBounds = worldBounds;
+        hasMapBounds = true;
+    }
+
+    /// <summary>清除边界锁定（场景卸载/无边界场景用）。</summary>
+    public static void ClearMapBounds() => hasMapBounds = false;
+
+    /// <summary>把当前相机位置钳制进边界（跟随与 SnapToTarget 共用）。</summary>
+    private void ClampToMapBounds()
+    {
+        if (!hasMapBounds || attachedCamera == null || !attachedCamera.orthographic) return;
+
+        float halfH = attachedCamera.orthographicSize;
+        float halfW = halfH * attachedCamera.aspect;
+        Vector3 p = transform.position;
+
+        p.x = ClampAxis(p.x, mapBounds.xMin, mapBounds.xMax, halfW + boundsMarginX);
+        p.y = ClampAxis(p.y, mapBounds.yMin, mapBounds.yMax, halfH + boundsMarginY);
+        transform.position = p;
+    }
+
+    /// <summary>单轴钳制：范围不足（含余量后地图小于屏幕）时取中点居中。</summary>
+    private static float ClampAxis(float v, float min, float max, float half)
+    {
+        float lo = min + half, hi = max - half;
+        if (lo > hi) return (min + max) * 0.5f;
+        return Mathf.Clamp(v, lo, hi);
+    }
+
+    /// <summary>选中相机时可视化：黄 = 地图边界，红 = 钳制线（相机中心活动范围）。</summary>
+    private void OnDrawGizmosSelected()
+    {
+        if (!drawBoundsGizmos || !hasMapBounds) return;
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireCube(mapBounds.center, new Vector3(mapBounds.width, mapBounds.height, 0f));
+
+        float halfH = attachedCamera != null && attachedCamera.orthographic
+            ? attachedCamera.orthographicSize + boundsMarginY : 5f;
+        float halfW = attachedCamera != null && attachedCamera.orthographic
+            ? attachedCamera.orthographicSize * attachedCamera.aspect + boundsMarginX : 8f;
+        float w = Mathf.Max(0f, mapBounds.width - halfW * 2f);
+        float h = Mathf.Max(0f, mapBounds.height - halfH * 2f);
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireCube(mapBounds.center, new Vector3(w, h, 0f));
     }
 
     private void SnapCameraToScreenPixel()
@@ -76,6 +176,7 @@ public class CameraFollow : MonoBehaviour
         if (target == null) return;
         transform.position = target.position + offset;
         currentVelocity = Vector3.zero;
+        ClampToMapBounds();
         // 切层/出生时不携带旧震动
         shakeTimeRemaining = 0f;
         shakeBaseIntensity = 0f;

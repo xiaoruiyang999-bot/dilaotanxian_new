@@ -29,6 +29,12 @@ public class PlayerMovement : MonoBehaviour
     // 冲刺抑制（v1.1.42 WerewolfDash）：冲刺期间本组件不写速度，由冲刺组件直写——单一写速者
     private bool suspended;
 
+    // 攻击踏步冲量（v1.1.48 连段）：持续期间在常规移速上叠加水平冲量并按剩余时间线性衰减
+    //（速度由本组件每帧覆写，外部直写 rb 会被覆盖——冲量必须走本组件的统一通道）
+    private Vector2 impulseVelocity;
+    private float impulseRemaining;
+    private float impulseDuration;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -53,12 +59,22 @@ public class PlayerMovement : MonoBehaviour
         if (chargeSlowing)
             speed *= chargeMoveSpeedMultiplier;
 
-        // Buff 移速倍率（v0.7.5：屹立不倒 +20% / 虚弱 −35%）；无 BuffManager / 无 buff 为 1，零行为差异
+        // Buff 移速倍率（v1.7.5 屹立不倒 +20% / 虚弱 −35%）；无 BuffManager / 无 buff 为 1，零行为差异
         if (buffManager == null) buffManager = GetComponent<BuffManager>();
         if (buffManager != null)
             speed *= buffManager.MoveSpeedMultiplier;
 
-        rb.linearVelocity = moveInput.normalized * speed;
+        Vector2 velocity = moveInput.normalized * speed;
+
+        // v1.1.48 攻击踏步：叠加冲量（按剩余时间线性衰减到 0；持续期通常 ~0.12s）
+        if (impulseRemaining > 0f)
+        {
+            impulseRemaining -= Time.fixedDeltaTime;
+            float decay = impulseDuration > 0f ? Mathf.Max(0f, impulseRemaining / impulseDuration) : 0f;
+            velocity += impulseVelocity * decay;
+        }
+
+        rb.linearVelocity = velocity;
     }
 
     // ========== 输入转发（PlayerController 调用）==========
@@ -77,6 +93,16 @@ public class PlayerMovement : MonoBehaviour
 
     /// <summary>冲刺抑制开关（v1.1.42 WerewolfDash 冲刺起止调用）。</summary>
     public void SetSuspended(bool on) => suspended = on;
+
+    /// <summary>攻击踏步冲量（v1.1.48 连段，PlayerCombat 在判定开始时调用）：
+    /// 在常规移速上叠加一个短促冲量并线性衰减（速度由本组件每帧统一写入，直写 rb 会被覆盖）。</summary>
+    public void AddImpulse(Vector2 velocity, float duration)
+    {
+        if (velocity.sqrMagnitude <= 0.001f || duration <= 0f) return;
+        impulseVelocity = velocity;
+        impulseDuration = duration;
+        impulseRemaining = duration;
+    }
 
     /// <summary>立即停止所有移动（供死亡/失活/Respawn 调用）。</summary>
     public void StopImmediately()

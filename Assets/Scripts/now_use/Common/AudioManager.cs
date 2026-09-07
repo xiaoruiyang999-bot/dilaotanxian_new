@@ -63,6 +63,7 @@ public class AudioManager : MonoBehaviour
         bgmSource = gameObject.AddComponent<AudioSource>();
         bgmSource.playOnAwake = false;
         bgmSource.loop = true;
+        bgmSource.clip = bgm;   // v1.1.48 根修：此前漏赋值——clip 为空时 Play() 静默空操作，BGM 从不自动播（需手动挂 clip 才响）
         bgmSource.volume = PlayerPrefs.GetFloat("bgm_volume", bgmVolume);
         sfxMasterVolume = PlayerPrefs.GetFloat("sfx_volume", sfxMasterVolume);
     }

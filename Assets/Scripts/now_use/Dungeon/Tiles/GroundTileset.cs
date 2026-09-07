@@ -18,6 +18,11 @@ public class GroundTileset
 
     private static GroundTileset cached;
 
+    /// <summary>静态缓存失效（v1.1.49）：域重载关闭（Fast Enter Play）时 static 跨 Play 残留旧 Sprite 池——
+    /// 素材增删/替换后重进 Play 仍用旧池的根因。SubsystemRegistration 在每次进 Play 前必跑。</summary>
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetCache() => cached = null;
+
     /// <summary>加载并缓存素材库；素材缺失（池不满）返回 null，调用方回退平色地板。</summary>
     public static GroundTileset Load()
     {

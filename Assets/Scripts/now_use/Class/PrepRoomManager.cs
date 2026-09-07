@@ -62,6 +62,10 @@ public class PrepRoomManager : MonoBehaviour
         else if (last == null)
             ClassSelectUI.Open();
 
+        // v1.1.50 相机边界锁定：准备室围墙外沿即地图边界（墙厚 0.5，BuildRoom 同参数）
+        CameraFollow.SetMapBounds(new Rect(
+            -roomSize.x * 0.5f - 0.5f, -roomSize.y * 0.5f - 0.5f, roomSize.x + 1f, roomSize.y + 1f));
+
         // v1.0.6 角色外形：准备房间也同步应用（选择页即时改外形，回看玩家已是新视觉）
         if (RunStateCarrier.Ensure().ChosenCharacter == CharacterSkin.Werewolf && p != null)
         {

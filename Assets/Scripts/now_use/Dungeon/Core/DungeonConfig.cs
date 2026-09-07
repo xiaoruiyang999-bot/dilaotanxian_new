@@ -35,7 +35,7 @@ public class DungeonConfig : ScriptableObject
     public int bossMinDistance = 3;
 
     [Header("房间尺寸（v0.5.3.1 启用）")]
-    [Tooltip("Boss 房占 N×N 个粗格（2 = 2×2，尽力满足，失败回退 1×1）")]
+    [Tooltip("Boss 房占 N×N 个粗格（2 = 2×2）；生成器为固定仪式厅预留完整方形空间，不允许缩小回退")]
     public int bossCellSpan = 2;
     [Tooltip("Elite 房占 N×1 或 1×N 个粗格（尽力满足，失败回退 1×1）")]
     public int eliteCellSpan = 2;

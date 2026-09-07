@@ -10,7 +10,8 @@ public static class EnemySpawner
 {
     /// <summary>按权重表在房间内随机放敌人。v0.5.4：floorNumber&gt;1 时注入楼层难度
     ///（数量 +enemyCountBonusPerFloor×(floor-1) 封顶 8，HP ×(1+hpMultiplierPerFloor×(floor-1))）。</summary>
-    public static void Spawn(Room room, SpawnTable table, System.Random rng, int floorNumber = 1, DungeonConfig config = null)
+    public static void Spawn(Room room, SpawnTable table, System.Random rng, int floorNumber = 1,
+        DungeonConfig config = null, IReadOnlyList<Vector3> fixedPositions = null)
     {
         if (room == null || table == null) return;
 
@@ -43,16 +44,23 @@ public static class EnemySpawner
             }
         }
 
-        // 洗牌（房间子 seed），避免保底条目固定占据生成顺序前部
-        for (int i = picks.Count - 1; i > 0; i--)
+        // 普通房洗牌，避免保底条目固定占据生成顺序前部；固定 Boss 厅则保留表顺序，
+        // 让 mandatory Boss 始终消费第 0 个中央法阵插槽。
+        for (int i = fixedPositions == null ? picks.Count - 1 : 0; i > 0; i--)
         {
             int j = rng.Next(i + 1);
             (picks[i], picks[j]) = (picks[j], picks[i]);
         }
 
-        for (int i = 0; i < picks.Count; i++)
+        int spawnCount = fixedPositions != null ? Mathf.Min(picks.Count, fixedPositions.Count) : picks.Count;
+        if (fixedPositions != null && spawnCount < picks.Count)
+            Debug.LogWarning($"[EnemySpawner] 固定插槽仅 {fixedPositions.Count} 个，已截断 {picks.Count - spawnCount} 个敌人。");
+
+        for (int i = 0; i < spawnCount; i++)
         {
-            if (!SpawnPositionHelper.TryFind(room, rng, out Vector3 pos)) continue;
+            Vector3 pos;
+            if (fixedPositions != null) pos = fixedPositions[i];
+            else if (!SpawnPositionHelper.TryFind(room, rng, out pos)) continue;
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";

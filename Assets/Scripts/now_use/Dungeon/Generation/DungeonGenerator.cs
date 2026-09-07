@@ -27,11 +27,16 @@ public static class DungeonGenerator
                 var typeRng = new System.Random(seed * 31 + 7);
                 RoomTypeAssigner.Assign(layout, config, typeRng);
                 RoomSizeExpander.Expand(layout, config, typeRng);
-                return layout;
+                // v1.1.51 固定仪式厅必须是单入口叶子且完整 N×N；不允许退成小房后破坏构图。
+                int requiredBossSpan = Mathf.Max(1, config.bossCellSpan);
+                if (layout.bossRoom.IsLeaf
+                    && layout.bossRoom.spanX == requiredBossSpan
+                    && layout.bossRoom.spanY == requiredBossSpan)
+                    return layout;
             }
         }
-        Debug.LogError($"[Dungeon] Generator 50 次重roll仍失败 (seed={seed})，按下限房间数保底");
-        DungeonLayout fallback = TryGrow(config, rng, config.roomCountMin, seed);
+        Debug.LogError($"[Dungeon] Generator 50 次重roll仍未找到完整单入口 Boss 厅 (seed={seed})，使用确定性直线保底图");
+        DungeonLayout fallback = BuildLinearFallback(config, seed);
         var fallbackTypeRng = new System.Random(seed * 31 + 7);
         RoomTypeAssigner.Assign(fallback, config, fallbackTypeRng);
         RoomSizeExpander.Expand(fallback, config, fallbackTypeRng);
@@ -84,7 +89,9 @@ public static class DungeonGenerator
         if (layout.rooms.Count < config.roomCountMin) return null; // 触发重roll
 
         ComputeDistancesFromStart(layout);
-        layout.bossRoom = SelectBossRoom(layout);
+        layout.bossRoom = SelectBossRoom(layout, Mathf.Max(1, config.bossCellSpan),
+            Mathf.Max(0, config.bossMinDistance));
+        if (layout.bossRoom == null) return null;   // 没有可扩成固定单入口厅的节点，整图重 roll
         layout.bossRoom.type = RoomType.Boss;
         return layout;
     }
@@ -121,20 +128,70 @@ public static class DungeonGenerator
     }
 
     /// <summary>
-    /// Boss 房 = BFS 距离最远的房间，并列时叶子房优先。
-    /// 全局最远即「尽力满足 bossMinDistance」：若最远房都不达标，则不存在达标房间。
+    /// Boss 房 = 达到最小距离且能预留完整 N×N 区域的最远叶子房。
+    /// 若本次图没有合格节点则整图重 roll；极端情况下由直线保底图满足可满足的最小距离。
     /// </summary>
-    private static RoomNode SelectBossRoom(DungeonLayout layout)
+    private static RoomNode SelectBossRoom(DungeonLayout layout, int requiredSpan, int minimumDistance)
     {
+        var occupied = new HashSet<Vector2Int>();
+        foreach (RoomNode room in layout.rooms) occupied.Add(room.gridPos);
+
         RoomNode best = null;
         foreach (RoomNode r in layout.rooms)
         {
-            if (r == layout.startRoom) continue;
-            if (best == null
-                || r.distanceFromStart > best.distanceFromStart
-                || (r.distanceFromStart == best.distanceFromStart && r.IsLeaf && !best.IsLeaf))
+            if (r == layout.startRoom || !r.IsLeaf || r.distanceFromStart < minimumDistance
+                || !CanReserveBossSquare(r, requiredSpan, occupied)) continue;
+            if (best == null || r.distanceFromStart > best.distanceFromStart)
                 best = r;
         }
         return best;
+    }
+
+    /// <summary>与 RoomSizeExpander 的四角扩张口径一致；此时所有房仍是 1×1。</summary>
+    private static bool CanReserveBossSquare(RoomNode room, int span, HashSet<Vector2Int> occupied)
+    {
+        if (!BossRitualRoomTemplate.TryGetCoarseAnchor(room, span, out Vector2Int anchor)) return false;
+        for (int x = 0; x < span; x++)
+            for (int y = 0; y < span; y++)
+            {
+                Vector2Int cell = anchor + new Vector2Int(x, y);
+                if (cell != room.gridPos && occupied.Contains(cell)) return false;
+            }
+        return true;
+    }
+
+    /// <summary>
+    /// 极端配置/随机流保底：直线图最后一个节点天然为叶子，向外侧必有完整 N×N 空间。
+    /// 仍经过统一类型分配与尺寸扩展，不引入第二套运行时构建路径。
+    /// </summary>
+    private static DungeonLayout BuildLinearFallback(DungeonConfig config, int seed)
+    {
+        int count = Mathf.Max(2, config.roomCountMin);
+        var layout = new DungeonLayout { seed = seed };
+        RoomNode previous = null;
+        for (int i = 0; i < count; i++)
+        {
+            var room = new RoomNode
+            {
+                id = i,
+                gridPos = new Vector2Int(0, i),
+                type = i == 0 ? RoomType.Start : RoomType.Combat,
+            };
+            layout.rooms.Add(room);
+            if (previous != null)
+            {
+                var connection = new RoomConnection(previous, room);
+                layout.connections.Add(connection);
+                previous.connections.Add(connection);
+                room.connections.Add(connection);
+            }
+            previous = room;
+        }
+
+        layout.startRoom = layout.rooms[0];
+        layout.bossRoom = layout.rooms[layout.rooms.Count - 1];
+        layout.bossRoom.type = RoomType.Boss;
+        ComputeDistancesFromStart(layout);
+        return layout;
     }
 }

@@ -28,6 +28,8 @@ public class DungeonGeneratorTests
         {
             Assert.AreEqual(a.rooms[i].gridPos, b.rooms[i].gridPos, $"房间 {i} 网格坐标应一致");
             Assert.AreEqual(a.rooms[i].type, b.rooms[i].type, $"房间 {i} 类型应一致");
+            Assert.AreEqual(a.rooms[i].spanX, b.rooms[i].spanX, $"房间 {i} 横向尺寸应一致");
+            Assert.AreEqual(a.rooms[i].spanY, b.rooms[i].spanY, $"房间 {i} 纵向尺寸应一致");
         }
     }
 
@@ -92,5 +94,38 @@ public class DungeonGeneratorTests
         Debug.Log($"[CombatSpan] Combat 房 {combatTotal} 个：扩成 ≥2×1 = {expanded}（{expandRate:P0}，其中 2×2 = {square}）");
         Assert.That(expandRate, Is.GreaterThanOrEqualTo(0.8f),
             $"战斗房 ≥2 倍面积达成率仅 {expandRate:P0}（目标 ≥80%）");
+    }
+
+    /// <summary>v1.1.51：固定仪式厅只允许一个真实入口，并保证配置要求的完整方形占地。</summary>
+    [Test]
+    public void BossRoom_IsAlwaysLeafAndFullConfiguredSquare()
+    {
+        DungeonConfig config = MakeConfig();
+        var rng = new System.Random(20260907);
+        for (int i = 0; i < 200; i++)
+        {
+            int seed = rng.Next();
+            DungeonLayout layout = DungeonGenerator.Generate(config, seed);
+            Assert.That(layout.bossRoom, Is.Not.Null, $"seed={seed} 缺 Boss 房");
+            Assert.That(layout.bossRoom.IsLeaf, Is.True, $"seed={seed} Boss 房不是单入口叶子");
+            Assert.That(layout.bossRoom.spanX, Is.EqualTo(config.bossCellSpan),
+                $"seed={seed} Boss 房横向尺寸回退");
+            Assert.That(layout.bossRoom.spanY, Is.EqualTo(config.bossCellSpan),
+                $"seed={seed} Boss 房纵向尺寸回退");
+            Assert.That(layout.bossRoom.distanceFromStart,
+                Is.GreaterThanOrEqualTo(Mathf.Min(config.bossMinDistance, layout.rooms.Count - 1)),
+                $"seed={seed} Boss 房距离不足");
+
+            RoomConnection entrance = layout.bossRoom.connections[0];
+            Vector2Int bossOriginal = entrance.OriginalGridPos(layout.bossRoom);
+            Vector2Int neighborOriginal = entrance.OriginalGridPos(entrance.Other(layout.bossRoom));
+            Assert.That(neighborOriginal.x, Is.EqualTo(bossOriginal.x),
+                $"seed={seed} 非方形固定厅不允许东西入口");
+            Vector2Int expectedAnchor = neighborOriginal.y < bossOriginal.y
+                ? bossOriginal
+                : bossOriginal - new Vector2Int(config.bossCellSpan - 1, config.bossCellSpan - 1);
+            Assert.That(layout.bossRoom.gridPos, Is.EqualTo(expectedAnchor),
+                $"seed={seed} Boss 扩格锚点不固定");
+        }
     }
 }

@@ -66,6 +66,11 @@ public class DungeonBuilder : MonoBehaviour
     private readonly Dictionary<int, HashSet<Vector2Int>> roomSkeletons = new Dictionary<int, HashSet<Vector2Int>>();
     // v1.1.46 最终布局的内容生成白名单：防止敌人/奖励/装饰刷进挖除空洞或房内墙。
     private readonly Dictionary<int, List<Vector2Int>> roomSpawnCells = new Dictionary<int, List<Vector2Int>>();
+    // v1.1.51 固定 Boss 仪式厅：地图 seed 只决定房间位置/入口朝向，房内地板、墙变体与内容不随机。
+    private readonly HashSet<Vector2Int> fixedBossGroundCells = new HashSet<Vector2Int>();
+    private readonly Dictionary<Vector2Int, int> fixedBossWallVariants = new Dictionary<Vector2Int, int>();
+    private readonly Dictionary<int, BossRitualRoomLayout> bossRitualLayouts =
+        new Dictionary<int, BossRitualRoomLayout>();
 
     public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
@@ -151,6 +156,19 @@ public class DungeonBuilder : MonoBehaviour
         // v0.5.2：内容生成放在最后——位置规则要读门洞中心（门已建）、敌人登记要 Room 已 Init。
         foreach (RoomNode node in layout.rooms) SpawnContent(node, layoutSeed, config, floorNumber);
 
+        // v1.1.50 相机边界锁定：整层地图包围盒（含外墙）→ 相机中心钳制在内缩半屏矩形，
+        // 角色贴近地图边缘时相机钉住不露虚空（CameraFollow.ClampToMapBounds）
+        {
+            int minX = int.MaxValue, minY = int.MaxValue, maxX = int.MinValue, maxY = int.MinValue;
+            foreach (RoomNode node in layout.rooms)
+            {
+                RectInt r = TileRect(node);
+                minX = Mathf.Min(minX, r.xMin); minY = Mathf.Min(minY, r.yMin);
+                maxX = Mathf.Max(maxX, r.xMax); maxY = Mathf.Max(maxY, r.yMax);
+            }
+            CameraFollow.SetMapBounds(new Rect(minX, minY, maxX - minX, maxY - minY));
+        }
+
         return GetRoomCenterWorld(layout.startRoom);
     }
 
@@ -158,9 +176,24 @@ public class DungeonBuilder : MonoBehaviour
     /// v0.5.4：floorNumber 透传 EnemySpawner 做楼层难度注入。</summary>
     private void SpawnContent(RoomNode node, int layoutSeed, DungeonConfig config, int floorNumber)
     {
-        RoomContentProfile profile = GetTypeConfig(node.type)?.contentProfile;
-        if (profile == null) return;
         if (!rooms.TryGetValue(node.id, out Room room)) return;
+        RoomContentProfile profile = GetTypeConfig(node.type)?.contentProfile;
+
+        // 固定 Boss 厅先搭表现，再按固定插槽生成敌人；普通随机装饰器全部旁路。
+        // 即使 Boss Profile 暂时断链，占位房间仍会完整出现，便于美术补素材。
+        if (node.type == RoomType.Boss
+            && bossRitualLayouts.TryGetValue(node.id, out BossRitualRoomLayout bossLayout))
+        {
+            IReadOnlyList<Vector3> fixedPositions = BossRitualRoomDecorator.Build(room, bossLayout);
+            if (profile != null)
+            {
+                var bossRng = new System.Random(BossRitualRoomTemplate.ContentSeed);
+                EnemySpawner.Spawn(room, profile.enemyTable, bossRng, floorNumber, config, fixedPositions);
+            }
+            return;
+        }
+
+        if (profile == null) return;
 
         var rng = new System.Random(layoutSeed * 7919 + node.id);
         EnemySpawner.Spawn(room, profile.enemyTable, rng, floorNumber, config);
@@ -199,6 +232,9 @@ public class DungeonBuilder : MonoBehaviour
         skeletonCells.Clear();
         roomSkeletons.Clear();
         roomSpawnCells.Clear();
+        fixedBossGroundCells.Clear();
+        fixedBossWallVariants.Clear();
+        bossRitualLayouts.Clear();
         rooms.Clear();
         for (int i = dungeonRoot.childCount - 1; i >= 0; i--)
         {
@@ -259,15 +295,24 @@ public class DungeonBuilder : MonoBehaviour
             for (int x = rect.xMin; x <= rect.xMax; x++) SetWallTile(new Vector3Int(x, rect.yMax, 0));
 
         // ---------- v1.1.31 五职责塑形管线：房形→轮廓墙→障碍→验证（失败同 RNG 重试，保底整房） ----------
-        // Start（出生/传送落点安全）与 Boss（竞技场可读性）保持完整矩形
+        // Start 保持空矩形；Boss 走不消费随机数的固定仪式厅模板；其余房间随机塑形。
         RectInt interiorRect = new RectInt(rect.xMin + 1, rect.yMin + 1, rect.width - 1, rect.height - 1);
-        RoomPlan plan = RoomPlan.Plain(interiorRect);
-        if (node.type != RoomType.Start && node.type != RoomType.Boss)
+        doorCellsByRoom.TryGetValue(node.id, out List<Vector2Int> doorCells);
+        RoomPlan plan;
+        if (node.type == RoomType.Boss)
+        {
+            BossRitualRoomLayout bossLayout = BossRitualRoomTemplate.Build(interiorRect, doorCells);
+            bossRitualLayouts[node.id] = bossLayout;
+            plan = bossLayout.Plan;
+            if (doorCells != null)
+                foreach (Vector2Int doorCell in doorCells) fixedBossGroundCells.Add(doorCell);
+        }
+        else if (node.type != RoomType.Start)
         {
             var rng = new System.Random(layoutSeedCache * 31 + node.id * 911);
-            doorCellsByRoom.TryGetValue(node.id, out List<Vector2Int> doorCells);
             plan = RoomPlanner.CreatePlan(interiorRect, doorCells, rng);
         }
+        else plan = RoomPlan.Plain(interiorRect);
         foreach (var sk in plan.Skeleton) skeletonCells.Add(sk);   // v1.1.41 地皮融入：骨架合集
         roomSkeletons[node.id] = plan.Skeleton;   // v1.1.44 大石块避让用
         roomSpawnCells[node.id] = new List<Vector2Int>(plan.SpawnCells);
@@ -288,6 +333,7 @@ public class DungeonBuilder : MonoBehaviour
                 }
                 else if (plan.IsWalkable(cell))
                 {
+                    if (node.type == RoomType.Boss) fixedBossGroundCells.Add(cell);
                     if (terrainMask != null) groundCells.Add(cell);
                     else
                     {
@@ -305,6 +351,23 @@ public class DungeonBuilder : MonoBehaviour
                 }
             }
         }
+        if (node.type == RoomType.Boss) MarkFixedBossWallVariants(rect);
+    }
+
+    /// <summary>
+    /// 固定厅的墙引用只由房内局部格决定，不读取地图 seed 或世界坐标；门洞稍后移除，多登记无副作用。
+    /// </summary>
+    private void MarkFixedBossWallVariants(RectInt rect)
+    {
+        for (int y = rect.yMin; y <= rect.yMax; y++)
+            for (int x = rect.xMin; x <= rect.xMax; x++)
+            {
+                if (wallsTilemap.GetTile(new Vector3Int(x, y, 0)) == null) continue;
+                int lx = x - rect.xMin;
+                int ly = y - rect.yMin;
+                fixedBossWallVariants[new Vector2Int(x, y)] =
+                    unchecked(lx * 73856093 ^ ly * 19349663 ^ 0x0B055A11);
+            }
     }
 
     /// <summary>东向是否有邻房占格（占用集按各房 span 覆盖的粗格判定）。</summary>
@@ -362,10 +425,12 @@ public class DungeonBuilder : MonoBehaviour
 
                 bool vertical = wallsTilemap.GetTile(new Vector3Int(x, y + 1, 0)) != null
                              || wallsTilemap.GetTile(new Vector3Int(x, y - 1, 0)) != null;
+                int horizontalVariant = fixedBossWallVariants.TryGetValue(new Vector2Int(x, y), out int fixedVariant)
+                    ? fixedVariant
+                    : Mathf.FloorToInt(TerrainMask.Hash01(x, y, layoutSeedCache ^ 0xA11) * 1024f);
                 Tile t = vertical
                     ? WallPropTileset.GetVertical()
-                    : WallPropTileset.GetHorizontal(
-                        Mathf.FloorToInt(TerrainMask.Hash01(x, y, layoutSeedCache ^ 0xA11) * 1024f));
+                    : WallPropTileset.GetHorizontal(horizontalVariant);
                 wallsTilemap.SetTile(pos, t != null ? (TileBase)t : wallTile);
             }
     }
@@ -374,7 +439,11 @@ public class DungeonBuilder : MonoBehaviour
     /// 单列打穿；门洞在两房内部重叠段居中。返回 null = 非相邻（生成器数据错误，Validate 自检拦截）。</summary>
     private Rect? ComputeDoorRect(RoomConnection conn)
     {
-        RectInt ra = TileRect(conn.a), rb = TileRect(conn.b);
+        // 固定 Boss 厅的门必须落在建立连接时的那一格上；相邻 Combat 后续扩成大房也不能
+        // 把门洞重新居中到更长重叠边，否则同一仪式厅会出现左右漂移。
+        bool fixedBossDoor = conn.a.type == RoomType.Boss || conn.b.type == RoomType.Boss;
+        RectInt ra = fixedBossDoor ? OriginalCellTileRect(conn.OriginalGridPos(conn.a)) : TileRect(conn.a);
+        RectInt rb = fixedBossDoor ? OriginalCellTileRect(conn.OriginalGridPos(conn.b)) : TileRect(conn.b);
 
         if (rb.xMin >= ra.xMax || rb.xMax <= ra.xMin) // 东西向：打穿共享墙列（西侧房的外沿列）
         {
@@ -396,6 +465,9 @@ public class DungeonBuilder : MonoBehaviour
         }
         return null;
     }
+
+    private RectInt OriginalCellTileRect(Vector2Int gridPos)
+        => new RectInt(gridPos.x * CellWidth, gridPos.y * CellHeight, CellWidth, CellHeight);
 
     /// <summary>按门洞矩形开洞（v1.1.22 自 CarveDoor 拆出）：两侧墙线打穿 + 铺地板/登记地面格。</summary>
     private void OpenDoor(Rect doorRect)
@@ -438,7 +510,14 @@ public class DungeonBuilder : MonoBehaviour
         foreach (Vector2Int cell in groundCells)
         {
             var pos = new Vector3Int(cell.x, cell.y, 0);
-            TerrainPainter.PaintCell(floorTilemap, pos, terrainMask, groundTileset, terrainDecoSeed);
+            if (fixedBossGroundCells.Contains(cell))
+            {
+                // 仪式厅统一使用暗石主底图第 0 张；房间换位置时不随世界噪声改变。
+                TileBase fixedTile = groundTileset.GetTile("dirt_base", 0);
+                floorTilemap.SetTile(pos, fixedTile != null ? fixedTile : floorTile);
+                floorTilemap.SetColor(pos, Color.white);
+            }
+            else TerrainPainter.PaintCell(floorTilemap, pos, terrainMask, groundTileset, terrainDecoSeed);
         }
     }
     // ---------- Room / Door 实例化 ----------

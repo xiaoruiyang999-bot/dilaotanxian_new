@@ -26,10 +26,20 @@ public class RoomNode
 public class RoomConnection
 {
     public RoomNode a, b;
+    // 尺寸扩展会改 RoomNode.gridPos；门洞仍需知道建立连接时真正相邻的两个粗格。
+    public readonly Vector2Int aOriginalGridPos, bOriginalGridPos;
 
-    public RoomConnection(RoomNode a, RoomNode b) { this.a = a; this.b = b; }
+    public RoomConnection(RoomNode a, RoomNode b)
+    {
+        this.a = a;
+        this.b = b;
+        aOriginalGridPos = a.gridPos;
+        bOriginalGridPos = b.gridPos;
+    }
 
     public RoomNode Other(RoomNode self) => self == a ? b : a;
+    public Vector2Int OriginalGridPos(RoomNode room)
+        => room == a ? aOriginalGridPos : bOriginalGridPos;
 }
 
 /// <summary>

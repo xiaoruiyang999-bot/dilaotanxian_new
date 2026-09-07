@@ -15,7 +15,10 @@ public class PlayerController : MonoBehaviour
     private PlayerCombat combat;
     private WerewolfDash werewolfDash;   // v1.1.42 狼人冲刺（选择狼人时 EnsureOn 装上）
     // 最近非零移动方向：无输入冲刺时的兜底朝向（MCP 同款）
+    // v1.1.48 失落城堡式：只保留左右水平朝向（±1,0），攻击/技能/冲刺全部消费
     private Vector2 facingDirection = Vector2.right;
+    /// <summary>水平朝向（v1.1.48 公开只读：±1,0）——近战攻击带方向/踏步方向消费。</summary>
+    public Vector2 FacingDirection => facingDirection;
     private PlayerMovement movement;
     private PlayerInteractor interactor;
     private PlayerInput playerInput;
@@ -110,7 +113,10 @@ public class PlayerController : MonoBehaviour
         if (actionName == "Move")
         {
             moveInput = context.ReadValue<Vector2>();
-            if (moveInput.sqrMagnitude > 0.01f) facingDirection = moveInput.normalized;
+            // v1.1.48 失落城堡式朝向：只保留左右（上下移动只负责对齐纵深站位）。
+            // 有水平输入时更新朝向符号，纯竖直输入/静止时保持上次朝向——技能/冲刺/攻击全部消费此水平朝向。
+            if (Mathf.Abs(moveInput.x) > 0.01f)
+                facingDirection = new Vector2(Mathf.Sign(moveInput.x), 0f);
             movement.SetMoveInput(moveInput);
         }
         else if (actionName == "Attack")
