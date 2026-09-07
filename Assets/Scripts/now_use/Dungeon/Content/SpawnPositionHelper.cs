@@ -65,6 +65,17 @@ public static class SpawnPositionHelper
     private static float SignedJitter(System.Random rng)
         => ((float)rng.NextDouble() * 2f - 1f) * CellJitter;
 
+    /// <summary>
+    /// 固定插槽位置复核（v1.1.51 Boss 仪式厅奖励插槽）：位置由模板给定（不做随机重试），
+    /// 只验证 点在房内 + 与 TryFind 同口径的 NonAlloc 实体占用检测（无墙/敌人/障碍碰撞）。
+    /// </summary>
+    public static bool IsFixedPositionClear(Room room, Vector3 pos)
+    {
+        if (room == null || !room.Bounds.Contains(pos)) return false;
+        var filter = new ContactFilter2D { layerMask = SolidMask, useLayerMask = true, useTriggers = false };
+        return Physics2D.OverlapCircle(pos, OverlapRadius, filter, overlapBuffer) == 0;
+    }
+
     private static bool FarFromDoors(Room room, Vector3 pos)
     {
         foreach (Door d in room.Doors)

@@ -86,14 +86,14 @@ public class EnemyAITests
     [Test]
     public void Chase_PlayerOutOfRange_ReturnToPatrol()
     {
-        float losePlayerRange = 8f;
-        float distToTarget = 10f;
-        EnemyAI.State currentState = EnemyAI.State.Chase;
-
-        if (distToTarget > losePlayerRange * 1.5f && currentState == EnemyAI.State.Chase)
-            currentState = EnemyAI.State.ReturnToPatrol;
-
-        Assert.AreEqual(EnemyAI.State.ReturnToPatrol, currentState);
+        // v1.1.51.1：改为消费 EnemyAI 真契约——距离弃追线 = 探测范围 × AbandonChaseRangeMul，
+        // 超线弃追回巡逻位（原稿是自包含伪代码且数字恒假，永红不验证任何产品行为）
+        float detectionRange = 5f;
+        Assert.IsTrue(EnemyAI.ShouldAbandonChase(
+            detectionRange * EnemyAI.AbandonChaseRangeMul + 1f, detectionRange), "超出弃追线应放弃追击");
+        Assert.IsFalse(EnemyAI.ShouldAbandonChase(
+            detectionRange * EnemyAI.AbandonChaseRangeMul - 1f, detectionRange), "线内应继续追击");
+        Assert.IsFalse(EnemyAI.ShouldAbandonChase(999f, 0f), "无探测范围（未初始化）不判弃追");
     }
 
     // ========== 攻击逻辑测试 ==========

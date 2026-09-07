@@ -82,3 +82,6 @@ crashlytics-build.properties
 # RoomSkeletonSim 离线仿真构建产物
 Tools/RoomSkeletonSim/bin/
 Tools/RoomSkeletonSim/obj/
+
+# YAML/素材手术临时备份
+_backup/

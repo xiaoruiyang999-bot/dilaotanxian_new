@@ -13,6 +13,14 @@ public class EnemyAI : MonoBehaviour
 {
     public enum State { Patrol, Chase, Attack, ReturnToPatrol }
 
+    /// <summary>距离弃追倍数（v1.1.51.1）：目标距离 &gt; 探测范围×此值 → 放弃追击回巡逻位。
+    /// 取 4 倍保证战斗房内（关门战）永不误触，只有玩家跨房远逃才脱战——与 LOS 丢失掷骰（ChasePrelude）互补。</summary>
+    public const float AbandonChaseRangeMul = 4f;
+
+    /// <summary>距离弃追判定（纯函数，EnemyAITests 消费真契约）：超出弃追线返回 true。</summary>
+    public static bool ShouldAbandonChase(float distToTarget, float detectionRange)
+        => detectionRange > 0f && distToTarget > detectionRange * AbandonChaseRangeMul;
+
     [Header("AI配置")]
     [SerializeField] private float patrolRadius = 2f;
     [SerializeField] private float patrolWaitTime = 2f;
@@ -333,6 +341,13 @@ public class EnemyAI : MonoBehaviour
     {
         ChasePrelude(distToTarget);   // v1.1.32 视觉判定 + 丢失弃目标（状态可能已切走）
         if (currentState != State.Chase) return;
+
+        // v1.1.51.1 距离弃追：目标远逃脱战（跨房逃跑），敌人返回巡逻位——防无限追击
+        if (ShouldAbandonChase(distToTarget, stats != null ? stats.DetectionRange : 0f))
+        {
+            ChangeState(State.ReturnToPatrol);
+            return;
+        }
 
         switch (Behavior)
         {
