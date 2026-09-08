@@ -8,6 +8,7 @@ using UnityEngine;
 public static class BossRitualRoomDecorator
 {
     private const string SpecialRoot = "Art/SpecialRooms/BossRitual/";
+    public const float RewardMinSeparation = 2.75f;
     private const string WallPropsRoot = "Art/Decor/WallProps/";
     private const string StonesRoot = "Art/Decor/Stones/";
     private const string BarrelsRoot = "Art/Decor/Barrels/";
@@ -95,7 +96,7 @@ public static class BossRitualRoomDecorator
     private static void BuildAltar(Transform root, Room room, BossRitualRoomLayout layout)
     {
         float k = layout.RitualDiameter;
-        // 正立像素材保持屏幕朝上；当前生成器只允许南/北入口，因此宽轴始终是世界 X。
+        // 正立像素材保持屏幕朝上；正式生成器固定南入口，因此宽轴始终是世界 X。
         float rotation = 0f;
         Transform stairsSlot = CreateSlot(root, "ART_SLOT_Stairs", room, layout.Point(0f, 0.77f));
         Sprite stairs = Resources.Load<Sprite>(SpecialRoot + "stairs");
@@ -250,7 +251,8 @@ public static class BossRitualRoomDecorator
     }
 
     /// <summary>按固定优先级取首个通过 SpawnCells 来源 + NonAlloc 物理复核的奖励插槽。</summary>
-    public static bool TryGetRewardSocket(Room room, bool portal, out Vector3 position)
+    public static bool TryGetRewardSocket(Room room, bool portal, out Vector3 position,
+        Vector3? reservedPosition = null, bool requirePhysicalClear = true)
     {
         position = default;
         if (room == null || room.ContentRoot == null) return false;
@@ -260,7 +262,10 @@ public static class BossRitualRoomDecorator
             Transform socket = room.ContentRoot.Find($"BossRitualRoom_Fixed/RewardSockets/{prefix}{i}");
             if (socket == null) continue;
             Vector3 candidate = socket.position;
-            if (!SpawnPositionHelper.IsFixedPositionClear(room, candidate)) continue;
+            if (reservedPosition.HasValue
+                && Vector3.Distance(candidate, reservedPosition.Value) < RewardMinSeparation) continue;
+            if (requirePhysicalClear
+                && !SpawnPositionHelper.IsFixedPositionClear(room, candidate)) continue;
             position = candidate;
             return true;
         }

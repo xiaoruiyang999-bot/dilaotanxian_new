@@ -16,7 +16,12 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] private bool pixelPerfectOrtho = true;
     [Tooltip("主 Tilemap（地皮）的 PPU。ortho = 屏幕高 ÷ (2×PPU×n)，n 取最贴近原视野的整数档")]
     [SerializeField] private float tilePPU = 144f;
-    /// <summary>Awake 记录的场景原正交值（换算尽量逼近的设计视野）。</summary>
+    [Tooltip("目标视野（正交尺寸，越大看得越多；0 = 沿用相机在场景里的初始值）。整纹素档自动向它逼近——注意 1080p 下最大档约 3.75，想更远需开下方亚像素开关")]
+    [SerializeField] private float targetOrthoSize = 0f;
+    [Tooltip("允许视野超过整纹素最大档（纹理小于屏幕像素：轻微画质损失/可能轻闪）——需要看得更远时自担代价打开")]
+    [SerializeField] private bool allowSubPixelZoom = false;
+
+    /// <summary>Awake 记录的场景原正交值（targetOrthoSize=0 时的设计视野回退）。</summary>
     private float designOrthoSize;
     private int lastScreenHeight;
 
@@ -41,17 +46,26 @@ public class CameraFollow : MonoBehaviour
     }
 
     /// <summary>
-    /// v1.1.49 整纹素正交换算：ortho = Screen.height / (2×PPU×n)，n 自动取最贴近设计视野的整数档
-    ///（每纹素恰 n 屏幕像素 → 纹素边界恒落屏幕像素边界，移动采样零漂移——屏幕像素 snap 对
-    /// 非整数缩放比无效的根治）。例：1080p/PPU144 → n=1 时 ortho=3.75；1440p → ortho=5.0。
+    /// v1.1.49 整纹素正交换算：ortho = Screen.height / (2×PPU×n)，n 自动取最贴近目标视野的整数档
+    ///（每纹素恰 n 屏幕像素 → 纹素边界恒落屏幕像素边界，移动采样零漂移）。
+    /// v1.1.51.2 视野可调：Target Ortho Size 指定目标（0=场景相机原值）；目标超过整纹素最大档时，
+    /// 仅在 Allow SubPixel Zoom 打开后直取目标值（纹理小于屏幕像素，轻微画质损失自担）。
     /// </summary>
     private void ApplyPixelPerfectOrtho()
     {
         if (!pixelPerfectOrtho || attachedCamera == null || !attachedCamera.orthographic) return;
         if (Screen.height <= 0) return;
 
+        float design = targetOrthoSize > 0f ? targetOrthoSize : designOrthoSize;
         float texelOnePixel = Screen.height / (2f * tilePPU);
-        int n = Mathf.Max(1, Mathf.RoundToInt(texelOnePixel / designOrthoSize));
+
+        if (allowSubPixelZoom && design > texelOnePixel)
+        {
+            attachedCamera.orthographicSize = design;   // 超档直取（亚像素代价自担）
+            return;
+        }
+
+        int n = Mathf.Max(1, Mathf.RoundToInt(texelOnePixel / design));
         attachedCamera.orthographicSize = texelOnePixel / n;
     }
 

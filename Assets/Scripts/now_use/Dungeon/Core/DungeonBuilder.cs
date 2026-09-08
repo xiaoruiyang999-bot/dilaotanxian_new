@@ -66,7 +66,7 @@ public class DungeonBuilder : MonoBehaviour
     private readonly Dictionary<int, HashSet<Vector2Int>> roomSkeletons = new Dictionary<int, HashSet<Vector2Int>>();
     // v1.1.46 最终布局的内容生成白名单：防止敌人/奖励/装饰刷进挖除空洞或房内墙。
     private readonly Dictionary<int, List<Vector2Int>> roomSpawnCells = new Dictionary<int, List<Vector2Int>>();
-    // v1.1.51 固定 Boss 仪式厅：地图 seed 只决定房间位置/入口朝向，房内地板、墙变体与内容不随机。
+    // v1.1.52 固定 Boss 仪式厅：地图 seed 只决定房间位置；2×2/南入口/地墙/内容均不随机。
     private readonly HashSet<Vector2Int> fixedBossGroundCells = new HashSet<Vector2Int>();
     private readonly Dictionary<Vector2Int, int> fixedBossWallVariants = new Dictionary<Vector2Int, int>();
     private readonly Dictionary<int, BossRitualRoomLayout> bossRitualLayouts =
@@ -112,18 +112,11 @@ public class DungeonBuilder : MonoBehaviour
             AddDoorCells(doorCellsByRoom, conn.b.id, r.Value);
         }
 
-        // v1.1.28 一块厚墙：占用集（各房覆盖的粗格）→ 邻接方向判定，墙线由一侧独画、两侧共享
-        var occupied = new HashSet<Vector2Int>();
-        foreach (RoomNode node in layout.rooms)
-            for (int gy = node.gridPos.y; gy < node.gridPos.y + node.spanY; gy++)
-                for (int gx = node.gridPos.x; gx < node.gridPos.x + node.spanX; gx++)
-                    occupied.Add(new Vector2Int(gx, gy));
-
         // v1.1.29 渲染序自上而下：下方墙格后画——竖向墙列"下图扣上图"的堆叠遮挡（prop_01 顶伸 0.47）
         TilemapRenderer wallRenderer = wallsTilemap.GetComponent<TilemapRenderer>();
         if (wallRenderer != null) wallRenderer.sortOrder = TilemapRenderer.SortOrder.TopLeft;
 
-        foreach (RoomNode node in layout.rooms) PaintRoom(node, doorCellsByRoom, occupied);
+        foreach (RoomNode node in layout.rooms) PaintRoom(node, doorCellsByRoom);
         foreach (KeyValuePair<RoomConnection, Rect> kv in doorRects) OpenDoor(kv.Value);
 
         // v1.1.46：必须在 PaintRoom 收集完 skeletonCells 后再偏置；旧顺序在集合仍为空时调用，
@@ -274,25 +267,26 @@ public class DungeonBuilder : MonoBehaviour
     // ---------- 绘制 ----------
 
     /// <summary>画一个房间（v1.1.28 一块厚墙结构）：
-    /// 内部地板 = [xMin+1, xMax) × [yMin+1, yMax)；墙线 = 西列与南行本房必画（邻房共享同一列/行），
-    /// 东列/北行仅当该方向无邻房时画在自身外沿（xMax 列 / yMax 行）——任意两房间隔恰好一块厚。
+    /// 内部地板 = [xMin+1, xMax) × [yMin+1, yMax)；四边墙线全部先画（邻房共享的同一格可重复写），
+    /// 再由真实 RoomConnection 统一开门——任意两房间隔恰好一块厚，跨格房的部分邻接也不会漏墙。
     /// v0.5.3：内部地板按 RoomTypeConfig.floorTint 着色（alpha=0 不着色）。
     /// v1.1.31：非 Start/Boss 房走五职责塑形管线（房形/轮廓墙/障碍/验证/重试保底）。</summary>
-    private void PaintRoom(RoomNode node, Dictionary<int, List<Vector2Int>> doorCellsByRoom,
-        HashSet<Vector2Int> occupied)
+    private void PaintRoom(RoomNode node, Dictionary<int, List<Vector2Int>> doorCellsByRoom)
     {
         RectInt rect = TileRect(node);
         Color tint = GetTypeConfig(node.type)?.floorTint ?? Color.clear;
         // M3·v0.8.1：房型色 × 主题色叠乘（废墟白/墓穴冷蓝/熔炉暖红，3 层一换）
-        tint *= DungeonManager.GetFloorTheme(floorTheme).tint;
+        // 固定仪式厅在地皮素材断链、回退平色 Tile 时也不能随楼层主题变色。
+        if (node.type != RoomType.Boss)
+            tint *= DungeonManager.GetFloorTheme(floorTheme).tint;
 
-        // 一块厚墙线：西列/南行必画；东列/北行无邻才画（画在自身外沿，列/行与邻房原点重合处由邻画）
+        // 一块厚墙线：四边先完整封闭；相邻房在同一 Tilemap 格重复 SetTile 无副作用，
+        // 最终仅由 OpenDoor 按真实连接开洞。旧“边上任一粗格有邻居就跳过整边”在 2×2 房只
+        // 接触半条边时会漏掉另一半外墙，玩家可直接走出地图。
         for (int y = rect.yMin; y < rect.yMax; y++) SetWallTile(new Vector3Int(rect.xMin, y, 0));
         for (int x = rect.xMin + 1; x < rect.xMax; x++) SetWallTile(new Vector3Int(x, rect.yMin, 0));
-        if (!HasNeighborEast(occupied, node))
-            for (int y = rect.yMin; y < rect.yMax; y++) SetWallTile(new Vector3Int(rect.xMax, y, 0));
-        if (!HasNeighborNorth(occupied, node))
-            for (int x = rect.xMin; x <= rect.xMax; x++) SetWallTile(new Vector3Int(x, rect.yMax, 0));
+        for (int y = rect.yMin; y < rect.yMax; y++) SetWallTile(new Vector3Int(rect.xMax, y, 0));
+        for (int x = rect.xMin; x <= rect.xMax; x++) SetWallTile(new Vector3Int(x, rect.yMax, 0));
 
         // ---------- v1.1.31 五职责塑形管线：房形→轮廓墙→障碍→验证（失败同 RNG 重试，保底整房） ----------
         // Start 保持空矩形；Boss 走不消费随机数的固定仪式厅模板；其余房间随机塑形。
@@ -370,24 +364,6 @@ public class DungeonBuilder : MonoBehaviour
             }
     }
 
-    /// <summary>东向是否有邻房占格（占用集按各房 span 覆盖的粗格判定）。</summary>
-    private static bool HasNeighborEast(HashSet<Vector2Int> occupied, RoomNode node)
-    {
-        int nx = node.gridPos.x + node.spanX;
-        for (int gy = node.gridPos.y; gy < node.gridPos.y + node.spanY; gy++)
-            if (occupied.Contains(new Vector2Int(nx, gy))) return true;
-        return false;
-    }
-
-    /// <summary>北向是否有邻房占格。</summary>
-    private static bool HasNeighborNorth(HashSet<Vector2Int> occupied, RoomNode node)
-    {
-        int ny = node.gridPos.y + node.spanY;
-        for (int gx = node.gridPos.x; gx < node.gridPos.x + node.spanX; gx++)
-            if (occupied.Contains(new Vector2Int(gx, ny))) return true;
-        return false;
-    }
-
     /// <summary>铺一块墙（v1.1.28 铺装期临时图；最终横竖定向由 ReorientWalls 收敛）：
     /// 石墙素材（宽归一+Grid 整格碰撞）缺素材回退白方块墙瓦。</summary>
     private void SetWallTile(Vector3Int pos)
@@ -423,9 +399,16 @@ public class DungeonBuilder : MonoBehaviour
                 var pos = new Vector3Int(x, y, 0);
                 if (wallsTilemap.GetTile(pos) == null) continue;
 
-                bool vertical = wallsTilemap.GetTile(new Vector3Int(x, y + 1, 0)) != null
-                             || wallsTilemap.GetTile(new Vector3Int(x, y - 1, 0)) != null;
-                int horizontalVariant = fixedBossWallVariants.TryGetValue(new Vector2Int(x, y), out int fixedVariant)
+                var cell = new Vector2Int(x, y);
+                bool isFixedBossWall = fixedBossWallVariants.TryGetValue(cell, out int fixedVariant);
+                // 固定厅只读取自身局部墙拓扑。若读取整张 Tilemap，相邻普通房随机 Outline
+                // 贴到共享边界外一格时，会把同一段 Boss 横墙误判成竖墙，令地图 seed 泄漏到表现。
+                bool vertical = isFixedBossWall
+                    ? IsPresentFixedBossWall(cell + Vector2Int.up)
+                        || IsPresentFixedBossWall(cell + Vector2Int.down)
+                    : wallsTilemap.GetTile(new Vector3Int(x, y + 1, 0)) != null
+                        || wallsTilemap.GetTile(new Vector3Int(x, y - 1, 0)) != null;
+                int horizontalVariant = isFixedBossWall
                     ? fixedVariant
                     : Mathf.FloorToInt(TerrainMask.Hash01(x, y, layoutSeedCache ^ 0xA11) * 1024f);
                 Tile t = vertical
@@ -435,15 +418,24 @@ public class DungeonBuilder : MonoBehaviour
             }
     }
 
+    private bool IsPresentFixedBossWall(Vector2Int cell)
+        => fixedBossWallVariants.ContainsKey(cell)
+            && wallsTilemap.GetTile(new Vector3Int(cell.x, cell.y, 0)) != null;
+
     /// <summary>门洞矩形纯计算（v1.1.28 一块厚墙）：共享墙线 = 西房 xMax 列（即东房 xMin 列），
     /// 单列打穿；门洞在两房内部重叠段居中。返回 null = 非相邻（生成器数据错误，Validate 自检拦截）。</summary>
     private Rect? ComputeDoorRect(RoomConnection conn)
     {
-        // 固定 Boss 厅的门必须落在建立连接时的那一格上；相邻 Combat 后续扩成大房也不能
-        // 把门洞重新居中到更长重叠边，否则同一仪式厅会出现左右漂移。
+        // 固定 Boss 厅使用专用中轴门：既靠近 2×2 大房中线，又把完整 doorW 收进原相邻粗格，
+        // 因此不会出现“视觉中央门后一半是墙”或随相邻 Combat 扩格左右漂移。
         bool fixedBossDoor = conn.a.type == RoomType.Boss || conn.b.type == RoomType.Boss;
-        RectInt ra = fixedBossDoor ? OriginalCellTileRect(conn.OriginalGridPos(conn.a)) : TileRect(conn.a);
-        RectInt rb = fixedBossDoor ? OriginalCellTileRect(conn.OriginalGridPos(conn.b)) : TileRect(conn.b);
+        if (fixedBossDoor)
+        {
+            Rect? bossDoor = ComputeFixedBossDoorRect(conn);
+            if (bossDoor.HasValue) return bossDoor;
+        }
+
+        RectInt ra = TileRect(conn.a), rb = TileRect(conn.b);
 
         if (rb.xMin >= ra.xMax || rb.xMax <= ra.xMin) // 东西向：打穿共享墙列（西侧房的外沿列）
         {
@@ -464,6 +456,30 @@ public class DungeonBuilder : MonoBehaviour
             return new Rect(startX, wallY, doorW, 1f);
         }
         return null;
+    }
+
+    private Rect? ComputeFixedBossDoorRect(RoomConnection conn)
+    {
+        RoomNode boss = conn.a.type == RoomType.Boss ? conn.a : conn.b;
+        RoomNode neighbor = conn.Other(boss);
+        Vector2Int bossOriginal = conn.OriginalGridPos(boss);
+        Vector2Int neighborOriginal = conn.OriginalGridPos(neighbor);
+        Vector2Int delta = neighborOriginal - bossOriginal;
+        if (delta != Vector2Int.down && delta != Vector2Int.up) return null;
+
+        RectInt bossRect = TileRect(boss);
+        Rect bossInterior = InteriorRect(boss);
+        RectInt neighborOriginalRect = OriginalCellTileRect(neighborOriginal);
+        int minStartX = neighborOriginalRect.xMin + 1;
+        int maxStartX = neighborOriginalRect.xMax - doorW;
+        if (maxStartX < minStartX) return null;
+
+        // 先取整房几何中轴，再将完整门宽钳入真实相邻粗格；默认 61 格宽内部最终偏差 1.5 格，
+        // 而旧算法按原 1×1 Boss 格取门会偏 15.5 格。
+        int startX = BossRitualRoomTemplate.CenteredVerticalDoorStartX(
+            bossInterior, neighborOriginalRect, doorW);
+        int wallY = delta == Vector2Int.down ? bossRect.yMin : bossRect.yMax;
+        return new Rect(startX, wallY, doorW, 1f);
     }
 
     private RectInt OriginalCellTileRect(Vector2Int gridPos)

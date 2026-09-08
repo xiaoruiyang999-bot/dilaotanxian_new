@@ -29,7 +29,9 @@ public class GroundTileset
         if (cached != null) return cached;
 
         var set = new GroundTileset();
-        foreach (Sprite s in Resources.LoadAll<Sprite>(ResourcesDir))
+        Sprite[] loaded = Resources.LoadAll<Sprite>(ResourcesDir);
+        System.Array.Sort(loaded, (a, b) => string.CompareOrdinal(a.name, b.name));
+        foreach (Sprite s in loaded)
         {
             string pool = PoolOf(s.name);
             if (pool == null) continue;

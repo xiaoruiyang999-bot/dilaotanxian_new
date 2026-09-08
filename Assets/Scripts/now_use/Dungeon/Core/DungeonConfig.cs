@@ -35,7 +35,7 @@ public class DungeonConfig : ScriptableObject
     public int bossMinDistance = 3;
 
     [Header("房间尺寸（v0.5.3.1 启用）")]
-    [Tooltip("Boss 房占 N×N 个粗格（2 = 2×2）；生成器为固定仪式厅预留完整方形空间，不允许缩小回退")]
+    [Tooltip("兼容旧资产的序列化字段；固定 Boss 仪式厅始终占 2×2 粗格，不能在 Inspector 改成其他尺寸")]
     public int bossCellSpan = 2;
     [Tooltip("Elite 房占 N×1 或 1×N 个粗格（尽力满足，失败回退 1×1）")]
     public int eliteCellSpan = 2;
@@ -62,7 +62,7 @@ public class DungeonConfig : ScriptableObject
         wallDropHeight = Mathf.Clamp(wallDropHeight, 1f, 16f);
         wallDropDuration = Mathf.Clamp(wallDropDuration, 0.15f, 1.5f);
         wallDropStagger = Mathf.Clamp(wallDropStagger, 0f, 3f);
-        bossCellSpan = Mathf.Clamp(bossCellSpan, 1, 4);
+        bossCellSpan = BossRitualRoomTemplate.CoarseSpan;
         eliteCellSpan = Mathf.Clamp(eliteCellSpan, 1, 4);
         combatCellSpan = Mathf.Clamp(combatCellSpan, 1, 4);
     }

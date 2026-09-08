@@ -56,10 +56,28 @@ public static class EnemySpawner
         if (fixedPositions != null && spawnCount < picks.Count)
             Debug.LogWarning($"[EnemySpawner] 固定插槽仅 {fixedPositions.Count} 个，已截断 {picks.Count - spawnCount} 个敌人。");
 
+        int fixedPositionIndex = 0;
         for (int i = 0; i < spawnCount; i++)
         {
             Vector3 pos;
-            if (fixedPositions != null) pos = fixedPositions[i];
+            if (fixedPositions != null)
+            {
+                while (fixedPositionIndex < fixedPositions.Count
+                    && !SpawnPositionHelper.IsFixedPositionClear(
+                        room, fixedPositions[fixedPositionIndex], ignorePlayer: true))
+                {
+                    Debug.LogWarning($"[EnemySpawner] 固定插槽 {fixedPositionIndex} 未通过 NonAlloc 物理复核，尝试下一插槽。");
+                    fixedPositionIndex++;
+                }
+
+                if (fixedPositionIndex >= fixedPositions.Count)
+                {
+                    Debug.LogWarning($"[EnemySpawner] 固定安全插槽已用尽，停止生成剩余 {spawnCount - i} 个敌人。");
+                    break;
+                }
+
+                pos = fixedPositions[fixedPositionIndex++];
+            }
             else if (!SpawnPositionHelper.TryFind(room, rng, out pos)) continue;
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);

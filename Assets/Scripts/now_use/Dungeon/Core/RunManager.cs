@@ -124,16 +124,73 @@ public class RunManager : MonoBehaviour
 
     private void OnBossCleared(Room room)
     {
-        // 奖励宝箱与传送门在房中心左右错开，挂在 contentRoot 下（随 dungeonRoot 一并清理）
-        Vector3 c = room.Center;
+        // v1.1.52：消费固定仪式厅的最终 SpawnCells 插槽，并做 NonAlloc 物理复核；
+        // 不再使用 world-X 的 Center±1.5，也不让结算位置受地图 seed 影响。
+        Vector3? reservedPosition = null;
+        bool chestSpawned = false;
+        bool portalSpawned = false;
         if (rewardChestPrefab != null)
-            Instantiate(rewardChestPrefab, c + new Vector3(-1.5f, 0f, 0f), Quaternion.identity, room.ContentRoot);
+        {
+            if (TryResolveBossRewardPosition(room, portal: false, reservedPosition,
+                out Vector3 chestPosition))
+            {
+                Instantiate(rewardChestPrefab, chestPosition, Quaternion.identity, room.ContentRoot);
+                reservedPosition = chestPosition;
+                chestSpawned = true;
+            }
+        }
         if (portalPrefab != null)
         {
-            GameObject portal = Instantiate(portalPrefab, c + new Vector3(1.5f, 0f, 0f), Quaternion.identity, room.ContentRoot);
-            portal.GetComponent<PortalInteractable>().Init(this);
+            // 宝箱/传送门的交互碰撞是 Trigger，不参与 NonAlloc 实体检测；显式保留最小间距，
+            // 避免两个独立 fallback 抽到同一 SpawnCell 后完全重叠。
+            if (TryResolveBossRewardPosition(room, portal: true, reservedPosition,
+                out Vector3 portalPosition))
+            {
+                GameObject portal = Instantiate(portalPrefab, portalPosition, Quaternion.identity, room.ContentRoot);
+                portal.GetComponent<PortalInteractable>().Init(this);
+                portalSpawned = true;
+            }
         }
-        Debug.Log($"[Run] 第 {FloorNumber} 层 Boss 已清空：奖励宝箱与传送门已生成");
+        Debug.Log($"[Run] 第 {FloorNumber} 层 Boss 已清空：宝箱={chestSpawned}，传送门={portalSpawned}");
+    }
+
+    private static bool TryResolveBossRewardPosition(Room room, bool portal,
+        Vector3? reservedPosition, out Vector3 position)
+    {
+        if (BossRitualRoomDecorator.TryGetRewardSocket(
+            room, portal, out Vector3 fixedPosition, reservedPosition))
+        {
+            position = fixedPosition;
+            return true;
+        }
+
+        // 极端情况（玩家/残留实体同时占满三组插槽）：仍只从最终 RoomPlan 白名单取点，
+        // 常量随机流保证不受地图 seed 影响；TryFind 内含距门与 NonAlloc 检查。
+        int salt = portal ? 0x50A7A1 : 0x0C4E57;
+        var rng = new System.Random(BossRitualRoomTemplate.ContentSeed ^ salt);
+        for (int attempt = 0; attempt < 4; attempt++)
+            if (SpawnPositionHelper.TryFind(room, rng, out Vector3 safePosition)
+                && (!reservedPosition.HasValue
+                    || Vector3.Distance(safePosition, reservedPosition.Value)
+                        >= BossRitualRoomDecorator.RewardMinSeparation))
+            {
+                position = safePosition;
+                return true;
+            }
+
+        // 进度关键物不能静默漏刷。若动态实体暂时占满候选，最后仍使用模板产生的 SpawnCell，
+        // 但继续遵守宝箱/传送门互斥；下一物理帧实体移动后即可正常交互。
+        if (BossRitualRoomDecorator.TryGetRewardSocket(room, portal, out Vector3 planFallback,
+            reservedPosition, requirePhysicalClear: false))
+        {
+            Debug.LogWarning($"[Run] Boss {(portal ? "传送门" : "宝箱")}安全插槽暂被占用，使用固定 Plan 插槽保底。");
+            position = planFallback;
+            return true;
+        }
+
+        Debug.LogError($"[Run] Boss {(portal ? "传送门" : "宝箱")}无任何 RoomPlan 安全插槽；固定房合同已损坏。");
+        position = default;
+        return false;
     }
 
     // ---------- 楼层切换 ----------

@@ -24,8 +24,6 @@ public class RoomWaveController : MonoBehaviour, IWaveProvider
     private int remainingWaves;
     private bool inFlight;   // 延迟刷出途中（已消费本轮请求，等待登场）
 
-    public bool HasPendingWave => remainingWaves > 0;
-
     /// <summary>初始化（DungeonBuilder 挂载后调用一次）。waves=追加波数（两轮制传 1）。</summary>
     public void Setup(Room room, SpawnTable table, int floorNumber, DungeonConfig config,
         System.Random rng, int waves)
@@ -45,6 +43,10 @@ public class RoomWaveController : MonoBehaviour, IWaveProvider
         inFlight = true;
         StartCoroutine(SpawnWaveRoutine());
     }
+
+    /// <summary>v1.1.51.2 修复：延迟刷波途中（remainingWaves 已扣减、新敌未注册）也算"有波在路上"——
+    /// 否则 Room.LateUpdate 兜底在此窗口判"敌空+无待来波"提前开门，第二波刷在开门的房里。</summary>
+    public bool HasPendingWave => remainingWaves > 0 || inFlight;
 
     private IEnumerator SpawnWaveRoutine()
     {

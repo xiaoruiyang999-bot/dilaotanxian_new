@@ -17,9 +17,9 @@ public static class SpawnPositionHelper
 
     // Default(墙/门/装饰) + Enemy + Obstacle：墙、敌人、障碍物都算占位。
     // 注意：依赖 Obstacle 层已存在（任务0 先行创建），缺失时 GetMask 报错并返回 0。
-    private static int SolidMask => LayerMask.GetMask("Default", "Enemy", "Obstacle");
+    private static readonly int SolidMask = LayerMask.GetMask("Default", "Enemy", "Obstacle");
 
-    private static readonly Collider2D[] overlapBuffer = new Collider2D[4];
+    private static readonly Collider2D[] overlapBuffer = new Collider2D[16];
 
     /// <summary>在房间内尝试找一个合法生成点；失败返回 false。</summary>
     public static bool TryFind(Room room, System.Random rng, out Vector3 pos)
@@ -53,8 +53,7 @@ public static class SpawnPositionHelper
             }
             pos = new Vector3(x, y, 0f);
 
-            if (!FarFromDoors(room, pos)) continue;
-            if (Physics2D.OverlapCircle(pos, OverlapRadius, filter, overlapBuffer) > 0) continue;
+            if (!IsPositionClear(room, pos, filter)) continue;
 
             return true;
         }
@@ -62,19 +61,38 @@ public static class SpawnPositionHelper
         return false;
     }
 
-    private static float SignedJitter(System.Random rng)
-        => ((float)rng.NextDouble() * 2f - 1f) * CellJitter;
-
     /// <summary>
-    /// 固定插槽位置复核（v1.1.51 Boss 仪式厅奖励插槽）：位置由模板给定（不做随机重试），
-    /// 只验证 点在房内 + 与 TryFind 同口径的 NonAlloc 实体占用检测（无墙/敌人/障碍碰撞）。
+    /// 固定模板插槽的物理第二道门禁：插槽须先由 RoomPlan.SpawnCells 产生，本方法再检查
+    /// 房间边界、距门与 NonAlloc 实体重叠。Trigger 自动跳过。
     /// </summary>
-    public static bool IsFixedPositionClear(Room room, Vector3 pos)
+    public static bool IsFixedPositionClear(Room room, Vector3 pos, bool ignorePlayer = false)
     {
         if (room == null || !room.Bounds.Contains(pos)) return false;
         var filter = new ContactFilter2D { layerMask = SolidMask, useLayerMask = true, useTriggers = false };
-        return Physics2D.OverlapCircle(pos, OverlapRadius, filter, overlapBuffer) == 0;
+        return IsPositionClear(room, pos, filter, ignorePlayer);
     }
+
+    private static bool IsPositionClear(Room room, Vector3 pos, ContactFilter2D filter,
+        bool ignorePlayer = false)
+    {
+        if (!FarFromDoors(room, pos)) return false;
+        int overlapCount = Physics2D.OverlapCircle(pos, OverlapRadius, filter, overlapBuffer);
+        if (!ignorePlayer) return overlapCount == 0;
+        // 缓冲打满时无法证明后续是否还有非玩家实体，按不安全处理，避免截断造成漏判。
+        if (overlapCount >= overlapBuffer.Length) return false;
+
+        // DungeonBuilder 在 DungeonManager 把玩家传回新 Start 房之前生成本层内容。
+        // 固定 Boss 插槽只忽略这个即将被迁走的旧玩家，墙、敌人和障碍仍会令插槽失效。
+        for (int i = 0; i < overlapCount; i++)
+        {
+            Collider2D hit = overlapBuffer[i];
+            if (hit != null && hit.GetComponentInParent<PlayerController>() == null) return false;
+        }
+        return true;
+    }
+
+    private static float SignedJitter(System.Random rng)
+        => ((float)rng.NextDouble() * 2f - 1f) * CellJitter;
 
     private static bool FarFromDoors(Room room, Vector3 pos)
     {

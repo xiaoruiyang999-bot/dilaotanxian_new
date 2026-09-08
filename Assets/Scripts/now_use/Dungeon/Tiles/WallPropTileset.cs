@@ -41,7 +41,9 @@ public static class WallPropTileset
     private static void Load()
     {
         var hList = new System.Collections.Generic.List<Tile>(8);
-        foreach (Sprite s in Resources.LoadAll<Sprite>(ResourceDir))
+        Sprite[] loaded = Resources.LoadAll<Sprite>(ResourceDir);
+        System.Array.Sort(loaded, (a, b) => string.CompareOrdinal(a.name, b.name));
+        foreach (Sprite s in loaded)
         {
             float tw = s.textureRect.width, th = s.textureRect.height;
             if (tw <= 1f || s.texture == null) continue;
