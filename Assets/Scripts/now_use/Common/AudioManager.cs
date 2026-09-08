@@ -82,6 +82,28 @@ public class AudioManager : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
+    // v1.1.49：BGM 暂停接口——暂停面板打开时同步停 BGM（AudioSource.Pause 保留播放进度，
+    // UnPause 从原位置续播；只在确因面板暂停过时才恢复，不干扰"从未播放/已停"的状态）
+    private bool bgmPausedByPanel;
+
+    /// <summary>暂停 BGM（暂停面板打开时调用）：未在播放则不记标记，避免误恢复。</summary>
+    public static void PauseBgm()
+    {
+        if (Instance == null || Instance.bgmSource == null) return;
+        if (!Instance.bgmSource.isPlaying) return;
+        Instance.bgmSource.Pause();
+        Instance.bgmPausedByPanel = true;
+    }
+
+    /// <summary>恢复 BGM（暂停面板关闭时调用）：仅在因面板暂停过时续播。</summary>
+    public static void ResumeBgm()
+    {
+        if (Instance == null || Instance.bgmSource == null) return;
+        if (!Instance.bgmPausedByPanel) return;
+        Instance.bgmPausedByPanel = false;
+        Instance.bgmSource.UnPause();
+    }
+
     /// <summary>按名播放音效（静态入口）：未挂载 / id 不存在 / 未配 clip 时静默。</summary>
     public static void PlaySFX(string id)
     {

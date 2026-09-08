@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>青禾书店 · 会员登记</title>
+    <style>
+        /* 全局重置 & 字体 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+            background: #f6f1ec;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        /* 卡片容器 */
+        .container {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 40px 48px 36px;
+            box-shadow: 0 12px 40px rgba(44, 24, 16, 0.10);
+            max-width: 600px;
+            width: 100%;
+            transition: box-shadow 0.3s;
+        }
+
+        /* 标题 */
+        .form-title {
+            text-align: center;
+            font-size: 26px;
+            font-weight: 700;
+            color: #2c1810;
+            letter-spacing: 6px;
+            margin-bottom: 4px;
+        }
+        .form-title span {
+            color: #b8957a;
+        }
+
+        .form-subtitle {
+            text-align: center;
+            font-size: 14px;
+            color: #a67c6b;
+            letter-spacing: 4px;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f0e8e0;
+        }
+
+        /* 表单项 - 行布局 */
+        .form-row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 14px;
+            gap: 12px;
+        }
+
+        .form-row .field-label {
+            width: 72px;
+            flex-shrink: 0;
+            font-size: 15px;
+            font-weight: 500;
+            color: #3d2a1e;
+            line-height: 38px;
+            text-align: right;
+            user-select: none;
+        }
+
+        .form-row .field-control {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            min-height: 38px;
+        }
+
+        /* 输入框通用 */
+        .form-row .field-control input[type="text"],
+        .form-row .field-control input[type="password"] {
+            flex: 1;
+            min-width: 160px;
+            height: 38px;
+            padding: 0 14px;
+            border: 1.5px solid #ddd6ce;
+            border-radius: 10px;
+            font-size: 14px;
+            background: #fcfaf8;
+            transition: border-color 0.25s, box-shadow 0.25s;
+            color: #2c1810;
+        }
+        .form-row .field-control input[type="text"]:focus,
+        .form-row .field-control input[type="password"]:focus {
+            border-color: #b8957a;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(184, 149, 122, 0.15);
+            background: #ffffff;
+        }
+        .form-row .field-control input[type="text"]::placeholder,
+        .form-row .field-control input[type="password"]::placeholder {
+            color: #bfb0a4;
+            font-weight: 300;
+        }
+
+        /* Radio / Checkbox 组 */
+        .inline-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 20px;
+        }
+        .inline-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            color: #3d2a1e;
+            cursor: pointer;
+            line-height: 30px;
+            font-weight: 400;
+        }
+        .inline-group input[type="radio"],
+        .inline-group input[type="checkbox"] {
+            width: 17px;
+            height: 17px;
+            accent-color: #b8957a;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        /* Select 下拉 */
+        .form-row .field-control select {
+            height: 38px;
+            padding: 0 36px 0 14px;
+            border: 1.5px solid #ddd6ce;
+            border-radius: 10px;
+            font-size: 14px;
+            background: #fcfaf8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23998888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+            appearance: none;
+            cursor: pointer;
+            color: #2c1810;
+            min-width: 140px;
+            transition: border-color 0.25s;
+        }
+        .form-row .field-control select:focus {
+            border-color: #b8957a;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(184, 149, 122, 0.12);
+        }
+
+        /* File 上传 */
+        .form-row .field-control input[type="file"] {
+            font-size: 13px;
+            color: #3d2a1e;
+            padding: 4px 0;
+            cursor: pointer;
+            width: 100%;
+            max-width: 260px;
+        }
+        .form-row .field-control input[type="file"]::file-selector-button {
+            padding: 6px 20px;
+            border: 1.5px solid #ddd6ce;
+            border-radius: 8px;
+            background: #f5f0eb;
+            color: #3d2a1e;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            margin-right: 12px;
+        }
+        .form-row .field-control input[type="file"]::file-selector-button:hover {
+            background: #e8dfd7;
+            border-color: #c4b5a8;
+        }
+
+        /* Textarea */
+        .form-row .field-control .textarea-wrap {
+            width: 100%;
+        }
+        .form-row .field-control textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #ddd6ce;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #fcfaf8;
+            resize: vertical;
+            transition: border-color 0.25s, box-shadow 0.25s;
+            color: #2c1810;
+            line-height: 1.6;
+            min-height: 82px;
+        }
+        .form-row .field-control textarea:focus {
+            border-color: #b8957a;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(184, 149, 122, 0.12);
+            background: #ffffff;
+        }
+        .form-row .field-control textarea::placeholder {
+            color: #bfb0a4;
+            font-weight: 300;
+        }
+
+        /* 按钮组 */
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 2px solid #f0e8e0;
+            justify-content: center;
+        }
+        .btn-row input[type="submit"],
+        .btn-row input[type="reset"],
+        .btn-row input[type="button"],
+        .btn-row button {
+            padding: 10px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s, background 0.2s;
+            letter-spacing: 0.5px;
+            flex: 0 1 auto;
+            min-width: 80px;
+        }
+
+        .btn-row input[type="submit"] {
+            background: #b8957a;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(184, 149, 122, 0.25);
+        }
+        .btn-row input[type="submit"]:hover {
+            background: #a6846b;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(184, 149, 122, 0.35);
+        }
+
+        .btn-row input[type="reset"] {
+            background: #e8dfd7;
+            color: #3d2a1e;
+        }
+        .btn-row input[type="reset"]:hover {
+            background: #dcd1c7;
+            transform: translateY(-2px);
+        }
+
+        .btn-row input[type="button"] {
+            background: #f0e8e0;
+            color: #3d2a1e;
+        }
+        .btn-row input[type="button"]:hover {
+            background: #e4dad0;
+            transform: translateY(-2px);
+        }
+
+        .btn-row button {
+            background: #2c1810;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(44, 24, 16, 0.20);
+        }
+        .btn-row button:hover {
+            background: #1f0f08;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(44, 24, 16, 0.30);
+        }
+
+        .btn-row input[type="submit"]:active,
+        .btn-row input[type="reset"]:active,
+        .btn-row input[type="button"]:active,
+        .btn-row button:active {
+            transform: translateY(0px) scale(0.97);
+        }
+
+        /* 响应式：小屏转纵向 */
+        @media (max-width: 520px) {
+            .container {
+                padding: 28px 20px 24px;
+            }
+            .form-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 2px;
+                margin-bottom: 12px;
+            }
+            .form-row .field-label {
+                width: 100%;
+                text-align: left;
+                line-height: 28px;
+                font-size: 14px;
+            }
+            .form-row .field-control {
+                width: 100%;
+                min-height: auto;
+            }
+            .form-row .field-control input[type="text"],
+            .form-row .field-control input[type="password"] {
+                min-width: auto;
+                width: 100%;
+            }
+            .form-row .field-control input[type="file"] {
+                max-width: 100%;
+            }
+            .form-row .field-control select {
+                min-width: auto;
+                width: 100%;
+            }
+            .btn-row {
+                gap: 8px;
+            }
+            .btn-row input[type="submit"],
+            .btn-row input[type="reset"],
+            .btn-row input[type="button"],
+            .btn-row button {
+                padding: 8px 16px;
+                font-size: 13px;
+                flex: 1;
+                min-width: 56px;
+            }
+            .form-title {
+                font-size: 22px;
+                letter-spacing: 4px;
+            }
+            .form-subtitle {
+                font-size: 13px;
+                letter-spacing: 2px;
+            }
+            .inline-group {
+                gap: 8px 14px;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .container {
+                padding: 18px 14px 18px;
+            }
+            .inline-group label {
+                font-size: 13px;
+            }
+            .btn-row input[type="submit"],
+            .btn-row input[type="reset"],
+            .btn-row input[type="button"],
+            .btn-row button {
+                font-size: 12px;
+                padding: 6px 12px;
+                min-width: 44px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 标题 -->
+        <div class="form-title">青禾书店 <span>·</span> 会员登记</div>
+        <div class="form-subtitle">— 加入我们，共沐书香 —</div>
+
+        <!-- ===== 表单开始 ===== -->
+        <form action="" method="get" name="join">
+
+            <!-- 1. 姓名 (text) -->
+            <div class="form-row">
+                <label class="field-label" for="username">姓名：</label>
+                <div class="field-control">
+                    <input type="text" id="username" name="username" placeholder="请填写真实姓名" autocomplete="name">
+                </div>
+            </div>
+
+            <!-- 2. 密码 (password) -->
+            <div class="form-row">
+                <label class="field-label" for="pwd">密码：</label>
+                <div class="field-control">
+                    <input type="password" id="pwd" name="password" placeholder="至少 6 位字符" autocomplete="new-password">
+                </div>
+            </div>
+
+            <!-- 3. 性别 (radio, 同一 name) -->
+            <div class="form-row">
+                <span class="field-label">性别：</span>
+                <div class="field-control">
+                    <div class="inline-group">
+                        <label>
+                            <input type="radio" name="gender" value="male" checked>
+                            男
+                        </label>
+                        <label>
+                            <input type="radio" name="gender" value="female">
+                            女
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. 兴趣 (checkbox, 至少 3 个) -->
+            <div class="form-row">
+                <span class="field-label">兴趣：</span>
+                <div class="field-control">
+                    <div class="inline-group">
+                        <label>
+                            <input type="checkbox" name="hobby" value="novel">
+                            小说
+                        </label>
+                        <label>
+                            <input type="checkbox" name="hobby" value="poetry">
+                            诗歌
+                        </label>
+                        <label>
+                            <input type="checkbox" name="hobby" value="tea">
+                            茶
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. 校区 (select, 至少 3 个 option) -->
+            <div class="form-row">
+                <label class="field-label" for="campus">校区：</label>
+                <div class="field-control">
+                    <select id="campus" name="campus">
+                        <option value="east" selected>东校区</option>
+                        <option value="west">西校区</option>
+                        <option value="south">南校区</option>
+                        <option value="north">北校区</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 6. 头像 (file) -->
+            <div class="form-row">
+                <label class="field-label" for="avatar">头像：</label>
+                <div class="field-control">
+                    <input type="file" id="avatar" name="avatar" accept="image/*">
+                </div>
+            </div>
+
+            <!-- 7. 自我介绍 (textarea, 带 rows & cols) -->
+            <div class="form-row">
+                <label class="field-label" for="intro">简介：</label>
+                <div class="field-control">
+                    <div class="textarea-wrap">
+                        <textarea id="intro" name="intro" rows="4" cols="40" placeholder="分享你的阅读故事或兴趣爱好…"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 按钮区域 ===== -->
+            <div class="btn-row">
+                <!-- submit -->
+                <input type="submit" value="提交">
+                <!-- reset -->
+                <input type="reset" value="清空">
+                <!-- input type="button" 普通按钮 -->
+                <input type="button" value="普通按钮" onclick="alert('你好！这是一个普通按钮 (input type=button)')">
+                <!-- <button> 标签 -->
+                <button type="button" onclick="alert('你好！这是 &lt;button&gt; 标签')">button 标签</button>
+            </div>
+
+        </form>
+        <!-- ===== 表单结束 ===== -->
+
+        <!-- 小提示：提交后看地址栏 -->
+        <p style="margin-top: 22px; font-size: 13px; color: #a67c6b; text-align: center; border-top: 1px dashed #e8ddd4; padding-top: 16px;">
+            💡 提交后，表单数据会以 <code style="background: #f0e8e0; padding: 2px 8px; border-radius: 4px; font-size: 13px;">GET</code> 方式拼接到地址栏
+        </p>
+    </div>
+
+</body>
+</html>

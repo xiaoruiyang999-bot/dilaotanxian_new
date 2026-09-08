@@ -87,6 +87,7 @@ public class PausePanel : MonoBehaviour
 
         Time.timeScale = 0f;
         HitStop.SuppressByUI = true;
+        AudioManager.PauseBgm();
 
         var canvasGo = new GameObject("PauseCanvas", typeof(Canvas));
         canvasGo.transform.SetParent(transform, false);
@@ -128,6 +129,15 @@ public class PausePanel : MonoBehaviour
         UIHelper.CreateMenuButton(buttons.transform, "button_back_lobby", "返回大厅", new Vector2(0f, -140f), RestartRun);
 
         BuildSettingsPanel(panel.transform);
+
+        // v1.1.49：石板右上角叉除键（关闭暂停面板，同"继续游戏"）。单图素材，三态靠 ColorTint 亮度区分
+        CreateCloseButton(panel.transform);
+    }
+
+    /// <summary>叉除键：全石板面板通用版在 UIHelper.CreateCloseButton（v1.1.51），此处只接关闭回调。</summary>
+    private void CreateCloseButton(Transform parent)
+    {
+        UIHelper.CreateCloseButton(parent, ContinueGame);
     }
 
     private void ContinueGame()
@@ -152,6 +162,7 @@ public class PausePanel : MonoBehaviour
 
         HitStop.SuppressByUI = false;
         Time.timeScale = 1f;
+        AudioManager.ResumeBgm();
     }
 
     private void ToggleSettings()

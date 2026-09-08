@@ -185,6 +185,54 @@ public static class UIHelper
     }
 
     /// <summary>
+    /// 叉除键（v1.1.51，全石板面板通用）：石板右上角取消按钮，复用 PausePanel 调好的位置
+    /// （锚点 (1,1) 偏移 (-20,-16)，尺寸 72x75）。三态 = ColorTint 亮度 + StoneCloseButton
+    /// 缩放/白色光晕。素材缺失时兜底为纯色方块 + "X" 文本。
+    /// </summary>
+    /// <param name="parent">石板面板 Transform（按钮挂在面板右上角）</param>
+    /// <param name="onClick">点击回调（通常传该面板的关闭方法）</param>
+    public static Button CreateCloseButton(Transform parent, UnityEngine.Events.UnityAction onClick)
+    {
+        var go = new GameObject("Btn_Close", typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
+        Image img = go.GetComponent<Image>();
+        img.sprite = Resources.Load<Sprite>("UI/PauseMenu/button_close");
+        img.preserveAspect = true;
+
+        var r = img.rectTransform;
+        r.anchorMin = r.anchorMax = r.pivot = new Vector2(1f, 1f);
+        r.anchoredPosition = new Vector2(-20f, -16f);
+        r.sizeDelta = new Vector2(72f, 75f);
+
+        var btn = go.GetComponent<Button>();
+        if (img.sprite != null)
+        {
+            go.AddComponent<StoneCloseButton>().Setup(img);
+
+            ColorBlock colors = btn.colors;
+            colors.normalColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+            colors.highlightedColor = Color.white;
+            colors.pressedColor = new Color(0.5f, 0.5f, 0.5f, 1f);
+            colors.selectedColor = Color.white;
+            colors.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.75f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            btn.colors = colors;
+            btn.transition = Selectable.Transition.ColorTint;
+            btn.targetGraphic = img;
+        }
+        else
+        {
+            // 断链兜底：纯色方块 + X 文本
+            img.color = new Color(0.2f, 0.18f, 0.14f, 0.95f);
+            CreateLabel(go.transform, "X", 26, Color.white,
+                new Vector2(0.5f, 0.5f), new Vector2(60f, 46f));
+        }
+        btn.onClick.AddListener(onClick);
+        return btn;
+    }
+
+    /// <summary>
     /// 创建滑动条（Slider），带填充条和拖动手柄。
     /// </summary>
     /// <param name="parent">父级 Transform</param>

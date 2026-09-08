@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// 伤害结算静态入口（v0.7.0，计划书 2.1）。
@@ -8,6 +8,9 @@ using UnityEngine;
 /// </summary>
 public static class DamageResolver
 {
+    /// <summary>玩家造成伤害事件（v1.1.52）：参数 = 实际结算伤害值。狼人能量条等表现层订阅。</summary>
+    public static event System.Action<float> OnPlayerDamageDealt;
+
     /// <summary>
     /// 结算一次伤害：Roll 出最终伤害（含暴击）并写入目标。
     /// trueDamage &gt; 0 时为真伤包（v0.7.5 裸绞）：跳过 Roll 与护甲结算直接扣血
@@ -23,10 +26,12 @@ public static class DamageResolver
                 eh.TakeTrueDamage(ctx.trueDamage);
             else
                 target.TakeDamage(ctx.trueDamage);
+            OnPlayerDamageDealt?.Invoke(ctx.trueDamage);
             return ctx.trueDamage;
         }
         float final = ctx.Roll();
         target.TakeDamage(final);
+        OnPlayerDamageDealt?.Invoke(final);
         return final;
     }
 
