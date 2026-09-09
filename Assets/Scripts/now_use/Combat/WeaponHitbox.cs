@@ -70,18 +70,24 @@ public class WeaponHitbox : MonoBehaviour
     // 跟随武器旋转的细长矩形，而是"玩家前方水平带"——X=攻击距离、Y=纵深容错，
     // 以攻击者根位置（下半身判定）为基准。敌人路径（attackerStats==null）保持旧几何。
     private float laneWidth;
-    private float laneFacingSign = 1f;
+    private Vector2 laneDirection = Vector2.right;
     /// <summary>当前攻击带纵深宽（>0 = 横向带模式；0 = 旧旋转矩形模式）。</summary>
     public float LaneWidth => laneWidth;
 
     /// <summary>
     /// 进入横向攻击带模式（PlayerCombat 每段攻击开始时调用；BeginSwing 复位为 0）。
-    /// facingSign：攻击朝向（±1，失落城堡式只左右）。
+    /// direction：离散攻击方向。v1.2.1 起同时支持 A 左右与 B 四方向灰盒。
     /// </summary>
-    public void SetLaneMode(float width, float facingSign)
+    public void SetLaneMode(float width, Vector2 direction)
     {
         laneWidth = Mathf.Max(0f, width);
-        laneFacingSign = facingSign >= 0f ? 1f : -1f;
+        laneDirection = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.right;
+    }
+
+    /// <summary>兼容旧调用与已有测试；新代码应传完整方向向量。</summary>
+    public void SetLaneMode(float width, float facingSign)
+    {
+        SetLaneMode(width, facingSign >= 0f ? Vector2.right : Vector2.left);
     }
 
     void Awake()
@@ -113,6 +119,7 @@ public class WeaponHitbox : MonoBehaviour
         LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
         DamageMultiplier = 1f;   // 蓄力伤害倍率复位（v0.7.0）
         laneWidth = 0f;          // v1.1.48 横向带复位（PlayerCombat 每段按需重设）
+        laneDirection = Vector2.right;
         swingFirstTarget = null;   // 贯穿追补复位（v0.7.5 二期）
         swingFirstDealt = 0f;
         isSwinging = true;
@@ -212,10 +219,13 @@ public class WeaponHitbox : MonoBehaviour
         {
             float scale = weaponPivot != null ? weaponPivot.lossyScale.x : 1f;
             float reach = attackData.AttackRange * LengthMultiplier * scale;
+            Vector2 direction = laneDirection.sqrMagnitude > 0.0001f
+                ? laneDirection.normalized
+                : Vector2.right;
             Vector2 foot = attackerStats.transform.position;   // 玩家根 = 下半身判定平面（v1.1.24）
-            center = new Vector2(foot.x + laneFacingSign * (reach * 0.5f + 0.35f), foot.y);
+            center = foot + direction * (reach * 0.5f + 0.35f);
             size = new Vector2(reach, laneWidth);
-            angle = 0f;
+            angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
             return;
         }
 

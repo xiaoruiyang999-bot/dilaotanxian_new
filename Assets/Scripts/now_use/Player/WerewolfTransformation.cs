@@ -99,10 +99,7 @@ public class WerewolfTransformation : MonoBehaviour
     {
         if (IsBeast)
         {
-            IsBeast = false;
-            if (health != null) health.ScaleMaxHealth(1f / beastHealthScale);   // 等比还原（v0.6.9）
-            ApplyBeastStats(false);
-            if (animator != null) animator.SetBeastForm(false);
+            ExitBeastForm();
             Debug.Log("[Werewolf] 退兽化：回普通狼");
             return;
         }
@@ -136,6 +133,7 @@ public class WerewolfTransformation : MonoBehaviour
                 animator.SetBeastForm(false);
                 animator.SetWerewolfVisualGrow(1f);
             }
+            energyBar?.SetBeastVisualTarget(false);
         }
     }
 
@@ -149,11 +147,13 @@ public class WerewolfTransformation : MonoBehaviour
             animator.SetBeastForm(false);
             animator.SetWerewolfVisualGrow(1f);
         }
+        energyBar?.SetBeastVisualTarget(false);
     }
 
     private IEnumerator BeastTransformRoutine()
     {
         transforming = true;
+        energyBar?.SetBeastVisualProgress(0f);
         lastFacingLeft = animator != null && animator.LastHorizontalInput < 0f;
 
         // 变身演出：Transform 帧覆盖播放 + 视觉逐段膨胀 1→1.5（v0.6.5 原逻辑）；
@@ -170,18 +170,21 @@ public class WerewolfTransformation : MonoBehaviour
                 t += Time.deltaTime;
                 float ratio = Mathf.Clamp01(t / duration);
                 animator.SetWerewolfVisualGrow(1f + 0.5f * ratio);   // 基准 → ×1.5
+                energyBar?.SetBeastVisualProgress(ratio);
                 yield return null;
             }
         }
+
+        energyBar?.SetBeastVisualProgress(1f);
 
         IsBeast = true;
         if (health != null) health.ScaleMaxHealth(beastHealthScale);
         ApplyBeastStats(true);
         if (animator != null) animator.SetBeastForm(true);   // 切 Beast 帧组，缩放回基准（1080px 画布自带大体型）
+        energyBar?.SetBeastVisualTarget(true);
         transforming = false;
         Debug.Log("[Werewolf] 兽化完成：血量/伤害/攻速/移速已提升");
     }
-
     /// <summary>兽化数值乘数（v0.7.1 乘数体系：写入 PlayerStats，消费点为 Attack/MoveSpeed/AttackSpeedMul）。</summary>
     private void ApplyBeastStats(bool on)
     {

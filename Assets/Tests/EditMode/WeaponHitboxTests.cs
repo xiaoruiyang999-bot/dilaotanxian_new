@@ -9,6 +9,45 @@ public class WeaponHitboxTests
 {
     private const float Eps = 1e-3f;
 
+    // ========== v1.2.1 攻击方向 A/B 灰盒 ==========
+
+    [Test]
+    public void AttackDirection_HorizontalMode_UsesCharacterFacing()
+    {
+        Vector2 result = AttackDirectionResolver.Resolve(
+            AttackDirectionPrototypeMode.Horizontal,
+            Vector2.up,
+            Vector2.left);
+
+        Assert.AreEqual(Vector2.left, result);
+    }
+
+    [TestCase(0.8f, 0.2f, 1f, 0f)]
+    [TestCase(-0.8f, 0.2f, -1f, 0f)]
+    [TestCase(0.2f, 0.8f, 0f, 1f)]
+    [TestCase(0.2f, -0.8f, 0f, -1f)]
+    public void AttackDirection_FourWayMode_UsesDominantAxis(
+        float inputX, float inputY, float expectedX, float expectedY)
+    {
+        Vector2 result = AttackDirectionResolver.Resolve(
+            AttackDirectionPrototypeMode.FourWay,
+            new Vector2(inputX, inputY),
+            Vector2.right);
+
+        Assert.AreEqual(new Vector2(expectedX, expectedY), result);
+    }
+
+    [Test]
+    public void AttackDirection_FourWayMode_ZeroInputFallsBackToFacing()
+    {
+        Vector2 result = AttackDirectionResolver.Resolve(
+            AttackDirectionPrototypeMode.FourWay,
+            Vector2.zero,
+            Vector2.left);
+
+        Assert.AreEqual(Vector2.left, result);
+    }
+
     // ========== ComputeSwingBox 几何测试 ==========
 
     [Test]

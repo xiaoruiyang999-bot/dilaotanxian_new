@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "dilaotanxian_new.sln"
+    "dotnet.defaultSolution": "Unity-first-game.sln"
 }

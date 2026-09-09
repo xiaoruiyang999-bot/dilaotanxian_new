@@ -107,3 +107,51 @@ public enum AimInputDevice
     Gamepad,
     Auto
 }
+
+/// <summary>
+/// v1.2.1 攻击方向灰盒模式。这里只保留 GDD T-01 要求对照的 A/B 两种方案；
+/// 旧 360° 鼠标瞄准仍由 <see cref="PlayerAimController"/> 保存，不在原型定案前删除。
+/// </summary>
+public enum AttackDirectionPrototypeMode
+{
+    Horizontal,
+    FourWay
+}
+
+/// <summary>
+/// 攻击方向离散规则。纯函数，不依赖场景对象，供预览、位移与 Hitbox 共用。
+/// </summary>
+public static class AttackDirectionResolver
+{
+    private const float DirectionEpsilon = 0.0001f;
+
+    public static Vector2 Resolve(
+        AttackDirectionPrototypeMode mode,
+        Vector2 desiredDirection,
+        Vector2 horizontalFacing)
+    {
+        if (mode == AttackDirectionPrototypeMode.Horizontal)
+            return ResolveHorizontal(horizontalFacing, desiredDirection);
+
+        Vector2 source = desiredDirection.sqrMagnitude > DirectionEpsilon
+            ? desiredDirection
+            : horizontalFacing;
+        if (source.sqrMagnitude <= DirectionEpsilon)
+            return Vector2.right;
+
+        // 相等时固定优先水平，避免输入在对角线上因浮点噪声来回跳向。
+        if (Mathf.Abs(source.x) >= Mathf.Abs(source.y))
+            return source.x < 0f ? Vector2.left : Vector2.right;
+
+        return source.y < 0f ? Vector2.down : Vector2.up;
+    }
+
+    private static Vector2 ResolveHorizontal(Vector2 horizontalFacing, Vector2 desiredDirection)
+    {
+        if (Mathf.Abs(horizontalFacing.x) > DirectionEpsilon)
+            return horizontalFacing.x < 0f ? Vector2.left : Vector2.right;
+        if (Mathf.Abs(desiredDirection.x) > DirectionEpsilon)
+            return desiredDirection.x < 0f ? Vector2.left : Vector2.right;
+        return Vector2.right;
+    }
+}

@@ -23,11 +23,15 @@ public class WerewolfEnergyBar : MonoBehaviour
 
     [Header("位置")]
     [Tooltip("相对 HealthBarAnchor 的额外抬升（血条组上方）")]
-    [SerializeField] private float heightOffset = 0.26f;
+    [SerializeField] private float heightOffset = 0.46f;
+    [Tooltip("兽化完成后，能量 UI 相对玩家根节点的世界高度")]
+    [SerializeField] private float beastWorldHeight = 1.91f;
+    [Tooltip("退出兽化时 UI 回落到普通高度的平滑时间")]
+    [SerializeField] private float heightReturnSmoothTime = 0.18f;
 
     [Header("Canvas")]
     [SerializeField] private Vector2 canvasSize = new Vector2(150f, 36f);
-    [SerializeField] private float canvasScale = 0.008f;
+    [SerializeField] private float canvasScale = 0.01f;
     [SerializeField] private int canvasSortingOrder = 11;
 
     [Header("满能脉动")]
@@ -70,6 +74,10 @@ public class WerewolfEnergyBar : MonoBehaviour
     private Image emblemA, emblemB;     // 双头颅（交替显示 = 一张一合）
     private float chompTimer;
     private bool lastBeastState;
+    private float normalWorldHeight;
+    private float formVisualProgress;
+    private float targetFormVisualProgress;
+    private float formProgressVelocity;
 
     private Sprite frameNormal, fillSprite, frameFull, emblemSprite, emblemSprite2;
 
@@ -77,6 +85,7 @@ public class WerewolfEnergyBar : MonoBehaviour
     {
         anchor = transform.Find("HealthBarAnchor");
         if (anchor == null) anchor = transform;
+        normalWorldHeight = (anchor == transform ? 0f : anchor.localPosition.y) + heightOffset;
         wolf = GetComponent<WerewolfTransformation>();
 
         frameNormal = Resources.Load<Sprite>("UI/WerewolfEnergy/frame_bar_large");
@@ -108,9 +117,24 @@ public class WerewolfEnergyBar : MonoBehaviour
 
     void LateUpdate()
     {
-        if (canvasTransform == null || anchor == null) return;
-        canvasTransform.position = anchor.position + Vector3.up * heightOffset;
+        if (canvasTransform == null) return;
+        formVisualProgress = Mathf.SmoothDamp(
+            formVisualProgress, targetFormVisualProgress, ref formProgressVelocity,
+            heightReturnSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
+        float currentHeight = Mathf.Lerp(normalWorldHeight, beastWorldHeight, formVisualProgress);
+        canvasTransform.position = transform.position + Vector3.up * currentHeight;
         canvasTransform.rotation = Quaternion.identity;
+    }
+
+    public void SetBeastVisualProgress(float progress)
+    {
+        formVisualProgress = targetFormVisualProgress = Mathf.Clamp01(progress);
+        formProgressVelocity = 0f;
+    }
+
+    public void SetBeastVisualTarget(bool beast)
+    {
+        targetFormVisualProgress = beast ? 1f : 0f;
     }
 
     void Update()

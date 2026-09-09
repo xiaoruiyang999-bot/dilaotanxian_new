@@ -15,6 +15,10 @@ public class PlayerCombat : MonoBehaviour
     [Header("攻击配置")]
     [SerializeField] private AttackData attackData;
 
+    [Header("v1.2.1 攻击方向 A/B 灰盒")]
+    [Tooltip("Horizontal=A 仅左右；FourWay=B 四方向离散。默认保持现有左右入口，正式定案前不删除旧 360° 瞄准。")]
+    [SerializeField] private AttackDirectionPrototypeMode meleeDirectionMode = AttackDirectionPrototypeMode.Horizontal;
+
     [Header("组件引用")]
     [SerializeField] private PlayerAimController aimController;
     [SerializeField] private WeaponController weaponController;
@@ -237,7 +241,7 @@ public class PlayerCombat : MonoBehaviour
         if (subPhase != SubPhase.None) return;
         if (aimController == null || weaponController == null) return;
 
-        Vector2 aim = mode == CombatMode.Melee ? HorizontalFacing() : aimController.AimDirection;
+        Vector2 aim = mode == CombatMode.Melee ? ResolveMeleeAttackDirection() : aimController.AimDirection;
         weaponController.SetAimDirection(aim);
     }
 
@@ -247,6 +251,16 @@ public class PlayerCombat : MonoBehaviour
         if (playerControllerCache == null) playerControllerCache = GetComponent<PlayerController>();
         Vector2 f = playerControllerCache != null ? playerControllerCache.FacingDirection : Vector2.right;
         return f.x < 0f ? Vector2.left : Vector2.right;
+    }
+
+    /// <summary>
+    /// v1.2.1 T-01 的唯一方向解析入口。攻击预览、踏步和 Hitbox 都消费本结果，
+    /// 防止四方向灰盒只转了视觉、实际判定仍停留在 X 轴。
+    /// </summary>
+    private Vector2 ResolveMeleeAttackDirection()
+    {
+        Vector2 desired = aimController != null ? aimController.AimDirection : Vector2.zero;
+        return AttackDirectionResolver.Resolve(meleeDirectionMode, desired, HorizontalFacing());
     }
 
     /// <summary>
@@ -949,8 +963,8 @@ public class PlayerCombat : MonoBehaviour
         // 锁定当前攻击方向，由 WeaponController 负责管理 WeaponPivot
         weaponController?.LockAttackDirection();
 
-        // v1.1.48 失落城堡式：方向 = 水平朝向（±1,0），攻击全程朝同一侧
-        attackDirection = HorizontalFacing();
+        // v1.2.1：方向在起手时锁定；A/B 两种灰盒共用同一个离散结果。
+        attackDirection = ResolveMeleeAttackDirection();
 
         OnAttackStart?.Invoke();
 
@@ -1018,13 +1032,12 @@ public class PlayerCombat : MonoBehaviour
         {
             weaponHitbox.LengthMultiplier = currentStep.reachMul;
             weaponHitbox.DamageMultiplier = currentStep.damageMul;
-            weaponHitbox.SetLaneMode(currentStep.laneWidth, attackDirection.x >= 0f ? 1f : -1f);
+            weaponHitbox.SetLaneMode(currentStep.laneWidth, attackDirection);
         }
 
         // v1.1.48 攻击踏步：判定开始瞬间向前一小步（追近差一点距离的敌人；冲量线性衰减 ~0.12s）
         if (playerMovement != null && comboStepValid && currentStep.stepImpulse > 0f)
-            playerMovement.AddImpulse(new Vector2(
-                (attackDirection.x >= 0f ? 1f : -1f) * currentStep.stepImpulse, 0f), 0.12f);
+            playerMovement.AddImpulse(attackDirection * currentStep.stepImpulse, 0.12f);
 
         if (isThrustAttack)
         {

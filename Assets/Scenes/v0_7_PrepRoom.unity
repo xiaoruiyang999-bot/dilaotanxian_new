@@ -740,7 +740,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 675803773}
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1474215305}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -1487,7 +1487,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 857263768900391870, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1734992719}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4ab53a63dc162b74a9446808f247efa6, type: 3}
 --- !u!1660057539 &9223372036854775807
@@ -1497,7 +1500,6 @@ SceneRoots:
   - {fileID: 725043939}
   - {fileID: 806071366}
   - {fileID: 691478408711724735}
-  - {fileID: 1734992719}
   - {fileID: 2064674611}
   - {fileID: 770000002}
   - {fileID: 1668884495}
