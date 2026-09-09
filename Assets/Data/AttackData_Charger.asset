@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45b7e7a30eb4449eb588746bd464d01a, type: 3}
   m_Name: AttackData_Charger
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   attackShape: 0
   windupTime: 0.5
   activeDuration: 0.3
@@ -23,23 +23,20 @@ MonoBehaviour:
   targetLayer:
     serializedVersion: 2
     m_Bits: 129
+  obstacleLayer:
+    serializedVersion: 2
+    m_Bits: 0
   animationType: 0
   attackEase: 1
   activeMomentRatio: 0.5
   distanceRange: {x: 0, y: 0}
   weight: 1
-  isProjectile: 0
-  projectilePrefab: {fileID: 0}
-  projectileSpeed: 8
-  isCharge: 1
-  chargeSpeedMultiplier: 3
   isSummon: 0
   summonPrefab: {fileID: 0}
   summonCount: 2
   summonRadius: 2
-  obstacleLayer:
-    serializedVersion: 2
-    m_Bits: 0
+  isCharge: 1
+  chargeSpeedMultiplier: 3
   chargerCollisionLayer:
     serializedVersion: 2
-    m_Bits: 256
+    m_Bits: 0

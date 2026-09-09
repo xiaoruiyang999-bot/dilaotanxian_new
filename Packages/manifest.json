@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.besty.unity-skills": "https://github.com/Besty0728/Unity-Skills.git?path=/SkillsForUnity",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.feature.2d": "2.0.2",
