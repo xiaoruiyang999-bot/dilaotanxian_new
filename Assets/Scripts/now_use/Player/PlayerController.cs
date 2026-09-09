@@ -27,6 +27,8 @@ public class PlayerController : MonoBehaviour
 
     // 输入
     private Vector2 moveInput;
+    /// <summary>当前移动输入（只读，v1.2.2 WerewolfAnimatorDriver 消费）。</summary>
+    public Vector2 MoveInput => moveInput;
 
     // 初始颜色缓存（死亡变灰后 Respawn 恢复用，v0.5.4）
     private Color initialColor;

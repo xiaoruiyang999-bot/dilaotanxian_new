@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43e43d21bd6b93f4294a1a0fd703940e, type: 3}
+  m_Name: Character_Werewolf
+  m_EditorClassIdentifier:
+  characterId: Werewolf
+  displayName: "狼人"
+  maxHp: 100
+  maxArmor: 25
+  moveSpeed: 5.2
+  attack: 10
+  critRate: 0.05
+  critDamage: 1.5
+  armorReduceMul: 0.3
+  armorLossMul: 1
+  maxMana: 50
+  beastResourceMax: 100
+  beastPerHit: 4
+  beastDuration: 12
+  basicAttack: {fileID: 11400000, guid: 5128ea26423e4dc7ae50c71351a42c16, type: 2}
+  artFolder: Werewolf
+  idleFolder: Idle
+  walkFolder: Walk
+  beastIdleFolder: BeastIdle
+  beastWalkFolder: BeastWalk
+  transformFolder: Transform
