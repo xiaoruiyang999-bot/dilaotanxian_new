@@ -48,6 +48,8 @@ public class PlayerCombat : MonoBehaviour
     // ===== v1.1.48 连段状态（失落城堡式战斗第一批）=====
     // 攻击不再"单次动作锁死"：提前按键进缓冲、后摇可取消点接段、段间接受窗口；
     // 每段独立的时长/判定长度/纵深/伤害/踏步来自 MeleeComboTable，判定入口仍是 WeaponHitbox。
+    // v1.2.1 T-01 攻击方向灰盒：方向解析统一走 ResolveMeleeAttackDirection（AttackDirectionResolver），
+    // A=Horizontal 仅左右 / B=FourWay 四方向，Play 中切 meleeDirectionMode 即时对照。
     private MeleeComboStep[] comboSet = MeleeComboTable.Fallback;
     private int comboIndex;                 // 当前段序（0 起；窗口超时归零）
     private MeleeComboStep currentStep;     // 当前段参数快照（StartWindup 取）
