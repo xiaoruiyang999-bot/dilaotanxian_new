@@ -156,9 +156,14 @@ public class DungeonManager : MonoBehaviour
         if (layout.startRoom == null) return "缺少起始房";
         if (layout.bossRoom == null || layout.bossRoom == layout.startRoom) return "Boss 房无效";
         if (!layout.bossRoom.IsLeaf) return $"Boss 房 #{layout.bossRoom.id} 不是单入口叶子";
-        int bossSpan = Mathf.Max(1, config.bossCellSpan);
+        int bossSpan = BossRitualRoomTemplate.CoarseSpan;
         if (layout.bossRoom.spanX != bossSpan || layout.bossRoom.spanY != bossSpan)
             return $"Boss 房 #{layout.bossRoom.id} 尺寸 {layout.bossRoom.spanX}×{layout.bossRoom.spanY}，应为 {bossSpan}×{bossSpan}";
+        RoomConnection bossEntrance = layout.bossRoom.connections[0];
+        Vector2Int bossOriginal = bossEntrance.OriginalGridPos(layout.bossRoom);
+        Vector2Int neighborOriginal = bossEntrance.OriginalGridPos(bossEntrance.Other(layout.bossRoom));
+        if (neighborOriginal - bossOriginal != Vector2Int.down)
+            return $"Boss 房 #{layout.bossRoom.id} 不是固定南入口";
 
         // 连通性：从起始房 BFS 可达房间数必须等于总数
         var visited = new HashSet<RoomNode>();

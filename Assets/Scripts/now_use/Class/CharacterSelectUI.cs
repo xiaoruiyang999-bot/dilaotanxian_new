@@ -106,6 +106,8 @@ public class CharacterSelectUI : MonoBehaviour
 
         // v1.1.30：确认键移除——点击卡片/选择键即选中即确定
 
+        // v1.1.51：右上角叉除键（不选直接关面板）
+        UIHelper.CreateCloseButton(panelRect, Close);
         canvasGo.SetActive(false);
     }
 

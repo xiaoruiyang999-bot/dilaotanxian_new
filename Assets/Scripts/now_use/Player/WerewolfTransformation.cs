@@ -40,6 +40,7 @@ public class WerewolfTransformation : MonoBehaviour
     private Transform weaponPivot;
     private Vector3 weaponPivotBaseScale = Vector3.one;
     private Transform healthBarAnchor;
+    private WerewolfEnergyBar energyBar;
 
     /// <summary>确保玩家身上挂了狼人变身组件（场景应用侧/选择页确认时调用）。</summary>
     public static WerewolfTransformation EnsureOn(GameObject player)
@@ -64,7 +65,13 @@ public class WerewolfTransformation : MonoBehaviour
         }
 
         SetHealthBarHeight(BarHeightWolf);
-        Debug.Log("[Werewolf] 狼形态就绪：T=兽化（血量×1.5 伤害×1.3 攻速×1.1 移速×1.1 判定×1.5）");
+
+        // v1.1.52：狼人专属头顶能量条（伤害充能，充满脉动提示；随组件销毁）
+        energyBar = GetComponent<WerewolfEnergyBar>();
+        if (energyBar == null)
+            energyBar = gameObject.AddComponent<WerewolfEnergyBar>();
+
+        Debug.Log("[Werewolf] 狼形态就绪：能量满后按 T 兽化（血量×1.5 伤害×1.3 攻速×1.1 移速×1.1 判定×1.5）");
     }
 
     void OnDestroy()
@@ -72,8 +79,9 @@ public class WerewolfTransformation : MonoBehaviour
         // 还原一切狼人形态残留（组件销毁 = 改选战士或场景卸载；场景卸载时对象将死，复位无副作用）
         if (weaponPivot != null)
             weaponPivot.localScale = weaponPivotBaseScale;
-        ApplyBeastStats(false);
+        ResetTransformation();
         SetHealthBarHeight(1.0f);
+        if (energyBar != null) Destroy(energyBar);
     }
 
     void Update()
@@ -98,7 +106,49 @@ public class WerewolfTransformation : MonoBehaviour
             Debug.Log("[Werewolf] 退兽化：回普通狼");
             return;
         }
+        if (energyBar == null || !energyBar.IsFull)
+        {
+            float currentEnergy = energyBar != null ? energyBar.Energy : 0f;
+            float requiredEnergy = energyBar != null ? energyBar.MaxEnergy : 0f;
+            Debug.Log($"[Werewolf] 能量未满，无法兽化（{currentEnergy:0}/{requiredEnergy:0}）");
+            return;
+        }
         StartCoroutine(BeastTransformRoutine());
+    }
+
+    public void ExitBeastFromEnergyDepleted()
+    {
+        if (!IsBeast) return;
+        ExitBeastForm();
+        Debug.Log("[Werewolf] 能量耗尽，自动退出兽化形态");
+    }
+
+    public void ResetTransformation()
+    {
+        StopAllCoroutines();
+        transforming = false;
+        if (IsBeast) ExitBeastForm();
+        else
+        {
+            ApplyBeastStats(false);
+            if (animator != null)
+            {
+                animator.SetBeastForm(false);
+                animator.SetWerewolfVisualGrow(1f);
+            }
+        }
+    }
+
+    private void ExitBeastForm()
+    {
+        IsBeast = false;
+        if (health != null) health.ScaleMaxHealth(1f / beastHealthScale);
+        ApplyBeastStats(false);
+        if (animator != null)
+        {
+            animator.SetBeastForm(false);
+            animator.SetWerewolfVisualGrow(1f);
+        }
     }
 
     private IEnumerator BeastTransformRoutine()

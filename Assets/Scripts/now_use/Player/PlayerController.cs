@@ -201,6 +201,8 @@ public class PlayerController : MonoBehaviour
     public void Respawn()
     {
         if (werewolfDash != null) werewolfDash.ResetDash();   // v1.1.42 冲刺状态/冷却复位
+        GetComponent<WerewolfTransformation>()?.ResetTransformation();
+        GetComponent<WerewolfEnergyBar>()?.ResetEnergy();
         if (TryGetComponent<SpriteRenderer>(out var sr)) sr.color = initialColor;
         moveInput = Vector2.zero;
         if (movement != null) movement.StopImmediately();

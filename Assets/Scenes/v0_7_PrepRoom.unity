@@ -310,7 +310,15 @@ MonoBehaviour:
   target: {fileID: 1474215305}
   smoothSpeed: 10
   offset: {x: 0, y: 0, z: -10}
+  snapToScreenPixels: 1
+  pixelPerfectOrtho: 1
+  tilePPU: 144
+  targetOrthoSize: 9
+  allowSubPixelZoom: 1
   shakeScale: 1
+  boundsMarginX: 0
+  boundsMarginY: 0
+  drawBoundsGizmos: 0
 --- !u!114 &725043941
 MonoBehaviour:
   m_ObjectHideFlags: 0

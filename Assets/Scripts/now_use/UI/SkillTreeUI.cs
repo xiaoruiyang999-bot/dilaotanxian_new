@@ -71,6 +71,9 @@ public static class SkillTreeUI
         var closeBtn = CreateStoneButton(panel.transform, "返 回", new Vector2(560f, -370f), new Vector2(260f, 64f));
         closeBtn.onClick.AddListener(Close);
 
+        // v1.1.51：右上角叉除键（同 返回，关技能树页面）
+        UIHelper.CreateCloseButton(panel.transform, Close);
+
         Rebuild();
     }
 

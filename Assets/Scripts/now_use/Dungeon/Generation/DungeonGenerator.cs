@@ -27,8 +27,8 @@ public static class DungeonGenerator
                 var typeRng = new System.Random(seed * 31 + 7);
                 RoomTypeAssigner.Assign(layout, config, typeRng);
                 RoomSizeExpander.Expand(layout, config, typeRng);
-                // v1.1.51 固定仪式厅必须是单入口叶子且完整 N×N；不允许退成小房后破坏构图。
-                int requiredBossSpan = Mathf.Max(1, config.bossCellSpan);
+                // v1.1.52 固定仪式厅必须是南入口叶子且完整 2×2；不允许尺寸/朝向随 seed 改变。
+                int requiredBossSpan = BossRitualRoomTemplate.CoarseSpan;
                 if (layout.bossRoom.IsLeaf
                     && layout.bossRoom.spanX == requiredBossSpan
                     && layout.bossRoom.spanY == requiredBossSpan)
@@ -89,7 +89,7 @@ public static class DungeonGenerator
         if (layout.rooms.Count < config.roomCountMin) return null; // 触发重roll
 
         ComputeDistancesFromStart(layout);
-        layout.bossRoom = SelectBossRoom(layout, Mathf.Max(1, config.bossCellSpan),
+        layout.bossRoom = SelectBossRoom(layout, BossRitualRoomTemplate.CoarseSpan,
             Mathf.Max(0, config.bossMinDistance));
         if (layout.bossRoom == null) return null;   // 没有可扩成固定单入口厅的节点，整图重 roll
         layout.bossRoom.type = RoomType.Boss;
@@ -128,7 +128,7 @@ public static class DungeonGenerator
     }
 
     /// <summary>
-    /// Boss 房 = 达到最小距离且能预留完整 N×N 区域的最远叶子房。
+    /// Boss 房 = 达到最小距离且能在北侧预留完整 2×2 区域的最远南入口叶子房。
     /// 若本次图没有合格节点则整图重 roll；极端情况下由直线保底图满足可满足的最小距离。
     /// </summary>
     private static RoomNode SelectBossRoom(DungeonLayout layout, int requiredSpan, int minimumDistance)
@@ -150,7 +150,8 @@ public static class DungeonGenerator
     /// <summary>与 RoomSizeExpander 的四角扩张口径一致；此时所有房仍是 1×1。</summary>
     private static bool CanReserveBossSquare(RoomNode room, int span, HashSet<Vector2Int> occupied)
     {
-        if (!BossRitualRoomTemplate.TryGetCoarseAnchor(room, span, out Vector2Int anchor)) return false;
+        if (span != BossRitualRoomTemplate.CoarseSpan
+            || !BossRitualRoomTemplate.TryGetCoarseAnchor(room, out Vector2Int anchor)) return false;
         for (int x = 0; x < span; x++)
             for (int y = 0; y < span; y++)
             {
@@ -161,7 +162,7 @@ public static class DungeonGenerator
     }
 
     /// <summary>
-    /// 极端配置/随机流保底：直线图最后一个节点天然为叶子，向外侧必有完整 N×N 空间。
+    /// 极端配置/随机流保底：直线图最后一个节点天然为南入口叶子，北侧必有完整 2×2 空间。
     /// 仍经过统一类型分配与尺寸扩展，不引入第二套运行时构建路径。
     /// </summary>
     private static DungeonLayout BuildLinearFallback(DungeonConfig config, int seed)
