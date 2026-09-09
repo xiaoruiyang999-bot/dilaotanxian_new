@@ -67,6 +67,8 @@ public class DungeonBuilder : MonoBehaviour
     // v1.1.46 最终布局的内容生成白名单：防止敌人/奖励/装饰刷进挖除空洞或房内墙。
     private readonly Dictionary<int, List<Vector2Int>> roomSpawnCells = new Dictionary<int, List<Vector2Int>>();
     // v1.1.52 固定 Boss 仪式厅：地图 seed 只决定房间位置；2×2/南入口/地墙/内容均不随机。
+    // v2.0.4：仅 LegacyGrid 拓扑启用（Build 按拓扑设置）。
+    private bool useLegacyBossRitual = true;
     private readonly HashSet<Vector2Int> fixedBossGroundCells = new HashSet<Vector2Int>();
     private readonly Dictionary<Vector2Int, int> fixedBossWallVariants = new Dictionary<Vector2Int, int>();
     private readonly Dictionary<int, BossRitualRoomLayout> bossRitualLayouts =
@@ -75,10 +77,13 @@ public class DungeonBuilder : MonoBehaviour
     public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
         floorTheme = floorNumber;   // M3：主题缓存
-        roomW = config.roomWidth;
-        roomH = config.roomHeight;
+        // v2.0.4 拓扑分尺寸：LinearHorizontal 用长矩形房（V2 §4.3 长宽比 2.2~4:1）；Legacy 沿用旧值
+        bool linear = config.topology == DungeonConfig.DungeonTopology.LinearHorizontal;
+        roomW = linear ? config.linearRoomWidth : config.roomWidth;
+        roomH = linear ? config.linearRoomHeight : config.roomHeight;
         doorW = config.doorWidth;
         layoutSeedCache = layoutSeed;   // v1.1.22：PaintRoom 塑形 rng 派生用
+        useLegacyBossRitual = !linear;   // 固定仪式厅（2×2 南入口合同）仅旧迷宫拓扑使用
 
         ClearAll();
 
@@ -290,10 +295,13 @@ public class DungeonBuilder : MonoBehaviour
 
         // ---------- v1.1.31 五职责塑形管线：房形→轮廓墙→障碍→验证（失败同 RNG 重试，保底整房） ----------
         // Start 保持空矩形；Boss 走不消费随机数的固定仪式厅模板；其余房间随机塑形。
+        // v2.0.4 LinearHorizontal：固定仪式厅是旧迷宫体系（2×2 南入口合同）专属，
+        // 横向链 Boss（单长房）走普通随机塑形，待 v2.0.8 横向 Boss 厅模板再接管。
         RectInt interiorRect = new RectInt(rect.xMin + 1, rect.yMin + 1, rect.width - 1, rect.height - 1);
         doorCellsByRoom.TryGetValue(node.id, out List<Vector2Int> doorCells);
         RoomPlan plan;
-        if (node.type == RoomType.Boss)
+        bool legacyBossRitual = node.type == RoomType.Boss && useLegacyBossRitual;
+        if (legacyBossRitual)
         {
             BossRitualRoomLayout bossLayout = BossRitualRoomTemplate.Build(interiorRect, doorCells);
             bossRitualLayouts[node.id] = bossLayout;

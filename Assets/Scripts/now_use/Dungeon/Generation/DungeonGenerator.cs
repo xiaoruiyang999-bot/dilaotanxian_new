@@ -17,6 +17,17 @@ public static class DungeonGenerator
         var rng = new System.Random(seed);
         int target = rng.Next(config.roomCountMin, config.roomCountMax + 1);
 
+        // v2.0.4 V2 横向单向拓扑（《无名之地》V2 §4/§10）：长矩形房从左向右串接、
+        // 左入右出、Boss 最右——DungeonGraph 骨架的 MVP 形态（分叉/节点选择属 v2.0.5 地图 UI）。
+        // 特殊房类型沿用 Assign（商店/宝箱穿插链上）；Boss 固定厅/粗格扩展为旧迷宫体系专属，旁路。
+        if (config.topology == DungeonConfig.DungeonTopology.LinearHorizontal)
+        {
+            DungeonLayout chain = BuildLinearChain(config, seed, target);
+            var chainTypeRng = new System.Random(seed * 31 + 7);
+            RoomTypeAssigner.Assign(chain, config, chainTypeRng);
+            return chain;
+        }
+
         // 防御性重roll：生长失败（候选格提前耗尽）或房间数不足时整张重来（算法上几乎不会触发）
         for (int attempt = 0; attempt < 50; attempt++)
         {
@@ -41,6 +52,45 @@ public static class DungeonGenerator
         RoomTypeAssigner.Assign(fallback, config, fallbackTypeRng);
         RoomSizeExpander.Expand(fallback, config, fallbackTypeRng);
         return fallback;
+    }
+
+    /// <summary>
+    /// v2.0.4 水平链：房间 gridPos = (列, 0) 依次右移，相邻两房建立唯一连接
+    ///（共享墙线由既有 Builder 开门 = 左入右出）。起点最左、Boss 最右，构造即确定可复现。
+    /// </summary>
+    private static DungeonLayout BuildLinearChain(DungeonConfig config, int seed, int count)
+    {
+        count = Mathf.Max(3, count);   // 至少 Start + 中间 + Boss
+        var layout = new DungeonLayout { seed = seed };
+        RoomNode previous = null;
+        for (int i = 0; i < count; i++)
+        {
+            var room = new RoomNode
+            {
+                id = i,
+                gridPos = new Vector2Int(i, 0),
+                type = i == 0 ? RoomType.Start : RoomType.Combat,
+                spanX = 1,
+                spanY = 1,
+            };
+            layout.rooms.Add(room);
+            if (previous != null)
+            {
+                var conn = new RoomConnection(previous, room);
+                layout.connections.Add(conn);
+                previous.connections.Add(conn);
+                room.connections.Add(conn);
+            }
+            else
+            {
+                layout.startRoom = room;
+            }
+            previous = room;
+        }
+        ComputeDistancesFromStart(layout);
+        layout.bossRoom = previous;   // 最右节点即 Boss 汇点
+        layout.bossRoom.type = RoomType.Boss;
+        return layout;
     }
 
     private static DungeonLayout TryGrow(DungeonConfig config, System.Random rng, int target, int seed)

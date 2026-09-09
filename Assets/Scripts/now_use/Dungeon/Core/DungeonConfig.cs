@@ -16,6 +16,15 @@ public class DungeonConfig : ScriptableObject
     [Tooltip("门洞宽（瓦片数）")]
     public int doorWidth = 2;
 
+    public enum DungeonTopology { LegacyGrid, LinearHorizontal }
+
+    [Header("地图拓扑（v2.0.4，V2 文档 §4/§10）")]
+    [Tooltip("LinearHorizontal = V2 横向单向：长矩形房从左向右串接、左入右出、Boss 在最右（DungeonGraph 骨架的 MVP 形态，分叉选择属 v2.0.5 地图 UI）；LegacyGrid = v1.x 四向网格迷宫（迁移回退口）")]
+    public DungeonTopology topology = DungeonTopology.LinearHorizontal;
+    [Tooltip("横向拓扑的房间内部尺寸（瓦特，不含墙）——长宽比约 3:1、约 2 屏宽（V2 §4.3：2.2:1~4:1）")]
+    [Range(12, 60)] public int linearRoomWidth = 34;
+    [Range(8, 24)] public int linearRoomHeight = 12;
+
     [Header("楼层入场表现")]
     [Tooltip("生成新楼层时，墙体以独立视觉层逐块从上方坠落；真实墙体碰撞始终保持在最终位置")]
     public bool wallDropEnabled = true;

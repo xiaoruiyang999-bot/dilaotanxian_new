@@ -10,8 +10,83 @@ public class DungeonGeneratorTests
 {
     private static DungeonConfig MakeConfig()
     {
-        // CreateInstance 走字段默认值（8~12 房 + 宝箱/商店特殊房），无需加载资产
-        return ScriptableObject.CreateInstance<DungeonConfig>();
+        // 本测试类的既有门禁描述 v1.x 四向迷宫体系——显式锁 LegacyGrid
+        //（v2.0.4 起 config 默认 LinearHorizontal 横向链，旧语义测试不受默认值漂移影响）
+        var config = ScriptableObject.CreateInstance<DungeonConfig>();
+        config.topology = DungeonConfig.DungeonTopology.LegacyGrid;
+        return config;
+    }
+
+    // ========== v2.0.4 LinearHorizontal 横向单向拓扑门禁（V2 文档 §4/§10） ==========
+
+    private static DungeonConfig MakeLinearConfig() => ScriptableObject.CreateInstance<DungeonConfig>();
+
+    [Test]
+    public void LinearTopology_HorizontalChain_LeftInRightOut_BossRightmost()
+    {
+        var rngMeta = new System.Random(20260909);
+        for (int i = 0; i < 60; i++)
+        {
+            int seed = rngMeta.Next();
+            DungeonLayout layout = DungeonGenerator.Generate(MakeLinearConfig(), seed);
+
+            Assert.NotNull(layout.startRoom);
+            Assert.NotNull(layout.bossRoom);
+            Assert.That(layout.rooms.Count, Is.InRange(MakeLinearConfig().roomCountMin, 100));
+
+            // 全连接严格水平（左入右出：每条边两端行相同、后继列 = 前驱列 + 1）
+            foreach (RoomConnection conn in layout.connections)
+            {
+                RoomNode a = conn.a, b = conn.b;
+                RoomNode left = a.gridPos.x < b.gridPos.x ? a : b;
+                RoomNode right = a.gridPos.x < b.gridPos.x ? b : a;
+                Assert.AreEqual(left.gridPos.y, right.gridPos.y, $"seed={seed} 出现非水平连接（垂直门违反左入右出）");
+                Assert.AreEqual(left.gridPos.x + 1, right.gridPos.x, $"seed={seed} 非相邻列连接");
+            }
+
+            // 房间数 = 连接数 + 1（链式无分叉）；Start 最左、Boss 最右
+            Assert.AreEqual(layout.rooms.Count - 1, layout.connections.Count, $"seed={seed} 不是纯链结构");
+            int maxX = int.MinValue; RoomNode rightmost = null;
+            foreach (RoomNode r in layout.rooms)
+                if (r.gridPos.x > maxX) { maxX = r.gridPos.x; rightmost = r; }
+            Assert.AreSame(rightmost, layout.bossRoom, $"seed={seed} Boss 不在最右");
+            Assert.AreEqual(RoomType.Boss, layout.bossRoom.type);
+            Assert.AreEqual(RoomType.Start, layout.startRoom.type);
+            Assert.AreEqual(0, layout.startRoom.gridPos.x, $"seed={seed} Start 不在最左");
+        }
+    }
+
+    [Test]
+    public void LinearTopology_SameSeed_Deterministic()
+    {
+        DungeonConfig config = MakeLinearConfig();
+        DungeonLayout a = DungeonGenerator.Generate(config, 777);
+        DungeonLayout b = DungeonGenerator.Generate(config, 777);
+        Assert.AreEqual(a.rooms.Count, b.rooms.Count);
+        for (int i = 0; i < a.rooms.Count; i++)
+        {
+            Assert.AreEqual(a.rooms[i].gridPos, b.rooms[i].gridPos);
+            Assert.AreEqual(a.rooms[i].type, b.rooms[i].type);
+        }
+    }
+
+    [Test]
+    public void LinearTopology_AllRoomsReachable_LeftmostStart()
+    {
+        DungeonLayout layout = DungeonGenerator.Generate(MakeLinearConfig(), 4242);
+        var visited = new System.Collections.Generic.HashSet<RoomNode> { layout.startRoom };
+        var queue = new System.Collections.Generic.Queue<RoomNode>();
+        queue.Enqueue(layout.startRoom);
+        while (queue.Count > 0)
+        {
+            RoomNode cur = queue.Dequeue();
+            foreach (RoomConnection conn in cur.connections)
+            {
+                RoomNode next = conn.Other(cur);
+                if (next != null && visited.Add(next)) queue.Enqueue(next);
+            }
+        }
+        Assert.AreEqual(layout.rooms.Count, visited.Count, "水平链必须全可达");
     }
 
     [Test]
