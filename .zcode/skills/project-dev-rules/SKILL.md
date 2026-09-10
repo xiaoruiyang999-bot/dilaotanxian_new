@@ -3,11 +3,11 @@ name: project-dev-rules
 description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编写或修改 C#、场景、Prefab、Animator、Sprite、物理判定、战斗、AI、房间、DAG、玩家状态、YAML，或使用 Unity Editor 自动化时必须先加载。
 ---
 
-# v1.2 项目开发红线
+# V2 项目开发红线
 
 真源：
 
-- 玩法与范围：计划书/v1.2.0_俯视横向单向DAG地牢_GDD与开发计划.md
+- 玩法与范围：计划书/无名之地_完整游戏开发文档_V2.md
 - 工程规则：开发必读_核心信息整合.md
 - 摘要：AGENTS.md
 
@@ -18,7 +18,7 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 - 角色与职业已合并为职业角色；战士退役，首发狼人。
 - 武器视觉烘入角色 Sprite；Attack Hitbox 和身体碰撞独立。
 - 新动画只扩展 Unity Animation/Animator。
-- 攻击方向仍是待定项：先做仅左右与四方向离散灰盒，未确认前不量产最终动画。
+- v2.0.1 首轮只做左右攻击灰盒：键鼠按鼠标相对角色的 X 正负定向，Y 不参与；不同时开发四方向版本，未确认手感前不量产最终攻击动画。
 - now_use 中旧 Character/Class、四向网格房间、WeaponPivot、FrameAnimator 是迁移基线，不得当作新目标继续扩建。
 
 ## 2. 写代码前 Checklist
@@ -85,8 +85,8 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 ## 8. UI 与输入
 
 - UI 只呈现和发送意图，不直接写节点完成、金币、伤害或职业真值。
-- 当前建议键位：WASD、左键攻击、Space 闪避、E 交互、F 职业技能、Q 终极/兽化、R 武器技能、C 道具、Tab 地图、Esc 暂停。
-- T 与 Q 的最终分配仍可在 GDD T-07 调整；实现 Input Action 时保留可重绑。
+- V2 MVP 键位：WASD、左键攻击、Space 闪避、E 交互、F 小技能、Q 大招/兽化、Tab 地图、Esc 暂停。
+- 旧 T 兽化入口停用；R 武器技能与 C 道具键不进入首轮 MVP，是否恢复须在相应系统设计时确认。
 - 运行时 TMP 对象避免重复添加组件；字体和资源必须有构建态来源。
 
 ## 9. 调试纪律

@@ -182,7 +182,9 @@ public class FrameAnimator : MonoBehaviour
         // Start + yield return null 之后才调 SetWerewolfVisual，本组件 Awake 已按战士渲染了一帧。
         // 在首次渲染前读载体直接初始化对应外形；SetWerewolfVisual 幂等，场景侧后续调用为 no-op。
         // 武器/属性等仍走原延迟链路，此处只对齐视觉首帧。
-        if (RunStateCarrier.Ensure().ChosenCharacter == CharacterSkin.Werewolf)
+        RunStateCarrier carrier = RunStateCarrier.Ensure();
+        if (carrier.HasPlayableCharacter
+            && carrier.ChosenPlayableCharacterId == PlayableCharacterId.Werewolf)
             SetWerewolfVisual(true);
     }
 
@@ -482,7 +484,7 @@ public class FrameAnimator : MonoBehaviour
     // ========== v1.0.6 狼人外形（角色选择行，与职业独立） ==========
 
     /// <summary>
-    /// 启用狼人外形（RunStateCarrier.ChosenCharacter → RunManager/PrepRoomManager 场景应用侧调用）。
+    /// 启用狼人外形（PlayableCharacterId → 场景装配侧调用）。
     /// 单向开关：切回战士走场景重载（新玩家实例默认战士外形，再按载体决定是否套狼人）。
     /// 帧：Resources/Art/Characters/Werewolf/{Walk_L,Walk_R,Idle_L,Idle_R}（001.png 起连续编号），左右两套不做 flipX。
     /// Walk 组缺失 → 保持战士外形并警告。

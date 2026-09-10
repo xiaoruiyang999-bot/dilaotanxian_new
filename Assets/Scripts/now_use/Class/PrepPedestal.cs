@@ -4,12 +4,12 @@ using UnityEngine;
 
 /// <summary>
 /// 准备房间展台类型。
-/// ClassSelector：职业选择台（三层基座 + 顶部悬浮三色棱晶）；
+/// CharacterSelector：职业角色选择台（三层基座 + 顶部悬浮狼人棱晶）；
 /// WeaponDisplay：武器展示台（矮基座 + 金色托盘 + 悬浮展示位）。
 /// </summary>
 public enum PrepPedestalType
 {
-    ClassSelector = 0,
+    CharacterSelector = 0,
     WeaponDisplay = 1
 }
 
@@ -17,8 +17,7 @@ public enum PrepPedestalType
 /// 准备房间展台（v0.6.2 阶段 B，计划书 4.5 / 美术清单第六节）。
 /// 视觉全部运行时代码构建（程序员美术多色块，白图 SpriteRenderer 染色），不写 prefab YAML。
 /// 继承 Interactable 接入 v0.6.1 E 键候选体系：
-/// - 职业选择台：Interact 打开 ClassSelectUI（可重复打开，不消耗，覆盖 Interact 跳过一次性消耗）；
-///   走近时头顶显示名称"职业选择台"（TMP 世界空间标签）。
+/// - 职业角色选择台：Interact 打开 CharacterSelectUI（可重复打开，不消耗）；
 /// - 武器展示台：碰撞体禁用（E 由展示位上的 WeaponPickup 承担），
 ///   ShowWeapon(WeaponData) 在托盘上方生成展示武器，被拾走后托盘压暗空置。
 /// </summary>
@@ -28,16 +27,11 @@ public class PrepPedestal : Interactable
     private static readonly Color stoneLight = new Color(0.62f, 0.66f, 0.66f);
     private static readonly Color trayGold = new Color(0.9451f, 0.7686f, 0.0588f);   // #F1C40F
     private static readonly Color trayEmpty = new Color(0.9451f * 0.35f, 0.7686f * 0.35f, 0.0588f * 0.35f);
-    private static readonly Color[] classColors =
-    {
-        new Color(0.75294f, 0.23137f, 0.16863f),   // 战士 #C0392B
-        new Color(0.15294f, 0.68235f, 0.37647f),   // 射手 #27AE60
-        new Color(0.55686f, 0.26667f, 0.67843f)    // 法师 #8E44AD
-    };
+    private static readonly Color werewolfGreen = new Color(0.35f, 0.85f, 0.45f);
 
     private static Sprite whiteSprite;
 
-    [SerializeField] private PrepPedestalType type = PrepPedestalType.ClassSelector;
+    [SerializeField] private PrepPedestalType type = PrepPedestalType.CharacterSelector;
     [SerializeField] private float nameLabelDistance = 3f;   // 走近该距离显示展台名
 
     [Header("展台名标签（职业选择台，Inspector 调整即时生效）")]
@@ -72,7 +66,7 @@ public class PrepPedestal : Interactable
         // 职业台：启用，供 E 交互；武器台：禁用（E 由展示武器的 WeaponPickup 承担，避免抢候选）
         col.isTrigger = true;
         col.radius = 0.6f;
-        col.enabled = type == PrepPedestalType.ClassSelector;
+        col.enabled = type == PrepPedestalType.CharacterSelector;
 
         p.BuildVisual();
         return p;
@@ -81,8 +75,8 @@ public class PrepPedestal : Interactable
     /// <summary>覆盖基类：职业选择台可重复交互（打开选择 UI），不走一次性消耗。</summary>
     public override void Interact(Collider2D playerCollider)
     {
-        if (type != PrepPedestalType.ClassSelector) return;
-        ClassSelectUI.Open();
+        if (type != PrepPedestalType.CharacterSelector) return;
+        CharacterSelectUI.Open();
     }
 
     /// <summary>一次性效果：展台不使用基类消耗流程（本类覆盖 Interact 后不会走到）。</summary>
@@ -141,7 +135,7 @@ public class PrepPedestal : Interactable
             SetTrayEmpty();
 
         // 职业选择台：走近显示名称标签（可见时每帧应用序列化参数，Inspector 调整即时生效）
-        if (type == PrepPedestalType.ClassSelector && nameLabelGo != null)
+        if (type == PrepPedestalType.CharacterSelector && nameLabelGo != null)
         {
             if (player == null)
             {
@@ -169,7 +163,7 @@ public class PrepPedestal : Interactable
 
     private void BuildVisual()
     {
-        if (type == PrepPedestalType.ClassSelector)
+        if (type == PrepPedestalType.CharacterSelector)
             BuildClassSelectorVisual();
         else
             BuildWeaponDisplayVisual();
@@ -182,22 +176,14 @@ public class PrepPedestal : Interactable
         CreateBlock("Pillar", new Vector2(0.4f, 0.5f), new Vector3(0f, 0.5f), stoneLight);
         CreateBlock("Top", new Vector2(0.7f, 0.18f), new Vector3(0f, 0.84f), stoneGray);
 
-        // 顶部悬浮三面棱晶（三职业色，缓转 + 上下浮动）
+        // 顶部悬浮单棱晶：当前 MVP 只开放狼人，避免继续暗示三份独立职业选择。
         GameObject prismRoot = new GameObject("Prism");
         prismRoot.transform.SetParent(transform, false);
         prismRoot.transform.localPosition = new Vector3(0f, 1.45f, 0f);
 
-        Vector3[] offsets =
-        {
-            new Vector3(-0.22f, -0.1f), new Vector3(0.22f, -0.1f), new Vector3(0f, 0.25f)
-        };
-        for (int i = 0; i < 3; i++)
-        {
-            SpriteRenderer facet = CreateBlock($"Facet{i}", new Vector2(0.24f, 0.24f),
-                Vector3.zero, classColors[i], prismRoot.transform);
-            facet.transform.localPosition = offsets[i];
-            facet.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);   // 菱形
-        }
+        SpriteRenderer facet = CreateBlock("WerewolfFacet", new Vector2(0.36f, 0.36f),
+            Vector3.zero, werewolfGreen, prismRoot.transform);
+        facet.transform.localRotation = Quaternion.Euler(0f, 0f, 45f);
 
         prismRoot.transform
             .DORotate(new Vector3(0f, 0f, 360f), 8f, RotateMode.FastBeyond360)
@@ -255,7 +241,7 @@ public class PrepPedestal : Interactable
         GameObject textGo = new GameObject("Text");
         textGo.transform.SetParent(nameLabelGo.transform, false);
         TMP_Text text = textGo.AddComponent<TextMeshProUGUI>();
-        text.text = "职业选择台";
+        text.text = "职业角色选择台";
         text.font = TMPFontProvider.Font;
         text.fontSize = nameLabelFontSize;
         text.color = Color.white;

@@ -2,8 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// 狼人冲刺（v1.1.42，自 MCP 分支 M1·v0.6.1 Dash 移植 + v0.7.x 架构适配）：
-/// 仅狼人外形可用（ChosenCharacter==Werewolf 时由选择页/FrameAnimator 装上本组件，
-/// 改选战士随组件销毁自动下线）。触发键 = 输入资产既有 Dash 动作（Space，v0.7.0 下线时保留备用，
+/// 仅狼人职业角色可用（PlayableCharacterId.Werewolf 时由装配链挂上本组件，
+/// 切换到其他职业角色时随组件销毁自动下线）。触发键 = 输入资产既有 Dash 动作（Space，
 /// 正好复用）；也可代码调用 TryDash()。
 /// 参数与无敌帧口径完全沿用 MCP 分支原版：18 速 / 0.15s / 0.9s CD / 收招无敌 +0.06s
 ///（Health.SetInvincible 实现无敌窗口，冲刺结束自动解除；重复授予取更晚截止语义由本类自管）。
@@ -41,7 +41,7 @@ public class WerewolfDash : MonoBehaviour
     public float CooldownRemaining => Mathf.Max(0f, dashCooldownUntil - Time.time);
     private float dashCooldownUntil;
 
-    /// <summary>给狼人玩家装上冲刺（CharacterSelectUI.Pick 确认狼人时调用；改选战士组件销毁即下线）。</summary>
+    /// <summary>给狼人玩家装上冲刺；切换其他职业角色时由装配侧销毁。</summary>
     public static WerewolfDash EnsureOn(GameObject player)
     {
         var d = player.GetComponent<WerewolfDash>();

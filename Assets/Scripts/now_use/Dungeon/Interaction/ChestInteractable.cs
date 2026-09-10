@@ -57,8 +57,9 @@ public class ChestInteractable : Interactable
         // v1.1.3 宝箱奖励四权重：已选职业 → 金币 / 本职业随机武器 / 法力包 / 随机消耗包（默认 25/30/20/25，可调）；
         // 无职业（v0_4/v0_5 旧场景）退回原 itemPrefab + HealPickup 治疗球路径
         PlayerStats stats = player != null ? player.GetComponent<PlayerStats>() : null;
-        ClassData cls = stats != null ? stats.CurrentClass : null;
-        if (cls != null && cls.AvailableWeapons.Count > 0)
+        PlayableCharacterDefinition definition =
+            stats != null ? stats.CurrentPlayableCharacter : null;
+        if (definition != null && definition.AvailableWeapons.Count > 0)
         {
             float roll = Random.value;
             if (roll < coinChance)
@@ -69,7 +70,7 @@ public class ChestInteractable : Interactable
             }
             else if (roll < coinChance + weaponChance)
             {
-                WeaponData data = cls.AvailableWeapons[Random.Range(0, cls.AvailableWeapons.Count)];
+                WeaponData data = definition.AvailableWeapons[Random.Range(0, definition.AvailableWeapons.Count)];
                 WeaponPickup pickup = WeaponPickup.Drop(data, transform.position);
                 if (pickup != null) PopIn(pickup.transform);
                 Debug.Log($"[Dungeon] 宝箱开启：掉落武器 {(data != null ? data.DisplayName : "?")}（走近按 E 拾取）");

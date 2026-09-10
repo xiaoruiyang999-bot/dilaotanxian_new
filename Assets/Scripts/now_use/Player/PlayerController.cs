@@ -24,6 +24,7 @@ public class PlayerController : MonoBehaviour
     private PlayerInput playerInput;
     private ItemInventory itemInventory;
     private SkillExecutor skillExecutor;
+    private WerewolfTransformation werewolfTransformation;
 
     // 输入
     private Vector2 moveInput;
@@ -63,6 +64,7 @@ public class PlayerController : MonoBehaviour
 
         // v1.1.42 狼人冲刺：懒查（选择页可能在 Awake 之后才 EnsureOn 挂组件，Dash 触发时现查最稳）
         werewolfDash = GetComponent<WerewolfDash>();
+        werewolfTransformation = GetComponent<WerewolfTransformation>();
 
         if (TryGetComponent<SpriteRenderer>(out var sr0)) initialColor = sr0.color;
 
@@ -107,7 +109,7 @@ public class PlayerController : MonoBehaviour
         // 选择类 UI 打开期间：屏蔽攻击/技能/交互输入——鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；
         // 移动不受限（出生房安全）。角色选择页（v1.0.8）与职业选择页同规则。
         // v1.1.47 技能树同入此列：开着时按 E 会再触发石碑开关（打开即被关掉），Attack 同理必须拦。
-        if ((ClassSelectUI.IsOpen || CharacterSelectUI.IsOpen || SkillTreeUI.IsOpen) &&
+        if ((CharacterSelectUI.IsOpen || SkillTreeUI.IsOpen) &&
             (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"
                 || actionName == "Ultimate" || actionName == "WeaponSkill"))
             return;
@@ -137,8 +139,6 @@ public class PlayerController : MonoBehaviour
             // 选择类 UI 打开时 Esc 优先逐级关 UI（未确认不生效），否则关拾取列表
             if (SkillTreeUI.IsOpen)
                 SkillTreeUI.Close();   // v1.1.47 技能树最上层（sortingOrder 230，可从暂停菜单盖入）
-            else if (ClassSelectUI.IsOpen)
-                ClassSelectUI.Close();
             else if (CharacterSelectUI.IsOpen)
                 CharacterSelectUI.Close();
             else
@@ -160,22 +160,17 @@ public class PlayerController : MonoBehaviour
         }
         else if (actionName == "Ultimate" && context.performed)
         {
-            // v0.7.4：Q = 大招（SkillExecutor 槽 1，仿 UseItem 分支先判死亡）
+            // V2：狼人 Q 消耗满怒痕进入兽化；非狼人仍走通用大招槽。
             if (health.IsDead) return;
-            skillExecutor.TryCastSlot(1);
+            if (werewolfTransformation == null)
+                werewolfTransformation = GetComponent<WerewolfTransformation>();
+
+            if (werewolfTransformation != null)
+                werewolfTransformation.TryActivateUltimate();
+            else
+                skillExecutor.TryCastSlot(1);
         }
-        else if (actionName == "WeaponSkill" && context.performed)
-        {
-            // v0.7.4：R = 武器技能（SkillExecutor 槽 2）
-            if (health.IsDead) return;
-            skillExecutor.TryCastSlot(2);
-        }
-        else if (actionName == "UseItem" && context.performed)
-        {
-            // v0.7.2：使用道具栏激活项（未装备消耗品时无副作用）
-            if (health.IsDead) return;
-            itemInventory.UseActive();
-        }
+        // V2 首轮 MVP 不启用旧 R 武器技与 C 道具键；旧系统保留到替代链完成后再归档。
     }
 
     // ========== 更新循环 ==========
@@ -204,7 +199,7 @@ public class PlayerController : MonoBehaviour
     {
         if (werewolfDash != null) werewolfDash.ResetDash();   // v1.1.42 冲刺状态/冷却复位
         GetComponent<WerewolfTransformation>()?.ResetTransformation();
-        GetComponent<WerewolfEnergyBar>()?.ResetEnergy();
+        GetComponent<WerewolfRage>()?.ResetRage();
         if (TryGetComponent<SpriteRenderer>(out var sr)) sr.color = initialColor;
         moveInput = Vector2.zero;
         if (movement != null) movement.StopImmediately();

@@ -80,7 +80,7 @@ public class CameraFollow : MonoBehaviour
 
         if (target == null) return;
 
-        // 目标位置 = 战士位置 + 偏移（Z轴保持-10，确保相机在2D平面之上）
+        // 目标位置 = 玩家位置 + 偏移（Z轴保持-10，确保相机在2D平面之上）
         Vector3 targetPosition = target.position + offset;
 
         // 使用SmoothDamp实现平滑跟随，避免生硬抖动

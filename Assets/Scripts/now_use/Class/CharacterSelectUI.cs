@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -5,38 +6,31 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 /// <summary>
-/// 角色选择界面（v1.0.8）：选择角色外形——战士 / 狼人。
-/// 与职业选择（ClassSelectUI：战士/弓手/法师=数值与武器）是两个正交维度：
-/// 角色=纯视觉外形（FrameAnimator 帧组），职业=数值/武器/技能，任意组合互不冲突。
-/// 流程：首次进入准备场景自动弹出 → **点颜色卡=选中（高亮预览），点"选 择"键=确定**（v1.1.31 修正语义）
-/// → 写入 RunStateCarrier.ChosenCharacter（死亡保留）→ 若尚未选职业则自动接续弹出职业选择页。
-/// Esc 关闭（不选择不生效）。
-/// 打开期间 PlayerController 查询 IsOpen 屏蔽攻击/技能/交互输入。
-/// v1.1.6：主面板接入石板 9-Slice 母版（与 ClassSelectUI 同款，PanelSprite 统一入口，素材缺失回退纯色）；
-/// 新角色行：Build 里向 panelRect 追加 BuildCharacterButton 即可。待补：角色立绘/标题字效。
+/// v2.0.2 单一职业角色选择页。卡片同时展示并应用外观、属性、武器池、技能与职业资源。
+/// 当前 MVP 只有狼人；新增角色只需追加 PlayableCharacterDefinition 与 Catalog 条目。
 /// </summary>
 public class CharacterSelectUI : MonoBehaviour
 {
-    /// <summary>UI 是否打开（PlayerController 据此屏蔽攻击/技能/交互输入）。</summary>
     public static bool IsOpen { get; private set; }
 
     private static CharacterSelectUI instance;
-
-    private GameObject canvasGo;
-    private Image warriorFrame, werewolfFrame;
-    private CharacterSkin selected;
-
-    private static readonly Color WarriorTint = new Color(0.30f, 0.55f, 0.95f);   // 战士：蓝
-    private static readonly Color WerewolfTint = new Color(0.35f, 0.85f, 0.45f);  // 狼人：绿
     private static readonly Color DimColor = new Color(1f, 1f, 1f, 0.15f);
 
-    // ========== 静态入口 ==========
+    private readonly List<CharacterButton> buttons = new List<CharacterButton>();
+    private GameObject canvasGo;
+    private PlayableCharacterDefinition selected;
+
+    private struct CharacterButton
+    {
+        public PlayableCharacterDefinition definition;
+        public Image frame;
+    }
 
     public static void Open()
     {
         if (instance == null)
         {
-            GameObject go = new GameObject("CharacterSelectUI");
+            GameObject go = new GameObject("PlayableCharacterSelectUI");
             instance = go.AddComponent<CharacterSelectUI>();
             instance.Build();
         }
@@ -48,12 +42,13 @@ public class CharacterSelectUI : MonoBehaviour
         if (instance != null) instance.Hide();
     }
 
-    // ========== 显示 / 隐藏 ==========
-
     private void Show()
     {
         EnsureEventSystem();
-        selected = RunStateCarrier.Ensure().ChosenCharacter;   // 默认当前外形（高亮指示）
+        RunStateCarrier carrier = RunStateCarrier.Ensure();
+        selected = carrier.HasPlayableCharacter
+            ? carrier.ChosenPlayableCharacter
+            : FirstAvailable();
         RefreshHighlights();
         canvasGo.SetActive(true);
         IsOpen = true;
@@ -65,14 +60,11 @@ public class CharacterSelectUI : MonoBehaviour
         IsOpen = false;
     }
 
-    void OnDestroy()
+    private void OnDestroy()
     {
-        // 静态状态不残留（同 ClassSelectUI 规范）
         if (instance == this) instance = null;
         IsOpen = false;
     }
-
-    // ========== 构建（程序员美术占位） ==========
 
     private void Build()
     {
@@ -81,46 +73,52 @@ public class CharacterSelectUI : MonoBehaviour
 
         Canvas canvas = canvasGo.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 205;   // 略高于 ClassSelectUI(200)：角色页在前、职业页在后接续弹出
+        canvas.sortingOrder = 205;
         PanelSprite.ConfigureCanvasScaler(canvasGo);
         canvasGo.AddComponent<GraphicRaycaster>();
 
         GameObject panel = new GameObject("Panel", typeof(RectTransform));
         panel.transform.SetParent(canvasGo.transform, false);
         Image panelImg = panel.AddComponent<Image>();
-        PanelSprite.ApplyStonePanel(panelImg, new Color(0f, 0f, 0f, 0.85f));   // v1.1.6 石板 9-Slice 母版
+        PanelSprite.ApplyStonePanel(panelImg, new Color(0f, 0f, 0f, 0.85f));
         RectTransform panelRect = (RectTransform)panel.transform;
         panelRect.anchorMin = panelRect.anchorMax = panelRect.pivot = new Vector2(0.5f, 0.5f);
         panelRect.anchoredPosition = Vector2.zero;
-        panelRect.sizeDelta = new Vector2(900f, 555f);   // 接近原图 594:366，避免整体比例失真
+        panelRect.sizeDelta = new Vector2(900f, 555f);
 
-        // 标题/副标题整体下移 26px 让出 49px 顶部砖框（v1.1.6）
-        Label(panelRect, "选择你的角色", 30, Color.white, new Vector2(0.5f, 1f), new Vector2(0f, -76f), new Vector2(600f, 44f));
-        Label(panelRect, "外形与职业独立：任意角色可选任意职业与武器", 14, new Color(0.75f, 0.73f, 0.65f),
-            new Vector2(0.5f, 1f), new Vector2(0f, -114f), new Vector2(700f, 24f));
+        Label(panelRect, "选择职业角色", 30, Color.white,
+            new Vector2(0.5f, 1f), new Vector2(0f, -76f), new Vector2(600f, 44f));
+        Label(panelRect, "一次选择确定外观、属性、武器、技能与职业资源", 14,
+            new Color(0.75f, 0.73f, 0.65f), new Vector2(0.5f, 1f),
+            new Vector2(0f, -114f), new Vector2(700f, 24f));
 
-        warriorFrame = BuildCharacterButton(panelRect, "Btn_Character_Warrior", "战 士",
-            "经典体型 · 均衡手感", WarriorTint, new Vector2(-190f, -30f));
-        werewolfFrame = BuildCharacterButton(panelRect, "Btn_Character_Werewolf", "狼 人",
-            "狼形大体型 · 纯视觉外形（数值不变）", WerewolfTint, new Vector2(190f, -30f));
+        IReadOnlyList<PlayableCharacterDefinition> definitions = PlayableCharacterCatalog.All;
+        int count = definitions.Count;
+        for (int i = 0; i < count; i++)
+        {
+            PlayableCharacterDefinition definition = definitions[i];
+            if (definition == null) continue;
+            float x = (i - (count - 1) * 0.5f) * 365f;
+            buttons.Add(BuildCharacterButton(panelRect, definition, new Vector2(x, -30f)));
+        }
 
-        // v1.1.30：确认键移除——点击卡片/选择键即选中即确定
-
-        // v1.1.51：右上角叉除键（不选直接关面板）
         UIHelper.CreateCloseButton(panelRect, Close);
         canvasGo.SetActive(false);
     }
 
-    private Image BuildCharacterButton(Transform parent, string name, string title, string desc, Color tint, Vector2 pos)
+    private CharacterButton BuildCharacterButton(
+        Transform parent,
+        PlayableCharacterDefinition definition,
+        Vector2 pos)
     {
-        GameObject frame = new GameObject(name, typeof(RectTransform));
+        GameObject frame = new GameObject($"Btn_Character_{definition.Id}", typeof(RectTransform));
         frame.transform.SetParent(parent, false);
         Image frameImg = frame.AddComponent<Image>();
         frameImg.color = DimColor;
         RectTransform frameRect = (RectTransform)frame.transform;
         frameRect.anchorMin = frameRect.anchorMax = frameRect.pivot = new Vector2(0.5f, 0.5f);
         frameRect.anchoredPosition = pos;
-        frameRect.sizeDelta = new Vector2(340f, 300f);
+        frameRect.sizeDelta = new Vector2(340f, 320f);
 
         GameObject bg = new GameObject("Bg", typeof(RectTransform));
         bg.transform.SetParent(frame.transform, false);
@@ -132,9 +130,12 @@ public class CharacterSelectUI : MonoBehaviour
         bgRect.offsetMin = new Vector2(3f, 3f);
         bgRect.offsetMax = new Vector2(-3f, -3f);
 
-        Label(bgRect, "[角色立绘待补]", 17, tint, new Vector2(0.5f, 0.5f), new Vector2(0f, 58f), new Vector2(280f, 112f));
-        Label(bgRect, title, 26, Color.white, new Vector2(0.5f, 0.5f), new Vector2(0f, -28f), new Vector2(300f, 38f));
-        Label(bgRect, desc, 14, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.5f), new Vector2(0f, -68f), new Vector2(300f, 42f));
+        Label(bgRect, "[职业角色立绘待补]", 17, definition.CharacterColor,
+            new Vector2(0.5f, 0.5f), new Vector2(0f, 78f), new Vector2(280f, 72f));
+        Label(bgRect, definition.DisplayName, 26, Color.white,
+            new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(300f, 38f));
+        Label(bgRect, BuildStatLine(definition), 14, new Color(0.8f, 0.78f, 0.7f),
+            new Vector2(0.5f, 0.5f), new Vector2(0f, -46f), new Vector2(300f, 70f));
 
         GameObject selectGo = new GameObject("Select", typeof(RectTransform));
         selectGo.transform.SetParent(frame.transform, false);
@@ -142,99 +143,132 @@ public class CharacterSelectUI : MonoBehaviour
         RectTransform selectRect = (RectTransform)selectGo.transform;
         selectRect.anchorMin = selectRect.anchorMax = selectRect.pivot = new Vector2(0.5f, 0f);
         selectRect.anchoredPosition = new Vector2(0f, 18f);
-        selectRect.sizeDelta = new Vector2(280f, 44f);   // 横向素材只做横条，不再拉成卡片
-        Label(selectRect, "选 择", 17, Color.white, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(260f, 30f));
-        Button btn = selectGo.AddComponent<Button>();
-        PanelSprite.ApplyStoneButton(btn, selectImg, new Color(0.12f, 0.12f, 0.14f, 0.95f));
-        btn.onClick.AddListener(() => Pick(name));   // "选 择"键 = 确定（应用并关闭）
+        selectRect.sizeDelta = new Vector2(280f, 44f);
+        Label(selectRect, "选 择", 17, Color.white,
+            new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(260f, 30f));
+        Button selectButton = selectGo.AddComponent<Button>();
+        PanelSprite.ApplyStoneButton(selectButton, selectImg, new Color(0.12f, 0.12f, 0.14f, 0.95f));
+        selectButton.onClick.AddListener(() => Pick(definition));
 
-        // v1.1.30/31：颜色卡区域 = 仅选中（高亮预览，可反复切换比较，不应用）；
-        // 确定功能专属"选 择"键
-        Button cardBtn = frame.AddComponent<Button>();
-        cardBtn.targetGraphic = frameImg;
-        cardBtn.transition = Selectable.Transition.ColorTint;
-        var cb = cardBtn.colors;
-        cb.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 0.35f);
-        cb.pressedColor = new Color(0.7f, 0.7f, 0.7f, 0.35f);
-        cb.fadeDuration = 0.08f;
-        cardBtn.colors = cb;
-        cardBtn.onClick.AddListener(() =>
+        Button cardButton = frame.AddComponent<Button>();
+        cardButton.targetGraphic = frameImg;
+        cardButton.transition = Selectable.Transition.ColorTint;
+        ColorBlock colors = cardButton.colors;
+        colors.highlightedColor = new Color(1.15f, 1.15f, 1.15f, 0.35f);
+        colors.pressedColor = new Color(0.7f, 0.7f, 0.7f, 0.35f);
+        colors.fadeDuration = 0.08f;
+        cardButton.colors = colors;
+        cardButton.onClick.AddListener(() =>
         {
-            selected = name.Contains("Werewolf") ? CharacterSkin.Werewolf : CharacterSkin.Warrior;
+            selected = definition;
             RefreshHighlights();
         });
-        return frameImg;
+
+        return new CharacterButton { definition = definition, frame = frameImg };
     }
 
-    /// <summary>选中即确定（v1.1.30）：写载体、即时换形、关闭，未选职业则接续职业页。</summary>
-    private void Pick(string cardName)
+    private void Pick(PlayableCharacterDefinition definition)
     {
-        selected = cardName.Contains("Werewolf") ? CharacterSkin.Werewolf : CharacterSkin.Warrior;
+        if (definition == null) return;
+
+        selected = definition;
         RefreshHighlights();
 
-        RunStateCarrier.Ensure().SetCharacter(selected);
-        Debug.Log($"[Character] 已选择角色外形：{selected}");
+        RunStateCarrier carrier = RunStateCarrier.Ensure();
+        carrier.SetPlayableCharacter(definition.Id);
 
-        // v1.0.9 即时换形：确认立刻应用视觉与变身能力（不再等下一次场景加载）
-        PlayerController pc = FindAnyObjectByType<PlayerController>();
-        if (pc != null)
+        PlayerController player = FindAnyObjectByType<PlayerController>();
+        if (player != null)
         {
-            FrameAnimator fa = pc.GetComponent<FrameAnimator>();
-            if (fa != null)
-            {
-                fa.SetWerewolfVisual(selected == CharacterSkin.Werewolf);
-                if (selected == CharacterSkin.Werewolf)
-                {
-                    WerewolfTransformation.EnsureOn(pc.gameObject);
-                    WerewolfDash.EnsureOn(pc.gameObject);   // v1.1.42 狼人专属冲刺
-                }
-                else
-                {
-                    WerewolfTransformation old = pc.GetComponent<WerewolfTransformation>();
-                    if (old != null) Destroy(old);   // OnDestroy 复位判定缩放/数值/血条
-                    WerewolfDash dash = pc.GetComponent<WerewolfDash>();
-                    if (dash != null) Destroy(dash);   // v1.1.42 改选战士：冲刺下线
-                }
-            }
+            player.GetStats().ApplyPlayableCharacter(definition);
+            ApplyCharacterRuntime(player.gameObject, definition.Id);
+
+            PlayerWeaponHolder holder = player.GetComponent<PlayerWeaponHolder>();
+            if (holder == null) holder = player.gameObject.AddComponent<PlayerWeaponHolder>();
+            if (carrier.LastWeapon != null
+                && (holder.Current == null || holder.Current.Data != carrier.LastWeapon))
+                holder.Equip(carrier.LastWeapon);
         }
 
+        PrepRoomPlacer.RefreshWeapons(definition);
+        Debug.Log($"[PlayableCharacter] 已选择：{definition.DisplayName}（{definition.Id}）");
         Hide();
-        if (RunStateCarrier.Ensure().LastChosenClass == null)
-            ClassSelectUI.Open();   // 接续：角色定了还没职业 → 直接弹职业选择
+    }
+
+    public static void ApplyCharacterRuntime(GameObject player, PlayableCharacterId id)
+    {
+        if (player == null) return;
+
+        bool isWerewolf = id == PlayableCharacterId.Werewolf;
+        FrameAnimator frameAnimator = player.GetComponent<FrameAnimator>();
+        if (frameAnimator != null) frameAnimator.SetWerewolfVisual(isWerewolf);
+
+        if (isWerewolf)
+        {
+            WerewolfTransformation.EnsureOn(player);
+            WerewolfDash.EnsureOn(player);
+            return;
+        }
+
+        WerewolfTransformation transformation = player.GetComponent<WerewolfTransformation>();
+        if (transformation != null) Destroy(transformation);
+        WerewolfDash dash = player.GetComponent<WerewolfDash>();
+        if (dash != null) Destroy(dash);
     }
 
     private void RefreshHighlights()
     {
-        if (warriorFrame != null)
-            warriorFrame.color = selected == CharacterSkin.Warrior ? Fade(WarriorTint, 0.85f) : DimColor;
-        if (werewolfFrame != null)
-            werewolfFrame.color = selected == CharacterSkin.Werewolf ? Fade(WerewolfTint, 0.85f) : DimColor;
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            CharacterButton button = buttons[i];
+            if (button.frame == null || button.definition == null) continue;
+            Color tint = button.definition.CharacterColor;
+            button.frame.color = button.definition == selected
+                ? new Color(tint.r, tint.g, tint.b, 0.85f)
+                : DimColor;
+        }
     }
 
-    private static Color Fade(Color c, float a) => new Color(c.r, c.g, c.b, a);
+    private static PlayableCharacterDefinition FirstAvailable()
+    {
+        IReadOnlyList<PlayableCharacterDefinition> definitions = PlayableCharacterCatalog.All;
+        for (int i = 0; i < definitions.Count; i++)
+            if (definitions[i] != null) return definitions[i];
+        return null;
+    }
+
+    private static string BuildStatLine(PlayableCharacterDefinition definition)
+    {
+        return $"HP {definition.maxHp:0}  护甲 {definition.maxArmor:0}  攻击 {definition.attack:0}\n" +
+               $"移速 {definition.moveSpeed:0.0}  暴击 {definition.critRate:P0}  怒痕 {definition.beastResourceMax:0}";
+    }
 
     private static void EnsureEventSystem()
     {
         if (Object.FindAnyObjectByType<EventSystem>() != null) return;
-        GameObject es = new GameObject("EventSystem");
-        es.AddComponent<EventSystem>();
-        es.AddComponent<InputSystemUIInputModule>();
+        GameObject eventSystem = new GameObject("EventSystem");
+        eventSystem.AddComponent<EventSystem>();
+        eventSystem.AddComponent<InputSystemUIInputModule>();
     }
 
-    private static void Label(Transform parent, string text, int size, Color color,
-        Vector2 anchor, Vector2 offset, Vector2 sizeDelta)
+    private static void Label(
+        Transform parent,
+        string text,
+        int size,
+        Color color,
+        Vector2 anchor,
+        Vector2 offset,
+        Vector2 sizeDelta)
     {
-        // v1.0.8：照 ClassSelectUI.CreateText 已验证模式——无参 GO + 单次 AddComponent + 先 text 后 font
-        //（组件进 GameObject 构造参数会产生双 TMP 组件并触发 TMP 内部 NRE）
         GameObject go = new GameObject("Label");
         go.transform.SetParent(parent, false);
-        TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
-        t.text = text;
-        t.font = TMPFontProvider.Font;
-        t.fontSize = size;
-        t.color = color;
-        t.alignment = TextAlignmentOptions.Center;
-        t.raycastTarget = false;
+        TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+        label.text = text;
+        label.font = TMPFontProvider.Font;
+        label.fontSize = size;
+        label.color = color;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
         RectTransform rect = (RectTransform)go.transform;
         rect.anchorMin = rect.anchorMax = anchor;
         rect.pivot = new Vector2(0.5f, anchor.y);

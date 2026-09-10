@@ -1,17 +1,16 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 /// <summary>
 /// 狼人变身（v1.0.9，自 v0.6.8 WerewolfTransformation 移植到 v0.7.5 架构还原）：
-/// 角色=狼人（CharacterSelectUI 选择）时挂载，**T = 狼↔兽化**。
+/// 角色=狼人（CharacterSelectUI 选择）时挂载，怒痕满后由 Q 触发兽化。
 /// - 兽化：变身演出（Transform_L/R 帧逐段膨胀 ×1→1.5）→ Beast 帧（1080px 画布自带大体型）驱动；
 ///   血量等比 ×1.5（Health.ScaleMaxHealth，退兽化 1/N 还原）、伤害 ×1.3、攻速 ×1.1、移速 ×1.1（PlayerStats 兽化乘数）。
 /// - 狼形态常驻：WeaponPivot ×1.5（wolfAttackScale）——判定长度/宽度、武器视觉、预警三者派生自
 ///   pivot.lossyScale 同源链，一处放大三处同步（v0.6.7 原设计，不破坏 R7）。
 /// - 血条锚点：狼 1.0 / 兽化 1.45。
-/// 输入：直接轮询 Keyboard.current.tKey（输入资产无 Transform action，避免动 .inputactions）。
-/// 选择页改回战士时由应用侧 Destroy 本组件（OnDestroy 还原 pivot/数值/血条）。
+/// 输入统一由 PlayerController 的 Ultimate 动作转发；本组件不直接轮询键盘。
+/// 切换到其他职业角色时由装配侧 Destroy，本组件在 OnDestroy 还原临时状态。
 /// 【美术资产缺失】BeastBurstFX 变身粒子（v0.6.9）未随合并保留，待重新制作后接回。
 /// </summary>
 public class WerewolfTransformation : MonoBehaviour
@@ -26,6 +25,8 @@ public class WerewolfTransformation : MonoBehaviour
     [SerializeField] private float beastDamageMult = 1.3f;
     [SerializeField] private float beastAttackSpeedMult = 1.1f;
     [SerializeField] private float beastMoveSpeedMult = 1.1f;
+    [Tooltip("兽化持续时间（秒）；结束后自动退回普通形态")]
+    [SerializeField, Min(0.1f)] private float beastDuration = 12f;
 
     private const float BarHeightWolf = 1.0f;
     private const float BarHeightBeast = 1.45f;
@@ -41,6 +42,15 @@ public class WerewolfTransformation : MonoBehaviour
     private Vector3 weaponPivotBaseScale = Vector3.one;
     private Transform healthBarAnchor;
     private WerewolfEnergyBar energyBar;
+    private WerewolfRage rage;
+    private float beastTimeRemaining;
+
+    public WerewolfRage Rage => rage;
+    public bool IsTransforming => transforming;
+    public float BeastTimeRemaining => beastTimeRemaining;
+    public float BeastNormalizedRemaining => IsBeast && beastDuration > 0f
+        ? Mathf.Clamp01(beastTimeRemaining / beastDuration)
+        : 0f;
 
     /// <summary>确保玩家身上挂了狼人变身组件（场景应用侧/选择页确认时调用）。</summary>
     public static WerewolfTransformation EnsureOn(GameObject player)
@@ -55,8 +65,11 @@ public class WerewolfTransformation : MonoBehaviour
         health = GetComponent<Health>();
         stats = GetComponent<PlayerStats>();
         animator = GetComponent<FrameAnimator>();
+        rage = GetComponent<WerewolfRage>();
+        if (rage == null)
+            rage = gameObject.AddComponent<WerewolfRage>();
 
-        // 狼形态常驻：判定/武器视觉/预警同源放大（v0.6.7）；改回战士时 OnDestroy 复位
+        // 狼形态常驻：判定/武器视觉/预警同源放大；切换其他角色时 OnDestroy 复位
         weaponPivot = transform.Find("WeaponPivot");
         if (weaponPivot != null)
         {
@@ -71,48 +84,71 @@ public class WerewolfTransformation : MonoBehaviour
         if (energyBar == null)
             energyBar = gameObject.AddComponent<WerewolfEnergyBar>();
 
-        Debug.Log("[Werewolf] 狼形态就绪：能量满后按 T 兽化（血量×1.5 伤害×1.3 攻速×1.1 移速×1.1 判定×1.5）");
+        Debug.Log("[Werewolf] 狼形态就绪：怒痕满后按 Q 兽化（血量×1.5 伤害×1.3 攻速×1.1 移速×1.1 判定×1.5）");
     }
 
     void OnDestroy()
     {
-        // 还原一切狼人形态残留（组件销毁 = 改选战士或场景卸载；场景卸载时对象将死，复位无副作用）
+        // 还原狼人形态残留（组件销毁 = 切换职业角色或场景卸载）。
         if (weaponPivot != null)
             weaponPivot.localScale = weaponPivotBaseScale;
         ResetTransformation();
         SetHealthBarHeight(1.0f);
         if (energyBar != null) Destroy(energyBar);
+        if (rage != null) Destroy(rage);
     }
 
     void Update()
     {
-        if (Keyboard.current == null) return;
-        if (!Keyboard.current.tKey.wasPressedThisFrame) return;
-        if (transforming) return;
-        if (ClassSelectUI.IsOpen || CharacterSelectUI.IsOpen) return;   // 选择页打开时不变身
-        if (health != null && health.IsDead) return;
-        Toggle();
+        if (!IsBeast || transforming) return;
+
+        if (health != null && health.IsDead)
+        {
+            ExitBeastForm();
+            return;
+        }
+
+        beastTimeRemaining = Mathf.Max(0f, beastTimeRemaining - Time.deltaTime);
+        if (beastTimeRemaining <= 0f)
+        {
+            ExitBeastForm();
+            Debug.Log("[Werewolf] 兽化持续时间结束，自动退出兽化形态");
+        }
     }
 
-    /// <summary>兽化按 T 直接回普通狼；普通狼按 T 进兽化（播变身演出）。</summary>
+    /// <summary>由 Ultimate(Q) 调用。仅怒痕满且当前为普通形态时进入兽化。</summary>
+    public bool TryActivateUltimate()
+    {
+        if (transforming || IsBeast) return false;
+        if (CharacterSelectUI.IsOpen) return false;
+        if (health != null && health.IsDead) return false;
+
+        if (rage == null || !rage.TryConsumeFull())
+        {
+            float currentRage = rage != null ? rage.Current : 0f;
+            float requiredRage = rage != null ? rage.Max : 0f;
+            Debug.Log($"[Werewolf] 怒痕未满，无法兽化（{currentRage:0}/{requiredRage:0}）");
+            return false;
+        }
+
+        rage.SetGainPaused(true);
+        StartCoroutine(BeastTransformRoutine());
+        return true;
+    }
+
+    /// <summary>保留给旧编辑器调试入口；正式输入链不再调用。</summary>
     public void Toggle()
     {
         if (IsBeast)
         {
             ExitBeastForm();
-            Debug.Log("[Werewolf] 退兽化：回普通狼");
             return;
         }
-        if (energyBar == null || !energyBar.IsFull)
-        {
-            float currentEnergy = energyBar != null ? energyBar.Energy : 0f;
-            float requiredEnergy = energyBar != null ? energyBar.MaxEnergy : 0f;
-            Debug.Log($"[Werewolf] 能量未满，无法兽化（{currentEnergy:0}/{requiredEnergy:0}）");
-            return;
-        }
-        StartCoroutine(BeastTransformRoutine());
+
+        TryActivateUltimate();
     }
 
+    [System.Obsolete("兽化现在按持续时间结束，不再由能量条耗尽驱动。")]
     public void ExitBeastFromEnergyDepleted()
     {
         if (!IsBeast) return;
@@ -124,6 +160,7 @@ public class WerewolfTransformation : MonoBehaviour
     {
         StopAllCoroutines();
         transforming = false;
+        beastTimeRemaining = 0f;
         if (IsBeast) ExitBeastForm();
         else
         {
@@ -134,12 +171,14 @@ public class WerewolfTransformation : MonoBehaviour
                 animator.SetWerewolfVisualGrow(1f);
             }
             energyBar?.SetBeastVisualTarget(false);
+            rage?.SetGainPaused(false);
         }
     }
 
     private void ExitBeastForm()
     {
         IsBeast = false;
+        beastTimeRemaining = 0f;
         if (health != null) health.ScaleMaxHealth(1f / beastHealthScale);
         ApplyBeastStats(false);
         if (animator != null)
@@ -148,6 +187,7 @@ public class WerewolfTransformation : MonoBehaviour
             animator.SetWerewolfVisualGrow(1f);
         }
         energyBar?.SetBeastVisualTarget(false);
+        rage?.SetGainPaused(false);
     }
 
     private IEnumerator BeastTransformRoutine()
@@ -178,6 +218,7 @@ public class WerewolfTransformation : MonoBehaviour
         energyBar?.SetBeastVisualProgress(1f);
 
         IsBeast = true;
+        beastTimeRemaining = beastDuration;
         if (health != null) health.ScaleMaxHealth(beastHealthScale);
         ApplyBeastStats(true);
         if (animator != null) animator.SetBeastForm(true);   // 切 Beast 帧组，缩放回基准（1080px 画布自带大体型）

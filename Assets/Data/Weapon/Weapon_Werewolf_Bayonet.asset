@@ -10,10 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ec09dd718dba9fd1519df413559c4d52, type: 3}
-  m_Name: Weapon_Warrior_Spear
+  m_Name: Weapon_Werewolf_Bayonet
   m_EditorClassIdentifier: 
-  displayName: 新手长枪
-  requiredClass: 0
+  displayName: "\u57FA\u7840\u523A\u5200\uFF08\u7070\u76D2\uFF09"
   behaviorType: 0
   attackData: {fileID: 11400000, guid: 5e972b97d2504d06b97e3ee25c238b49, type: 2}
   projectileData: {fileID: 0}
@@ -33,3 +32,4 @@ MonoBehaviour:
   fireInterval: 0
   weaponColor: {r: 0.3647, g: 0.4275, b: 0.4941, a: 1}
   mapIcon: {fileID: 0}
+  weaponSkill: {fileID: 0}

@@ -1,8 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// 技能资产目录（v0.7.4，ClassCatalog 同模式）：运行时获取技能 SO 的兜底入口
-/// （ClassData.skillBranches/ultimateSkill、WeaponData.weaponSkill 已接线则用接线值，null 走本目录）。
+/// 技能资产目录：PlayableCharacterDefinition/WeaponData 未接线时的兼容兜底入口。
 /// 编辑器 AssetDatabase 硬编码路径；打包构建需把资产复制到 Resources/Skill/ 走 Resources.Load。
 /// 资产名清单单点收口（AssetNames）。射手/法师技能未实装：返回 null 并 Warning。
 /// </summary>
@@ -11,42 +10,42 @@ public static class SkillCatalog
     /// <summary>技能资产名清单（Assets/Resources/Skill/）——全项目唯一清单。</summary>
     internal static readonly string[] AssetNames =
     {
-        "Skill_Warrior_StandFirm",
-        "Skill_Warrior_PowerStrike",
-        "Skill_Warrior_Garrote",
-        "Skill_Warrior_Ultimate",
+        "Skill_Werewolf_StandFirm",
+        "Skill_Werewolf_PowerStrike",
+        "Skill_Werewolf_Garrote",
+        "Skill_Werewolf_Ultimate",
         "Skill_Whirlwind_Weapon",
-        "SkillBranch_Warrior"
+        "SkillBranch_Werewolf"
     };
 
-    private static SkillBranchData branchWarrior;
-    private static SkillData ultimateWarrior;
+    private static SkillBranchData branchWerewolf;
+    private static SkillData ultimateWerewolf;
     private static SkillData weaponWhirlwind;
 
     /// <summary>职业小技能分支表（未实装职业返回 null 并 Warning）。</summary>
-    public static SkillBranchData GetBranches(ClassType type)
+    public static SkillBranchData GetBranches(PlayableCharacterId id)
     {
-        switch (type)
+        switch (id)
         {
-            case ClassType.Warrior:
-                if (branchWarrior == null) branchWarrior = Load<SkillBranchData>("SkillBranch_Warrior");
-                return branchWarrior;
+            case PlayableCharacterId.Werewolf:
+                if (branchWerewolf == null) branchWerewolf = Load<SkillBranchData>("SkillBranch_Werewolf");
+                return branchWerewolf;
             default:
-                Debug.LogWarning($"[Skill] {type} 技能未实装（v0.7.5 起逐职业接入），分支表返回 null。");
+                Debug.LogWarning($"[Skill] {id} 技能未实装，分支表返回 null。");
                 return null;
         }
     }
 
     /// <summary>职业大招（未实装职业返回 null 并 Warning）。</summary>
-    public static SkillData GetUltimate(ClassType type)
+    public static SkillData GetUltimate(PlayableCharacterId id)
     {
-        switch (type)
+        switch (id)
         {
-            case ClassType.Warrior:
-                if (ultimateWarrior == null) ultimateWarrior = Load<SkillData>("Skill_Warrior_Ultimate");
-                return ultimateWarrior;
+            case PlayableCharacterId.Werewolf:
+                if (ultimateWerewolf == null) ultimateWerewolf = Load<SkillData>("Skill_Werewolf_Ultimate");
+                return ultimateWerewolf;
             default:
-                Debug.LogWarning($"[Skill] {type} 技能未实装（v0.7.5 起逐职业接入），大招返回 null。");
+                Debug.LogWarning($"[Skill] {id} 技能未实装，大招返回 null。");
                 return null;
         }
     }

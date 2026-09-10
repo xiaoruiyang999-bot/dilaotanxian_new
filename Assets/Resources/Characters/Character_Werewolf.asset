@@ -11,18 +11,25 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 43e43d21bd6b93f4294a1a0fd703940e, type: 3}
   m_Name: Character_Werewolf
-  m_EditorClassIdentifier:
-  characterId: Werewolf
-  displayName: "狼人"
-  maxHp: 100
-  maxArmor: 25
-  moveSpeed: 5.2
-  attack: 10
-  critRate: 0.05
+  m_EditorClassIdentifier: 
+  id: 0
+  displayName: "\u72FC\u4EBA"
+  characterColor: {r: 0.35, g: 0.85, b: 0.45, a: 1}
+  maxHp: 130
+  maxArmor: 70
+  moveSpeed: 5
+  attack: 40
+  critRate: 0.1
   critDamage: 1.5
-  armorReduceMul: 0.3
+  armorReduceMul: 0.4
   armorLossMul: 1
-  maxMana: 50
+  maxMana: 100
+  availableWeapons:
+  - {fileID: 11400000, guid: aa19f9cc77565094299ace416a3756f2, type: 2}
+  - {fileID: 11400000, guid: 1cef4d0b9c8bb0ec6296a4fabcf765dc, type: 2}
+  initialWeapon: {fileID: 11400000, guid: aa19f9cc77565094299ace416a3756f2, type: 2}
+  skillBranches: {fileID: 11400000, guid: 4059a4249b8e4517ba9585be23c98a15, type: 2}
+  ultimateSkill: {fileID: 11400000, guid: 1ae985a2e9654e4083ddb7e9e1bc3775, type: 2}
   beastResourceMax: 100
   beastPerHit: 4
   beastDuration: 12

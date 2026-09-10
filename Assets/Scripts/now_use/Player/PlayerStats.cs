@@ -2,10 +2,10 @@ using UnityEngine;
 
 public class PlayerStats : MonoBehaviour
 {
-    // 数值真值在 ClassData（职业 SO），由 ApplyClass 全权写入，不再开放序列化（v0.7.x 去重复：原序列化默认值会被 ApplyClass 整体覆盖，属"填了没用"的假入口；moveSpeed 随后亦收编为第七维）。
+    // 数值真值在 PlayableCharacterDefinition，由 ApplyPlayableCharacter 全权写入。
     // 未选职业（旧场景 v0_4/v0_5）时保持下列安全常量：UI 显示 0/占位，结算不崩（无除零、无空引用），移速兜底 5 保证旧场景可动。
     private float moveSpeed = 5f;                               // 基础移速（七维之一；无职业兜底 5，与任务书 §一 暂定值一致）
-    private float maxHP = 0f;                                   // HP 上限（显示走 Health，此值仅 ApplyClass 后有意义）
+    private float maxHP = 0f;                                   // HP 上限（显示走 Health）
     private float maxArmor = 0f;                                // 护甲上限：0 → 护甲条显示 0，ApplyArmorDamage 全额扣血
     private float attack = 0f;                                  // 角色攻击力（基础攻击区的一半，另一半为武器攻击）
     private float critRate = 0f;                                // 暴击率
@@ -52,7 +52,7 @@ public class PlayerStats : MonoBehaviour
         OnStatsChanged?.Invoke();
     }
 
-    /// <summary>只写入六个加成通道（不回血）：ApplyClass 末尾调用——它随后自己走 Initialize（含技能树 HP 加成）。</summary>
+    /// <summary>聚合局外加成通道；职业角色应用随后统一初始化当前值。</summary>
     private void ApplySkillTreeBonuses()
     {
         SkillTreeDef.Aggregate(SkillTreeSave.UnlockedIds,
@@ -66,13 +66,12 @@ public class PlayerStats : MonoBehaviour
         PermArmorBonus = armor;
     }
 
-    /// <summary>当前职业（v0.6.2；未选择时为 null，旧场景保持现状）。</summary>
-    public ClassData CurrentClass { get; private set; }
+    /// <summary>v2.0.2 当前职业角色定义；新运行链的唯一身份来源。</summary>
+    public PlayableCharacterDefinition CurrentPlayableCharacter { get; private set; }
 
     public System.Action OnStatsChanged;
 
-    /// <summary>职业应用完成事件（ApplyClass 末尾触发）：SkillExecutor 订阅重装配三槽（准备房间选职业后技能立即可用）。</summary>
-    public System.Action<ClassData> OnClassApplied;
+    public System.Action<PlayableCharacterDefinition> OnPlayableCharacterApplied;
 
     void Awake()
     {
@@ -158,36 +157,32 @@ public class PlayerStats : MonoBehaviour
     }
 
     /// <summary>
-    /// 应用职业配置（v0.6.2 / v0.7.0 七维）：写入 HP/护甲/法力上限与移速/攻击/暴击/暴伤/护甲双倍率，
-    /// 回满当前值，记录 CurrentClass。HP 上限经 Health.Initialize 写入（Health 是 HP 唯一数据源）。
-    /// 全部变更走 OnStatsChanged 刷新 UI；末尾触发 OnClassApplied（SkillExecutor 据此重装配技能三槽）。
+    /// 应用职业角色定义：完整覆盖基础属性并回满 HP/护甲/法力。
+    /// 这是运行时唯一的职业角色属性应用入口。
     /// </summary>
-    public void ApplyClass(ClassData classData)
+    public void ApplyPlayableCharacter(PlayableCharacterDefinition definition)
     {
-        if (classData == null) return;
+        if (definition == null) return;
 
-        CurrentClass = classData;
-        maxHP = classData.MaxHP;
-        maxArmor = classData.MaxArmor;
-        maxMana = classData.MaxMana;
-        moveSpeed = classData.MoveSpeed;
+        CurrentPlayableCharacter = definition;
+        maxHP = definition.maxHp;
+        maxArmor = definition.maxArmor;
+        maxMana = definition.maxMana;
+        moveSpeed = definition.moveSpeed;
+        attack = definition.attack;
+        critRate = definition.critRate;
+        critDamage = definition.critDamage;
+        armorReduceMul = Mathf.Clamp(definition.armorReduceMul, 0f, 0.9f);
+        armorLossMul = Mathf.Max(definition.armorLossMul, 0.01f);
 
-        attack = classData.Attack;
-        critRate = classData.CritRate;
-        critDamage = classData.CritDamage;
-        // 减伤甲数值下限（v0.7.1，公式文档 §六-8）：R∈[0,0.9] 防 100% 免伤，L>0；序列化入口已删，钳制随 ApplyClass 生效
-        armorReduceMul = Mathf.Clamp(classData.ArmorReduceMul, 0f, 0.9f);
-        armorLossMul = Mathf.Max(classData.ArmorLossMul, 0.01f);
-
-        ApplySkillTreeBonuses();   // v1.1.47 技能树永久加成（先写通道，下面 Initialize/回满即含加成）
-
+        ApplySkillTreeBonuses();
         CurrentArmor = MaxArmor;
         CurrentMana = maxMana;
 
         if (TryGetComponent<Health>(out var h))
-            h.Initialize(classData.MaxHP + PermHpBonus);
+            h.Initialize(definition.maxHp + PermHpBonus);
 
         OnStatsChanged?.Invoke();
-        OnClassApplied?.Invoke(classData);
+        OnPlayableCharacterApplied?.Invoke(definition);
     }
 }

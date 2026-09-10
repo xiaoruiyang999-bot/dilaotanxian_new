@@ -3,12 +3,12 @@ using UnityEngine;
 
 /// <summary>
 /// 技能执行器（v0.7.4 技能框架）：玩家组件，PlayerController.Awake 运行时 Get-or-Add（ItemInventory 同模式）。
-/// 三槽（0=小技能 1=大招 2=武器技能），Start 装配 + 订阅 PlayerStats.OnClassApplied 重装配
+/// 三槽（0=小技能 1=大招 2=武器技能），Start 装配 + 订阅 PlayerStats.OnPlayableCharacterApplied 重装配
 /// （准备房间选职业晚于场景 Start：选完职业三槽立即装填，CD/红闪清零）——
 ///   小技能 = 分支表选中项（RunStateCarrier.ChosenSkillBranchIndex 局外读写、局内锁定，本版无切换 UI）；
 ///   大招 = 职业大招；武器技能 = 当前武器（未装备 = 空槽）。
-/// 引用解析：ClassData/WeaponData 已接线则用接线值，null 走 SkillCatalog 兜底（本版既有资产全部 null，实际走 SkillCatalog）。
-/// Update 递减 CD 并每帧推 SlotBarUI（SetSkillDisplay 技能名 / SetSkillCooldown 文本秒数；Radial360 扫面记遗留）。
+/// 引用解析：PlayableCharacterDefinition/WeaponData 接线值优先，null 走 SkillCatalog 兜底。
+/// Update 递减 CD 并推 SlotBarUI（图标色块/按键/冷却秒数，不显示技能名；Radial360 扫面记遗留）。
 /// TryCastSlot：CD 中/法力不足 → 槽位文本红闪返回；否则 TryConsumeMana + 起 CD + 按 SkillType 执行。
 /// 订阅 PlayerWeaponHolder.OnWeaponChanged：换武器整套替换武器技能槽（CD 清零独立计时，F/Q 两槽不受影响）。
 /// 蓄力冲突：分发在 PlayerController 层、不进 PlayerCombat 状态机，蓄力中允许放技能（占位不做打断，记遗留）。
@@ -42,6 +42,7 @@ public class SkillExecutor : MonoBehaviour
     private AttackIndicator indicator;
     private Tween indicatorHideTween;
     private BuffManager buffManager;   // v0.7.5：Buff 运行时（Awake Get-or-Add，Buff 型技能与输出倍率通道用）
+    private WerewolfRage werewolfRage;
 
     // v0.7.5 二期：裸绞冲刺用（瞄准方向 + 刚体位移）
     private PlayerAimController aimController;
@@ -58,10 +59,11 @@ public class SkillExecutor : MonoBehaviour
         health = GetComponent<Health>();
         aimController = GetComponent<PlayerAimController>();
         rb = GetComponent<Rigidbody2D>();
+        werewolfRage = GetComponent<WerewolfRage>();
         for (int i = 0; i < SlotCount; i++) slots[i] = new SkillSlot();
 
         // 职业应用后重装配（准备房间选职业晚于本场景 Start，OnWeaponChanged 同模式订阅）
-        if (stats != null) stats.OnClassApplied += OnClassApplied;
+        if (stats != null) stats.OnPlayableCharacterApplied += OnPlayableCharacterApplied;
 
         // PlayerWeaponHolder 无 RequireComponent，运行时补挂安全（武器拾取/准备房间同为 Get-or-Add）
         holder = GetComponent<PlayerWeaponHolder>();
@@ -89,7 +91,7 @@ public class SkillExecutor : MonoBehaviour
     void OnDestroy()
     {
         if (holder != null) holder.OnWeaponChanged -= OnWeaponChanged;
-        if (stats != null) stats.OnClassApplied -= OnClassApplied;
+        if (stats != null) stats.OnPlayableCharacterApplied -= OnPlayableCharacterApplied;
     }
 
     void Start()
@@ -100,20 +102,21 @@ public class SkillExecutor : MonoBehaviour
     /// <summary>三槽装配：小技能（分支选中）/ 大招（职业）/ 武器技能（当前武器）。未选职业（旧场景回归）全部留空。</summary>
     private void AssembleSlots()
     {
-        // 当前职业：ApplyClass 已跑用 PlayerStats.CurrentClass；否则退 RunStateCarrier（同场景 Start 顺序不定）
-        ClassData cls = stats != null ? stats.CurrentClass : null;
-        if (cls == null) cls = RunStateCarrier.Ensure().LastChosenClass;
-        if (cls == null) return;   // 未选职业：旧场景无法力，技能三槽维持"—"
+        PlayableCharacterDefinition definition =
+            stats != null ? stats.CurrentPlayableCharacter : null;
+        if (definition == null)
+            definition = RunStateCarrier.Ensure().ChosenPlayableCharacter;
+        if (definition == null) return;
 
         // 小技能 = 分支表选中项（局外 SetSkillBranch 写入，局内锁定）
-        SkillBranchData branches = cls.SkillBranches != null
-            ? cls.SkillBranches : SkillCatalog.GetBranches(cls.ClassType);
+        SkillBranchData branches = definition.SkillBranches != null
+            ? definition.SkillBranches : SkillCatalog.GetBranches(definition.Id);
         slots[0].Data = branches != null
             ? branches.GetBranch(RunStateCarrier.Ensure().ChosenSkillBranchIndex) : null;
 
         // 大招 = 职业大招
-        slots[1].Data = cls.UltimateSkill != null
-            ? cls.UltimateSkill : SkillCatalog.GetUltimate(cls.ClassType);
+        slots[1].Data = definition.UltimateSkill != null
+            ? definition.UltimateSkill : SkillCatalog.GetUltimate(definition.Id);
 
         // 武器技能 = 当前武器
         slots[2].Data = ResolveWeaponSkill(holder != null && holder.Current != null ? holder.Current.Data : null);
@@ -135,7 +138,7 @@ public class SkillExecutor : MonoBehaviour
     }
 
     /// <summary>职业应用回调（准备房间选职业/换职业后）：三槽按当前职业/分支/武器重装配，CD/红闪全清零。</summary>
-    private void OnClassApplied(ClassData cls)
+    private void OnPlayableCharacterApplied(PlayableCharacterDefinition definition)
     {
         AssembleSlots();
         for (int i = 0; i < SlotCount; i++)
@@ -165,26 +168,31 @@ public class SkillExecutor : MonoBehaviour
         }
     }
 
-    /// <summary>每帧推一个槽的显示：CD 中推秒数（SetSkillCooldown），否则推技能名（色 = iconColor；红闪优先）。</summary>
+    /// <summary>技能槽只显示图标色块、按键与冷却秒数；狼人 Q 改由怒痕是否充满决定可用态。</summary>
     private void PushSlotUI(int index, SkillSlot slot)
     {
-        if (slotBar == null || slot.Data == null) return;   // 空槽维持 SlotBarUI 的"—"占位
+        if (slotBar == null) return;
+
+        if (index == 1)
+        {
+            if (werewolfRage == null)
+                werewolfRage = GetComponent<WerewolfRage>();
+            if (werewolfRage != null)
+            {
+                Color rageColor = slot.Data != null ? slot.Data.IconColor : new Color(1f, 0.72f, 0.12f);
+                slotBar.SetSkillResourceState(index, werewolfRage.IsFull, rageColor);
+                return;
+            }
+        }
+
+        if (slot.Data == null) return;   // 空槽维持 SlotBarUI 的"—"占位
 
         bool flashing = slot.FlashRemaining > 0f;
         if (slot.CooldownRemaining > 0f)
-        {
-            if (flashing)
-                slotBar.SetSkillDisplay(index, slot.CooldownRemaining.ToString("0.0"), FlashColor);
-            else if (slot.WasFlashing)
-                // 红闪结束：SetSkillCooldown 不写颜色，补一帧恢复技能色
-                slotBar.SetSkillDisplay(index, slot.CooldownRemaining.ToString("0.0"), slot.Data.IconColor);
-            else
-                slotBar.SetSkillCooldown(index, slot.CooldownRemaining, slot.Data.Cooldown);
-        }
+            slotBar.SetSkillCooldown(index, slot.CooldownRemaining, slot.Data.Cooldown,
+                flashing ? FlashColor : slot.Data.IconColor);
         else
-        {
-            slotBar.SetSkillDisplay(index, slot.Data.DisplayName, flashing ? FlashColor : slot.Data.IconColor);
-        }
+            slotBar.SetSkillReady(index, flashing ? FlashColor : slot.Data.IconColor);
         slot.WasFlashing = flashing;
     }
 
@@ -396,7 +404,7 @@ public class SkillExecutor : MonoBehaviour
             DamageResolver.Deal(eh, new DamageContext { trueDamage = trueDamage });
         }
 
-        // 击杀震颤只属于战士裸绞：阈值处决或本次真伤致死均触发；
+        // 击杀震颤只属于狼人裸绞：阈值处决或本次真伤致死均触发；
         // 普攻、其他技能及 EnemyHealth 全局死亡链路不消费该表现。
         if (eh.IsDead)
             ExecuteFeedback.Play(executePosition);

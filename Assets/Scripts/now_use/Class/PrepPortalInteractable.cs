@@ -46,14 +46,14 @@ public class PrepPortalInteractable : Interactable
         if (!carrier.HasLoadout)
         {
             if (player != null && player.TryGetComponent(out PlayerInteractor interactor))
-                interactor.ShowTemporaryHint("请先选择职业和武器");
-            Debug.Log("[Run] 传送门拒绝：尚未选定职业和武器");
+                interactor.ShowTemporaryHint("请先选择职业角色");
+            Debug.Log("[Run] 传送门拒绝：尚未形成有效职业角色配置");
             return;
         }
 
         // 加载新场景前确保选择 UI 等静态状态不残留
-        ClassSelectUI.Close();
-        Debug.Log($"[Run] 进入地牢：{carrier.LastChosenClass.DisplayName} + {carrier.LastWeapon.DisplayName} → {dungeonSceneName}");
+        CharacterSelectUI.Close();
+        Debug.Log($"[Run] 进入地牢：{carrier.ChosenPlayableCharacter.DisplayName} + {carrier.LastWeapon.DisplayName} → {dungeonSceneName}");
         SceneManager.LoadScene(dungeonSceneName);
     }
 

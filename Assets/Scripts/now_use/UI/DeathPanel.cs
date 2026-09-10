@@ -138,8 +138,8 @@ public class DeathPanel : MonoBehaviour
     {
         if (returning) return;
         returning = true;
-        RunStateCarrier.Ensure().ClearWeapon();
-        ClassSelectUI.Close();
+        RunStateCarrier.Ensure().ResetWeaponToCharacterDefault();
+        CharacterSelectUI.Close();
         Debug.Log("[Death] 返回准备房间");
         SceneManager.LoadScene(prepSceneName);
     }

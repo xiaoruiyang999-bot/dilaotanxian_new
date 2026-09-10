@@ -25,6 +25,8 @@ public class PlayerAimController : MonoBehaviour
     /// 由 Update 每帧更新，供 WeaponController 读取。
     /// </summary>
     public Vector2 AimDirection { get; private set; } = Vector2.right;
+    /// <summary>本帧是否有可用于攻击定向的真实瞄准输入。</summary>
+    public bool HasValidAimInput { get; private set; }
 
     private Camera mainCamera;
 
@@ -35,10 +37,12 @@ public class PlayerAimController : MonoBehaviour
 
     private void Update()
     {
+        HasValidAimInput = false;
         switch (inputDevice)
         {
             case AimInputDevice.Mouse:
-                AimDirection = GetMouseAimDirection();
+                AimDirection = GetMouseAimDirection(out bool hasMouseAim);
+                HasValidAimInput = hasMouseAim;
                 break;
             case AimInputDevice.Gamepad:
                 // v0.5 扩展：读取手柄右摇杆
@@ -63,21 +67,24 @@ public class PlayerAimController : MonoBehaviour
         }
     }
 
-    private Vector2 GetMouseAimDirection()
+    private Vector2 GetMouseAimDirection(out bool isValid)
     {
         if (mainCamera == null)
         {
             mainCamera = Camera.main;
         }
 
-        Vector2 mouseScreen = Mouse.current != null
-            ? Mouse.current.position.ReadValue()
-            : Vector2.zero;
-        Vector2 mouseWorld = mainCamera != null
-            ? (Vector2)mainCamera.ScreenToWorldPoint(mouseScreen)
-            : mouseScreen;
+        if (Mouse.current == null || mainCamera == null)
+        {
+            isValid = false;
+            return AimDirection;
+        }
 
-        return (mouseWorld - (Vector2)transform.position).normalized;
+        Vector2 mouseScreen = Mouse.current.position.ReadValue();
+        Vector2 mouseWorld = mainCamera.ScreenToWorldPoint(mouseScreen);
+        Vector2 direction = mouseWorld - (Vector2)transform.position;
+        isValid = direction.sqrMagnitude > 0.0001f;
+        return isValid ? direction.normalized : AimDirection;
     }
 
     private Vector2 GetGamepadAimDirection()
@@ -109,49 +116,22 @@ public enum AimInputDevice
 }
 
 /// <summary>
-/// v1.2.1 攻击方向灰盒模式。这里只保留 GDD T-01 要求对照的 A/B 两种方案；
-/// 旧 360° 鼠标瞄准仍由 <see cref="PlayerAimController"/> 保存，不在原型定案前删除。
-/// </summary>
-public enum AttackDirectionPrototypeMode
-{
-    Horizontal,
-    FourWay
-}
-
-/// <summary>
-/// 攻击方向离散规则。纯函数，不依赖场景对象，供预览、位移与 Hitbox 共用。
+/// V2 v2.0.1 左右攻击规则。纯函数，不依赖场景对象，供预览、位移与 Hitbox 共用。
 /// </summary>
 public static class AttackDirectionResolver
 {
     private const float DirectionEpsilon = 0.0001f;
 
-    public static Vector2 Resolve(
-        AttackDirectionPrototypeMode mode,
+    public static Vector2 ResolveHorizontal(
         Vector2 desiredDirection,
+        bool hasValidAimInput,
         Vector2 horizontalFacing)
     {
-        if (mode == AttackDirectionPrototypeMode.Horizontal)
-            return ResolveHorizontal(horizontalFacing, desiredDirection);
-
-        Vector2 source = desiredDirection.sqrMagnitude > DirectionEpsilon
-            ? desiredDirection
-            : horizontalFacing;
-        if (source.sqrMagnitude <= DirectionEpsilon)
-            return Vector2.right;
-
-        // 相等时固定优先水平，避免输入在对角线上因浮点噪声来回跳向。
-        if (Mathf.Abs(source.x) >= Mathf.Abs(source.y))
-            return source.x < 0f ? Vector2.left : Vector2.right;
-
-        return source.y < 0f ? Vector2.down : Vector2.up;
-    }
-
-    private static Vector2 ResolveHorizontal(Vector2 horizontalFacing, Vector2 desiredDirection)
-    {
+        // V2 已定案测试口径：键鼠有有效瞄准时只看鼠标相对角色的 X 正负，Y 不参与。
+        if (hasValidAimInput && Mathf.Abs(desiredDirection.x) > DirectionEpsilon)
+            return desiredDirection.x < 0f ? Vector2.left : Vector2.right;
         if (Mathf.Abs(horizontalFacing.x) > DirectionEpsilon)
             return horizontalFacing.x < 0f ? Vector2.left : Vector2.right;
-        if (Mathf.Abs(desiredDirection.x) > DirectionEpsilon)
-            return desiredDirection.x < 0f ? Vector2.left : Vector2.right;
         return Vector2.right;
     }
 }

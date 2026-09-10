@@ -9,40 +9,40 @@ public class WeaponHitboxTests
 {
     private const float Eps = 1e-3f;
 
-    // ========== v1.2.1 攻击方向 A/B 灰盒 ==========
+    // ========== V2 固定左右攻击方向 ==========
 
     [Test]
-    public void AttackDirection_HorizontalMode_UsesCharacterFacing()
+    public void AttackDirection_NoValidAim_UsesCharacterFacing()
     {
-        Vector2 result = AttackDirectionResolver.Resolve(
-            AttackDirectionPrototypeMode.Horizontal,
+        Vector2 result = AttackDirectionResolver.ResolveHorizontal(
             Vector2.up,
+            false,
             Vector2.left);
 
         Assert.AreEqual(Vector2.left, result);
     }
 
-    [TestCase(0.8f, 0.2f, 1f, 0f)]
-    [TestCase(-0.8f, 0.2f, -1f, 0f)]
-    [TestCase(0.2f, 0.8f, 0f, 1f)]
-    [TestCase(0.2f, -0.8f, 0f, -1f)]
-    public void AttackDirection_FourWayMode_UsesDominantAxis(
-        float inputX, float inputY, float expectedX, float expectedY)
+    [TestCase(0.8f, 8f, 1f)]
+    [TestCase(-0.8f, 8f, -1f)]
+    [TestCase(0.2f, -8f, 1f)]
+    [TestCase(-0.2f, -8f, -1f)]
+    public void AttackDirection_ValidAim_UsesOnlyHorizontalSign(
+        float inputX, float inputY, float expectedX)
     {
-        Vector2 result = AttackDirectionResolver.Resolve(
-            AttackDirectionPrototypeMode.FourWay,
+        Vector2 result = AttackDirectionResolver.ResolveHorizontal(
             new Vector2(inputX, inputY),
+            true,
             Vector2.right);
 
-        Assert.AreEqual(new Vector2(expectedX, expectedY), result);
+        Assert.AreEqual(new Vector2(expectedX, 0f), result);
     }
 
     [Test]
-    public void AttackDirection_FourWayMode_ZeroInputFallsBackToFacing()
+    public void AttackDirection_ValidAimOnSameX_FallsBackToFacing()
     {
-        Vector2 result = AttackDirectionResolver.Resolve(
-            AttackDirectionPrototypeMode.FourWay,
-            Vector2.zero,
+        Vector2 result = AttackDirectionResolver.ResolveHorizontal(
+            Vector2.up,
+            true,
             Vector2.left);
 
         Assert.AreEqual(Vector2.left, result);

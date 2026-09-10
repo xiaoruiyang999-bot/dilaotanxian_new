@@ -7,7 +7,7 @@ using UnityEngine.UI;
 /// 主 UI 槽位条（v0.7.2）：屏幕右下四槽（小技能/大招/武器技能/道具栏）+ 道具栏上方背包 3 格。
 /// 全部运行时构建：RuntimeInitializeOnLoadMethod 自举 + sceneLoaded 自检，**自建常驻 Canvas**（DontDestroyOnLoad，
 /// sortingOrder 50，不依附场景 Canvas，场景切换不销毁；切换后 RebindInventory 重绑新场景玩家数据源）；
-/// 技能三槽由 SkillExecutor 每帧驱动（v0.7.4：SetSkillDisplay 技能名+技能色 / SetSkillCooldown 文本秒数，
+/// 技能三槽由 SkillExecutor 驱动（V2：技能图标色块+按键；冷却时只显示向上取整秒数，不显示技能名，
 /// 数据缺失的槽维持"—"；Refresh 写入的"—"会被同帧渲染前的每帧推送覆盖，无闪烁）；
 /// 背包格为 Button，点击 → ItemInventory.SwapWithBackpack 与道具栏互换（无拖拽）。
 /// 数量角标：槽位右下角 14pt，count≥2 才显示，超 99 显示 99+。
@@ -27,6 +27,7 @@ public class SlotBarUI : MonoBehaviour
     private const float Gap = 6f;
     private const float Margin = 20f;       // 距屏幕右/下边缘
     private const int SkillSlotCount = 3;   // 小技能/大招/武器技能
+    private const int MvpVisibleMainSlotCount = 2; // V2 首轮仅显示 F/Q；R/C 暂不进入 MVP
     private const float UiScale = 1.5f;    // 整体缩放（唯一调大小旋钮：1=64px 槽，1.25=80px；走 CanvasScaler.scaleFactor，边距同步缩放）
 
     private static readonly Color BgColor = new Color(0.12f, 0.12f, 0.12f, 0.9f);   // 深色底（SlotFrame 缺失时的占位回退）
@@ -109,6 +110,7 @@ public class SlotBarUI : MonoBehaviour
     private ItemInventory inventory;
     private readonly SlotWidget[] mainSlots = new SlotWidget[4];
     private readonly SlotWidget[] packSlots = new SlotWidget[ItemInventory.BackpackSize];
+    private readonly int[] cooldownDisplaySeconds = { int.MinValue, int.MinValue, int.MinValue };
 
     // ========== 运行时自举（不改场景 YAML，任何场景都能显示） ==========
 
@@ -187,20 +189,60 @@ public class SlotBarUI : MonoBehaviour
 
     // ========== 技能三槽接口（v0.7.4 已接线：SkillExecutor 每帧驱动，空槽维持下方 Refresh 的"—"） ==========
 
-    /// <summary>设置技能槽显示内容（v0.7.4 技能框架接线；index 0=小技能 1=大招 2=武器技能）。</summary>
-    public void SetSkillDisplay(int index, string text, Color color)
+    /// <summary>技能就绪：显示图标色块与按键，不显示技能名。</summary>
+    public void SetSkillReady(int index, Color iconColor)
     {
         if (index < 0 || index >= SkillSlotCount || mainSlots[index] == null) return;
-        mainSlots[index].CenterText.text = text;
-        mainSlots[index].CenterText.color = color;
+        SlotWidget slot = mainSlots[index];
+        cooldownDisplaySeconds[index] = int.MinValue;
+        slot.IconBlock.gameObject.SetActive(true);
+        slot.IconBlock.color = iconColor;
+        slot.CenterText.gameObject.SetActive(false);
     }
 
-    /// <summary>设置技能槽 CD 剩余秒数显示（v0.7.4 接线；remaining≤0 恢复空占位）。</summary>
-    public void SetSkillCooldown(int index, float remaining, float total)
+    /// <summary>技能冷却：保留压暗图标并显示整数秒；文本只在秒数变化时更新，避免每帧字符串分配。</summary>
+    public void SetSkillCooldown(int index, float remaining, float total, Color iconColor)
     {
         if (index < 0 || index >= SkillSlotCount || mainSlots[index] == null) return;
         bool cooling = remaining > 0f && total > 0f;
-        mainSlots[index].CenterText.text = cooling ? remaining.ToString("0.0") : "—";
+        if (!cooling)
+        {
+            SetSkillReady(index, iconColor);
+            return;
+        }
+
+        SlotWidget slot = mainSlots[index];
+        slot.IconBlock.gameObject.SetActive(true);
+        slot.IconBlock.color = new Color(iconColor.r * 0.42f, iconColor.g * 0.42f, iconColor.b * 0.42f, iconColor.a);
+        slot.CenterText.gameObject.SetActive(true);
+        slot.CenterText.color = Color.white;
+        if (remaining > 1f)
+        {
+            int seconds = Mathf.Max(2, Mathf.CeilToInt(remaining));
+            if (cooldownDisplaySeconds[index] == seconds) return;
+            cooldownDisplaySeconds[index] = seconds;
+            slot.CenterText.text = seconds.ToString();
+            return;
+        }
+
+        int tenths = Mathf.Max(1, Mathf.CeilToInt(remaining * 10f));
+        int displayKey = -tenths;
+        if (cooldownDisplaySeconds[index] == displayKey) return;
+        cooldownDisplaySeconds[index] = displayKey;
+        slot.CenterText.text = (tenths * 0.1f).ToString("0.0");
+    }
+
+    /// <summary>资源型大招可用态：怒痕未满时压暗，满怒时点亮；不伪装成固定冷却。</summary>
+    public void SetSkillResourceState(int index, bool ready, Color iconColor)
+    {
+        if (index < 0 || index >= SkillSlotCount || mainSlots[index] == null) return;
+        SlotWidget slot = mainSlots[index];
+        cooldownDisplaySeconds[index] = int.MinValue;
+        slot.IconBlock.gameObject.SetActive(true);
+        slot.IconBlock.color = ready
+            ? iconColor
+            : new Color(iconColor.r * 0.28f, iconColor.g * 0.28f, iconColor.b * 0.28f, 0.72f);
+        slot.CenterText.gameObject.SetActive(false);
     }
 
     // ========== 刷新（缓存复用 UI：外观参数每次刷新应用，自检 §1） ==========
@@ -271,8 +313,9 @@ public class SlotBarUI : MonoBehaviour
             decW = decH * decor.rect.width / decor.rect.height;         // 424×506 比例
         }
         float decGutter = decor != null ? decW + 8f : 0f;
-        float panelWidth = 4f * SlotSize + 3f * Gap + 2f * decGutter;
-        float panelHeight = SlotSize + Gap + PackSize;                  // 126
+        float panelWidth = MvpVisibleMainSlotCount * SlotSize
+            + (MvpVisibleMainSlotCount - 1) * Gap + 2f * decGutter;
+        float panelHeight = SlotSize;
         root.anchorMin = new Vector2(1f, 0f);
         root.anchorMax = new Vector2(1f, 0f);
         root.pivot = new Vector2(1f, 0f);
@@ -287,22 +330,14 @@ public class SlotBarUI : MonoBehaviour
             CreateEndDecor(root, "EndDecor_L", new Vector2(-(panelWidth - decW * 0.5f), decH * 0.5f), new Vector2(decW, decH), true);
         }
 
-        // 四槽横排（pivot 右下：从右往左排，slot3 道具栏贴主槽行右缘；v1.1.48 左移 decGutter 让位右端装饰）+ 按键角标
-        for (int i = 0; i < 4; i++)
+        // V2 首轮只构建 F/Q 两槽；旧 R/C 与背包运行逻辑保留但不暴露入口。
+        for (int i = 0; i < MvpVisibleMainSlotCount; i++)
         {
-            float centerX = -(SlotSize * 0.5f) - (3 - i) * (SlotSize + Gap) - decGutter;
+            float centerX = -(SlotSize * 0.5f)
+                - (MvpVisibleMainSlotCount - 1 - i) * (SlotSize + Gap) - decGutter;
             mainSlots[i] = CreateSlot($"Slot_{SlotLabels[i]}", root,
                 new Vector2(centerX, SlotSize * 0.5f), SlotSize, false, -1);
             mainSlots[i].KeyBadge = CreateKeyBadge((RectTransform)mainSlots[i].Bg.transform, SlotKeyHints[i]);
-        }
-
-        // 背包 3 格：道具栏上方横排，右缘与道具栏对齐（同移 decGutter）
-        for (int i = 0; i < packSlots.Length; i++)
-        {
-            float centerX = -(PackSize * 0.5f) - (packSlots.Length - 1 - i) * (PackSize + Gap) - decGutter;
-            float centerY = SlotSize + Gap + PackSize * 0.5f;
-            packSlots[i] = CreateSlot($"Backpack_{i}", root,
-                new Vector2(centerX, centerY), PackSize, true, i);
         }
     }
 

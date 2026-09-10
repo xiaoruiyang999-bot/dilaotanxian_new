@@ -8,7 +8,10 @@
 /// </summary>
 public static class DamageResolver
 {
-    /// <summary>玩家造成伤害事件（v1.1.52）：参数 = 实际结算伤害值。狼人能量条等表现层订阅。</summary>
+    /// <summary>
+    /// 玩家对 EnemyHealth 造成的实际 HP 伤害事件。死亡目标、无效命中与场景物件不发送，
+    /// 供怒痕等战斗资源订阅。
+    /// </summary>
     public static event System.Action<float> OnPlayerDamageDealt;
 
     /// <summary>
@@ -20,19 +23,34 @@ public static class DamageResolver
     public static float Deal(IDamageable target, DamageContext ctx)
     {
         if (target == null) return 0f;
+        EnemyHealth enemy = target as EnemyHealth;
+        float healthBefore = enemy != null && !enemy.IsDead ? enemy.CurrentHealth : 0f;
+
         if (ctx.trueDamage > 0f)
         {
-            if (target is EnemyHealth eh)
-                eh.TakeTrueDamage(ctx.trueDamage);
+            if (enemy != null)
+                enemy.TakeTrueDamage(ctx.trueDamage);
             else
                 target.TakeDamage(ctx.trueDamage);
-            OnPlayerDamageDealt?.Invoke(ctx.trueDamage);
-            return ctx.trueDamage;
+
+            return PublishActualEnemyDamage(enemy, healthBefore, ctx.trueDamage);
         }
+
         float final = ctx.Roll();
         target.TakeDamage(final);
-        OnPlayerDamageDealt?.Invoke(final);
-        return final;
+        return PublishActualEnemyDamage(enemy, healthBefore, final);
+    }
+
+    private static float PublishActualEnemyDamage(EnemyHealth enemy, float healthBefore, float fallbackDamage)
+    {
+        // 场景机关等旧 IDamageable 仍保留原返回语义，但绝不触发玩家怒痕事件。
+        if (enemy == null) return fallbackDamage;
+        if (healthBefore <= 0f) return 0f;
+
+        float actual = Mathf.Max(0f, healthBefore - enemy.CurrentHealth);
+        if (actual > 0f)
+            OnPlayerDamageDealt?.Invoke(actual);
+        return actual;
     }
 
     /// <summary>

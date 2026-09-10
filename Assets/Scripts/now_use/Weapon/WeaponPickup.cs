@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 武器拾取物（v0.6.2 阶段 A，实现 v0.6.1 IPickupable；v0.6.3 升级掉落视觉）。
-/// 拾取时校验玩家当前职业 == WeaponData.requiredClass：
+/// 拾取时校验武器是否位于当前 PlayableCharacterDefinition 的兼容池：
 /// 不符 → 提示"职业不符"并拒绝（物品留在原地）；符合 → PlayerWeaponHolder.Equip 装备。
 /// 地图掉落形态：WeaponVisualBuilder.BuildMapIcon 运行时多色块小图标 + 职业色底板（缩放 0.7 内置在图标根）。
 /// </summary>
@@ -53,14 +53,15 @@ public class WeaponPickup : MonoBehaviour, IPickupable
     {
         if (weaponData == null || player == null) return;
 
-        // 职业校验：只能拾取本职业武器（计划书 4.5）
+        // 兼容性只由当前职业角色定义的武器池决定，不再读取 WeaponData.requiredClass。
         PlayerStats stats = player.GetComponent<PlayerStats>();
-        if (stats == null || stats.CurrentClass == null
-            || stats.CurrentClass.ClassType != weaponData.RequiredClass)
+        PlayableCharacterDefinition definition =
+            stats != null ? stats.CurrentPlayableCharacter : null;
+        if (definition == null || !definition.SupportsWeapon(weaponData))
         {
             if (player.TryGetComponent(out PlayerInteractor interactor))
-                interactor.ShowTemporaryHint("职业不符");
-            Debug.Log($"[Weapon] 职业不符，无法拾取 {DisplayName}（需要 {weaponData.RequiredClass}）");
+                interactor.ShowTemporaryHint("该职业角色无法使用");
+            Debug.Log($"[Weapon] {definition?.DisplayName ?? "未选择角色"} 无法使用 {DisplayName}");
             return;   // 拒绝拾取，物品留在原地
         }
 

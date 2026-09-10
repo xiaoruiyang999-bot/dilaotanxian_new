@@ -10,10 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ec09dd718dba9fd1519df413559c4d52, type: 3}
-  m_Name: Weapon_Warrior_Knife
+  m_Name: Weapon_Werewolf_Knife
   m_EditorClassIdentifier: 
-  displayName: 新手长剑
-  requiredClass: 0
+  displayName: "\u5907\u7528\u77ED\u5203\uFF08\u7070\u76D2\uFF09"
   behaviorType: 0
   attackData: {fileID: 11400000, guid: efd2bd61db974271903c607fbcc2b5a2, type: 2}
   projectileData: {fileID: 0}
@@ -26,9 +25,11 @@ MonoBehaviour:
   chargeWidthMul: 1.2
   chargeDamageMul: 2
   chargeSpeedMul: 2
+  chargeFullDamageMul: 1.5
   clipSize: 0
   reloadTime: 0
   autoReloadIdleTime: 0
   fireInterval: 0
   weaponColor: {r: 0.5843, g: 0.6471, b: 0.651, a: 1}
   mapIcon: {fileID: 0}
+  weaponSkill: {fileID: 0}

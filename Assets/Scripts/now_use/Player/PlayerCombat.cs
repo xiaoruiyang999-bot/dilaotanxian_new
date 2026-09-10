@@ -15,10 +15,6 @@ public class PlayerCombat : MonoBehaviour
     [Header("攻击配置")]
     [SerializeField] private AttackData attackData;
 
-    [Header("v1.2.1 攻击方向 A/B 灰盒")]
-    [Tooltip("Horizontal=A 仅左右；FourWay=B 四方向离散。默认保持现有左右入口，正式定案前不删除旧 360° 瞄准。")]
-    [SerializeField] private AttackDirectionPrototypeMode meleeDirectionMode = AttackDirectionPrototypeMode.Horizontal;
-
     [Header("组件引用")]
     [SerializeField] private PlayerAimController aimController;
     [SerializeField] private WeaponController weaponController;
@@ -48,8 +44,7 @@ public class PlayerCombat : MonoBehaviour
     // ===== v1.1.48 连段状态（失落城堡式战斗第一批）=====
     // 攻击不再"单次动作锁死"：提前按键进缓冲、后摇可取消点接段、段间接受窗口；
     // 每段独立的时长/判定长度/纵深/伤害/踏步来自 MeleeComboTable，判定入口仍是 WeaponHitbox。
-    // v1.2.1 T-01 攻击方向灰盒：方向解析统一走 ResolveMeleeAttackDirection（AttackDirectionResolver），
-    // A=Horizontal 仅左右 / B=FourWay 四方向，Play 中切 meleeDirectionMode 即时对照。
+    // V2 v2.0.1：近战首轮固定仅左右；鼠标 X 优先、无有效瞄准时回退最后水平朝向。
     private MeleeComboStep[] comboSet = MeleeComboTable.Fallback;
     private int comboIndex;                 // 当前段序（0 起；窗口超时归零）
     private MeleeComboStep currentStep;     // 当前段参数快照（StartWindup 取）
@@ -235,7 +230,7 @@ public class PlayerCombat : MonoBehaviour
     }
 
     /// <summary>
-    /// 瞄准更新。v1.1.48 失落城堡式：近战瞄准 = 水平朝向（±1,0，鼠标不再决定近战方向），
+    /// 瞄准更新。V2 v2.0.1：近战只取鼠标相对角色的 X 正负，无有效瞄准时回退水平朝向；
     /// 远程模式保持鼠标瞄准（弓/弩暂不在横向化范围）。
     /// </summary>
     private void UpdateAiming()
@@ -256,13 +251,13 @@ public class PlayerCombat : MonoBehaviour
     }
 
     /// <summary>
-    /// v1.2.1 T-01 的唯一方向解析入口。攻击预览、踏步和 Hitbox 都消费本结果，
-    /// 防止四方向灰盒只转了视觉、实际判定仍停留在 X 轴。
+    /// V2 v2.0.1 的唯一方向解析入口。攻击预览、踏步和 Hitbox 都消费本结果。
     /// </summary>
     private Vector2 ResolveMeleeAttackDirection()
     {
         Vector2 desired = aimController != null ? aimController.AimDirection : Vector2.zero;
-        return AttackDirectionResolver.Resolve(meleeDirectionMode, desired, HorizontalFacing());
+        bool hasAim = aimController != null && aimController.HasValidAimInput;
+        return AttackDirectionResolver.ResolveHorizontal(desired, hasAim, HorizontalFacing());
     }
 
     /// <summary>

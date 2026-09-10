@@ -6,7 +6,7 @@ using UnityEngine.UI;
 /// <summary>
 /// 暂停菜单（M5·v1.0.0 → v1.0.4 重建）：Esc 打开——继续 / SFX与BGM 音量滑条（PlayerPrefs 持久化）/ 重开本局。
 /// v1.0.4 变更：输入资产已无 "Pause" 动作（v0.7.5），改听 "Cancel"（Esc）——
-/// 职业选择 UI 打开时让位（ClassSelectUI 消费 Esc 关自身），玩家死亡流程中不暂停
+/// 职业角色选择 UI 打开时让位，玩家死亡流程中不暂停
 /// （重开协程的 WaitForSeconds 受 timeScale 影响会被卡死）。
 /// 时停与 HitStop.SuppressByUI 协调；重开 = 回准备场景（与 RunManager 死亡重开同链路：清武器 + 关静态 UI）。
 /// 挂载模式同 MinimapSystem：场景空对象 PauseSystem 挂本组件，UI 运行时代码构建。
@@ -74,7 +74,7 @@ public class PausePanel : MonoBehaviour
         if (SkillTreeUI.IsOpen) return;
         if (panelRoot != null) { Close(); return; }
 
-        if (ClassSelectUI.IsOpen || CharacterSelectUI.IsOpen) return;
+        if (CharacterSelectUI.IsOpen) return;
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null && p.TryGetComponent(out Health h) && h.IsDead) return;
 
@@ -276,8 +276,8 @@ public class PausePanel : MonoBehaviour
     private void RestartRun()
     {
         Close();
-        RunStateCarrier.Ensure().ClearWeapon();
-        ClassSelectUI.Close();
+        RunStateCarrier.Ensure().ResetWeaponToCharacterDefault();
+        CharacterSelectUI.Close();
         Debug.Log("[Pause] 手动重开本局：回准备场景");
         SceneManager.LoadScene(prepSceneName);
     }

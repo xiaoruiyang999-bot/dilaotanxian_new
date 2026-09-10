@@ -33,7 +33,6 @@ public enum ChargeRule
 public class WeaponData : ScriptableObject
 {
     [SerializeField] private string displayName;
-    [SerializeField] private ClassType requiredClass;
     [SerializeField] private WeaponBehaviorType behaviorType;
 
     [Header("近战（behaviorType = Melee 时生效）")]
@@ -85,7 +84,6 @@ public class WeaponData : ScriptableObject
     [SerializeField] private SkillData weaponSkill;
 
     public string DisplayName => displayName;
-    public ClassType RequiredClass => requiredClass;
     public WeaponBehaviorType BehaviorType => behaviorType;
     public AttackData AttackData => attackData;
     public ProjectileData ProjectileData => projectileData;

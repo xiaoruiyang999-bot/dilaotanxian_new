@@ -30,7 +30,7 @@ public static class WeaponVisualBuilder
 
     /// <summary>
     /// 构建手持武器视觉：根命名 "WeaponVisual"，部件沿 +Y 排布（手握处 y≈0；弓例外，见 BuildBow）。
-    /// 按（职业 × 行为类型 × 蓄力规则）数据分发——与 DisplayName 解耦，武器改名不影响视觉。
+    /// 按（行为类型 × 蓄力规则）数据分发——不读取已退役的 ClassType。
     /// </summary>
     public static GameObject BuildHeldVisual(WeaponData data)
     {
@@ -41,24 +41,19 @@ public static class WeaponVisualBuilder
             return root;
         }
 
-        // 数据驱动分发：六把武器在（职业, 行为, 蓄力规则）上唯一
-        if (data.RequiredClass == ClassType.Warrior && data.BehaviorType == WeaponBehaviorType.Melee)
+        if (data.BehaviorType == WeaponBehaviorType.Melee)
         {
             if (data.ChargeRule == ChargeRule.RectScale) BuildSpear(root.transform);
             else BuildKnife(root.transform);
         }
-        else if (data.RequiredClass == ClassType.Archer && data.BehaviorType == WeaponBehaviorType.Ranged)
-        {
-            if (data.ChargeRule == ChargeRule.ProjectileBoost) BuildBow(root.transform);
-            else BuildCrossbow(root.transform);
-        }
-        else if (data.RequiredClass == ClassType.Mage && data.BehaviorType == WeaponBehaviorType.SelfCast)
+        else if (data.BehaviorType == WeaponBehaviorType.SelfCast)
         {
             BuildHealingStaff(root.transform);
         }
-        else if (data.RequiredClass == ClassType.Mage && data.BehaviorType == WeaponBehaviorType.Ranged)
+        else if (data.BehaviorType == WeaponBehaviorType.Ranged)
         {
-            BuildEnergyStaff(root.transform);
+            if (data.ChargeRule == ChargeRule.ProjectileBoost) BuildBow(root.transform);
+            else BuildCrossbow(root.transform);
         }
         else
         {
@@ -76,25 +71,13 @@ public static class WeaponVisualBuilder
         GameObject root = BuildHeldVisual(data);
         root.name = "WeaponMapIcon";
 
-        // 职业色底板（武器下方，远距离可识"地上有把某职业武器"）
-        Color plateColor = data != null ? GetClassColor(data.RequiredClass) : darkGray;
+        // 底板直接使用武器自身配置色，不再通过 ClassType 推导。
+        Color plateColor = data != null ? data.WeaponColor : darkGray;
         CreatePart(root.transform, "ClassPlate", new Vector2(0.4f, 0.12f),
             new Vector3(0f, -0.12f), plateColor, sortingOrder: 2);
 
         root.transform.localScale = Vector3.one * 0.7f;
         return root;
-    }
-
-    /// <summary>职业色映射：战士红 / 射手绿 / 法师蓝紫。</summary>
-    private static Color GetClassColor(ClassType classType)
-    {
-        switch (classType)
-        {
-            case ClassType.Warrior: return warriorRed;
-            case ClassType.Archer: return archerGreen;
-            case ClassType.Mage: return magePurple;
-            default: return darkGray;
-        }
     }
 
     // ========== 六把武器（部件下→上，沿 +Y，手握处 y≈0） ==========

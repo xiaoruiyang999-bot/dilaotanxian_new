@@ -46,9 +46,9 @@ public class RunManager : MonoBehaviour
         yield return null;
         // v1.0.6 统一入口：未选职业直连本场景（编辑器里 Play 了地牢场景/旧 v0_5 场景）时，
         // 重定向回准备场景走正式流程，而不是以无职业状态裸进地牢
-        if (redirectToPrepWhenNoClass && RunStateCarrier.Ensure().LastChosenClass == null)
+        if (redirectToPrepWhenNoClass && !RunStateCarrier.Ensure().HasPlayableCharacter)
         {
-            Debug.Log("[Run] 未选职业：重定向到准备场景（统一入口）");
+            Debug.Log("[Run] 未选职业角色：重定向到准备场景（统一入口）");
             SceneManager.LoadScene(prepSceneName);
             yield break;
         }
@@ -76,10 +76,11 @@ public class RunManager : MonoBehaviour
     {
         RunStateCarrier carrier = RunStateCarrier.Ensure();
 
-        if (carrier.LastChosenClass != null)
+        PlayableCharacterDefinition definition = carrier.ChosenPlayableCharacter;
+        if (definition != null)
         {
-            playerStats.ApplyClass(carrier.LastChosenClass);
-            Debug.Log($"[Run] 应用职业：{carrier.LastChosenClass.DisplayName}");
+            playerStats.ApplyPlayableCharacter(definition);
+            Debug.Log($"[Run] 应用职业角色：{definition.DisplayName}");
         }
 
         if (carrier.LastWeapon != null)
@@ -91,14 +92,14 @@ public class RunManager : MonoBehaviour
             Debug.Log($"[Run] 应用武器：{carrier.LastWeapon.DisplayName}");
         }
 
-        // v1.0.6 角色外形（与职业独立）：狼人 = 视觉外形 + 变身能力（T=兽化，v1.0.9 还原）
-        if (carrier.ChosenCharacter == CharacterSkin.Werewolf)
+        // V2 迁移期：狼人外形挂载怒痕/兽化链；正式局内才启用时间恢复。
+        if (definition != null && definition.Id == PlayableCharacterId.Werewolf)
         {
-            FrameAnimator animator = player.GetComponent<FrameAnimator>();
-            if (animator != null) animator.SetWerewolfVisual(true);
-            WerewolfTransformation.EnsureOn(player.gameObject);
+            CharacterSelectUI.ApplyCharacterRuntime(player.gameObject, definition.Id);
+            WerewolfTransformation transformation = WerewolfTransformation.EnsureOn(player.gameObject);
+            transformation.Rage?.SetPassiveRecoveryEnabled(true);
             WerewolfDash.EnsureOn(player.gameObject);   // v1.1.42 狼人冲刺
-            Debug.Log("[Run] 应用外形：狼人（T=兽化）");
+            Debug.Log("[Run] 应用职业角色：狼人（怒痕满后 Q 兽化）");
         }
     }
 
@@ -214,15 +215,14 @@ public class RunManager : MonoBehaviour
 
     /// <summary>
     /// v0.6.2 阶段 C（R4）：死亡 → 2 秒后加载准备场景。
-    /// 职业保留（RunStateCarrier.LastChosenClass，选择 UI 预置高亮可改选）；
-    /// 武器不保留（清空载体，准备场景展台已刷新需重拿）；道具/宠物清空（随场景销毁）。
+    /// 职业角色保留；武器恢复为该角色基础武器；道具/宠物清空（随场景销毁）。
     /// HP/状态重置由准备场景的新玩家实例天然满足，旧场景对象随卸载销毁，无需手动清理。
     /// </summary>
     private IEnumerator RestartRun()
     {
         yield return new WaitForSeconds(restartDelay);
-        RunStateCarrier.Ensure().ClearWeapon();
-        ClassSelectUI.Close();   // 防御：静态 UI 状态不残留到新场景
+        RunStateCarrier.Ensure().ResetWeaponToCharacterDefault();
+        CharacterSelectUI.Close();   // 防御：静态 UI 状态不残留到新场景
         Debug.Log("[Run] 玩家死亡：返回准备场景");
         SceneManager.LoadScene(prepSceneName);
     }
@@ -256,9 +256,12 @@ public class RunManager : MonoBehaviour
         var pc = FindAnyObjectByType<PlayerController>();
         var fa = pc != null ? pc.GetComponent<FrameAnimator>() : null;
         if (fa == null) { Debug.LogWarning("[Run] Debug：未找到玩家 FrameAnimator"); return; }
-        RunStateCarrier.Ensure().SetCharacter(CharacterSkin.Werewolf);
-        fa.SetWerewolfVisual(true);
-        WerewolfTransformation.EnsureOn(pc.gameObject);   // v1.0.9：含变身能力（T=兽化）
+        RunStateCarrier.Ensure().SetPlayableCharacter(PlayableCharacterId.Werewolf);
+        PlayableCharacterDefinition definition = PlayableCharacterCatalog.Get(PlayableCharacterId.Werewolf);
+        pc.GetStats().ApplyPlayableCharacter(definition);
+        CharacterSelectUI.ApplyCharacterRuntime(pc.gameObject, PlayableCharacterId.Werewolf);
+        WerewolfTransformation transformation = WerewolfTransformation.EnsureOn(pc.gameObject);
+        transformation.Rage?.SetPassiveRecoveryEnabled(true);
         WerewolfDash.EnsureOn(pc.gameObject);   // v1.1.42 狼人冲刺
     }
 
@@ -267,7 +270,9 @@ public class RunManager : MonoBehaviour
     {
         var wt = FindAnyObjectByType<WerewolfTransformation>();
         if (wt == null) { Debug.LogWarning("[Run] Debug：未找到 WerewolfTransformation（先 Apply Werewolf Visual）"); return; }
-        wt.Toggle();   // 等价按 T：狼↔兽化全链路（演出/帧组/血量/数值）
+        if (!wt.IsBeast)
+            wt.Rage?.DebugFill();
+        wt.Toggle();
     }
 #endif
 }

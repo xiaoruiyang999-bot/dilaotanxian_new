@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 74dafbe7f2604dd0b92edc87d8452494, type: 3}
-  m_Name: SkillBranch_Warrior
+  m_Name: SkillBranch_Werewolf
   m_EditorClassIdentifier: 
-  displayName: 战士小技能分支
+  displayName: "\u72FC\u4EBA\u5C0F\u6280\u80FD\u5206\u652F"
   branches:
   - {fileID: 11400000, guid: a70462110d74468c925fccb9a6af180b, type: 2}
   - {fileID: 11400000, guid: 2342075de2bf4e21997f3c5c88168a06, type: 2}

@@ -49,33 +49,30 @@ public class PrepRoomManager : MonoBehaviour
         // v0.7.3 正式投放：地面三种消耗包各 1 个（出生位前方横排）
         SpawnDemoItems();
 
-        // 死亡回来：职业保留，按上次职业立即摆好武器展台（武器需重新拾取）
+        // 职业角色是跨场景单一真值：准备房的新玩家也立即应用属性、外形、能力与基础武器。
         RunStateCarrier carrier = RunStateCarrier.Ensure();
-        ClassData last = carrier.LastChosenClass;
-        if (last != null)
-            PrepRoomPlacer.RefreshWeapons(last);
+        PlayableCharacterDefinition selectedCharacter = carrier.ChosenPlayableCharacter;
+        if (selectedCharacter != null)
+        {
+            PrepRoomPlacer.RefreshWeapons(selectedCharacter);
+            if (p != null)
+            {
+                p.GetComponent<PlayerStats>()?.ApplyPlayableCharacter(selectedCharacter);
+                CharacterSelectUI.ApplyCharacterRuntime(p, selectedCharacter.Id);
+                if (holder != null && carrier.LastWeapon != null)
+                    holder.Equip(carrier.LastWeapon);
+            }
+        }
 
-        // v1.0.8 统一初始入口（两级选择，均为首次弹出、死亡不重弹）：
-        // 未选过角色 → 先角色选择页（战士/狼人，确认后自动接续职业选择页）；选过角色但未选职业 → 直接职业选择页
-        if (!carrier.CharacterChosen)
+        // v2.0.2 单一选择入口：一次选择同时确定外观、属性、武器池、技能与职业资源。
+        if (!carrier.HasPlayableCharacter)
             CharacterSelectUI.Open();
-        else if (last == null)
-            ClassSelectUI.Open();
 
         // v1.1.50 相机边界锁定：准备室围墙外沿即地图边界（墙厚 0.5，BuildRoom 同参数）
         CameraFollow.SetMapBounds(new Rect(
             -roomSize.x * 0.5f - 0.5f, -roomSize.y * 0.5f - 0.5f, roomSize.x + 1f, roomSize.y + 1f));
 
-        // v1.0.6 角色外形：准备房间也同步应用（选择页即时改外形，回看玩家已是新视觉）
-        if (RunStateCarrier.Ensure().ChosenCharacter == CharacterSkin.Werewolf && p != null)
-        {
-            FrameAnimator animator = p.GetComponent<FrameAnimator>();
-            if (animator != null) animator.SetWerewolfVisual(true);
-            WerewolfTransformation.EnsureOn(p);   // v1.0.9：准备房间也能按 T 试变身
-            WerewolfDash.EnsureOn(p);   // v1.1.42 狼人冲刺（场景应用侧同挂）
-        }
-
-        Debug.Log("[Run] 准备场景就绪：选职业 → 拿武器 → E 传送门进地牢");
+        Debug.Log("[Run] 准备场景就绪：选职业角色 → 调整武器 → E 传送门进地牢");
     }
 
     void OnDestroy()
