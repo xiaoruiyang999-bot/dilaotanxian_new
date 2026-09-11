@@ -24,6 +24,12 @@ MonoBehaviour:
   armorReduceMul: 0.4
   armorLossMul: 1
   maxMana: 100
+  dashDistanceX: 3
+  dashDistanceY: 1.5
+  dashDiagonalScale: 0.8
+  dashDuration: 0.15
+  dashCooldown: 0.9
+  dashIFrameBonus: 0.06
   availableWeapons:
   - {fileID: 11400000, guid: aa19f9cc77565094299ace416a3756f2, type: 2}
   - {fileID: 11400000, guid: 1cef4d0b9c8bb0ec6296a4fabcf765dc, type: 2}

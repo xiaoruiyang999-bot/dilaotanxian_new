@@ -66,11 +66,12 @@ public class WeaponHitbox : MonoBehaviour
     private IDamageable swingFirstTarget;
     private float swingFirstDealt;
 
-    // v1.1.48 横向攻击带（失落城堡式，仅玩家路径）：laneWidth>0 时玩家判定不再是
-    // 跟随武器旋转的细长矩形，而是"玩家前方水平带"——X=攻击距离、Y=纵深容错，
-    // 以攻击者根位置（下半身判定）为基准。敌人路径（attackerStats==null）保持旧几何。
+    // V2 横向攻击带：玩家和敌人的有方向攻击都使用同一矩形几何。
+    // X=攻击距离、Y=纵深/跨线能力，方向仅 Left/Right；视觉旋转不再影响判定。
     private float laneWidth;
+    private float laneOriginOffset;
     private Vector2 laneDirection = Vector2.right;
+    private float circleRadius;
     /// <summary>当前攻击带纵深宽（>0 = 横向带模式；0 = 旧旋转矩形模式）。</summary>
     public float LaneWidth => laneWidth;
 
@@ -78,16 +79,26 @@ public class WeaponHitbox : MonoBehaviour
     /// 进入横向攻击带模式（PlayerCombat 每段攻击开始时调用；BeginSwing 复位为 0）。
     /// direction：离散攻击方向。v1.2.1 起同时支持 A 左右与 B 四方向灰盒。
     /// </summary>
-    public void SetLaneMode(float width, Vector2 direction)
+    public void SetLaneMode(float width, Vector2 direction, float originOffset = 0.35f)
     {
         laneWidth = Mathf.Max(0f, width);
-        laneDirection = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector2.right;
+        laneOriginOffset = Mathf.Max(0f, originOffset);
+        laneDirection = AttackDirectionResolver.ResolveHorizontal(direction, true, laneDirection);
+        circleRadius = 0f;
     }
 
     /// <summary>兼容旧调用与已有测试；新代码应传完整方向向量。</summary>
     public void SetLaneMode(float width, float facingSign)
     {
         SetLaneMode(width, facingSign >= 0f ? Vector2.right : Vector2.left);
+    }
+
+    /// <summary>进入自身中心圆形判定模式；用于无方向范围技，预警与 Hitbox 共用半径。</summary>
+    public void SetCircleMode(float radius)
+    {
+        circleRadius = Mathf.Max(0.01f, radius);
+        laneWidth = 0f;
+        laneOriginOffset = 0f;
     }
 
     void Awake()
@@ -119,7 +130,9 @@ public class WeaponHitbox : MonoBehaviour
         LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
         DamageMultiplier = 1f;   // 蓄力伤害倍率复位（v0.7.0）
         laneWidth = 0f;          // v1.1.48 横向带复位（PlayerCombat 每段按需重设）
+        laneOriginOffset = 0f;
         laneDirection = Vector2.right;
+        circleRadius = 0f;
         swingFirstTarget = null;   // 贯穿追补复位（v0.7.5 二期）
         swingFirstDealt = 0f;
         isSwinging = true;
@@ -135,16 +148,25 @@ public class WeaponHitbox : MonoBehaviour
         if (!isSwinging) return;
         if (attackData == null || weaponPivot == null) return;
 
-        ComputeSwingBox(out Vector2 center, out Vector2 size, out float angle);
-
         // Unity 6 新 API：OverlapBox 改用 ContactFilter2D 传参（结构体，无每帧分配）。
         // useTriggers 保持旧 NonAlloc 行为（命中的 trigger 在下方手动跳过）。
         ContactFilter2D filter = new ContactFilter2D();
         filter.SetLayerMask(attackData.TargetLayer);
         filter.useTriggers = true;
 
-        int count = Physics2D.OverlapBox(
-            center, size, angle, filter, hitBuffer);
+        Vector2 queryCenter;
+        int count;
+        if (circleRadius > 0f)
+        {
+            queryCenter = transform.position;
+            count = Physics2D.OverlapCircle(queryCenter, circleRadius, filter, hitBuffer);
+        }
+        else
+        {
+            ComputeSwingBox(out Vector2 center, out Vector2 size, out float angle);
+            queryCenter = center;
+            count = Physics2D.OverlapBox(center, size, angle, filter, hitBuffer);
+        }
 
         for (int i = 0; i < count; i++)
         {
@@ -195,7 +217,7 @@ public class WeaponHitbox : MonoBehaviour
                 {
                     damageable.TakeDamage(attackData.AttackDamage);
                 }
-                OnHit?.Invoke(damageable, hit.ClosestPoint(center));
+                OnHit?.Invoke(damageable, hit.ClosestPoint(queryCenter));
 
                 // 命中反馈（M1.5·v0.6.1，v1.0.8 自 MCP 分支恢复）：仅音效。
                 // 玩家与敌人共用本组件，双方命中都有反馈。
@@ -212,20 +234,19 @@ public class WeaponHitbox : MonoBehaviour
     /// </summary>
     private void ComputeSwingBox(out Vector2 center, out Vector2 size, out float angle)
     {
-        // v1.1.48 玩家横向攻击带（失落城堡式）：laneWidth>0 且为玩家路径时，
-        // 判定 = 攻击者前方水平带——X 决定攻击距离，Y 是纵深容错（上下移动只负责对齐站位），
-        // 与武器旋转动画解耦（画面弧线只是表现）。敌人路径保持旧旋转矩形。
-        if (attackerStats != null && laneWidth > 0f)
+        // V2 玩家/敌人共用横向攻击带：判定与武器旋转动画解耦。
+        if (laneWidth > 0f)
         {
-            float scale = weaponPivot != null ? weaponPivot.lossyScale.x : 1f;
-            float reach = attackData.AttackRange * LengthMultiplier * scale;
-            Vector2 direction = laneDirection.sqrMagnitude > 0.0001f
-                ? laneDirection.normalized
-                : Vector2.right;
-            Vector2 foot = attackerStats.transform.position;   // 玩家根 = 下半身判定平面（v1.1.24）
-            center = foot + direction * (reach * 0.5f + 0.35f);
+            // 横向攻击带使用 AttackData 的世界单位，不受角色/武器视觉缩放影响。
+            float reach = attackData.AttackRange * LengthMultiplier;
+            Vector2 direction = AttackDirectionResolver.ResolveHorizontal(
+                laneDirection, true, Vector2.right);
+            Vector2 origin = (attackerStats != null
+                ? (Vector2)attackerStats.transform.position
+                : (Vector2)transform.position) + direction * laneOriginOffset;
+            center = origin + direction * (reach * 0.5f);
             size = new Vector2(reach, laneWidth);
-            angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            angle = direction.x < 0f ? 180f : 0f;
             return;
         }
 
@@ -248,9 +269,17 @@ public class WeaponHitbox : MonoBehaviour
         center = default;
         size = default;
         angle = 0f;
-        if (!isSwinging || attackData == null || weaponPivot == null) return false;
+        if (!isSwinging || circleRadius > 0f || attackData == null || weaponPivot == null) return false;
         ComputeSwingBox(out center, out size, out angle);
         return true;
+    }
+
+    /// <summary>自身中心范围技的只读调试几何。</summary>
+    public bool TryGetSwingCircle(out Vector2 center, out float radius)
+    {
+        center = transform.position;
+        radius = circleRadius;
+        return isSwinging && attackData != null && circleRadius > 0f;
     }
 
     /// <summary>

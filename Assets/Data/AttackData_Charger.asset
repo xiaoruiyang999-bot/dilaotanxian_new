@@ -17,6 +17,9 @@ MonoBehaviour:
   activeDuration: 0.3
   recoveryTime: 0.4
   attackRange: 1.5
+  attackLaneWidth: 1.1
+  attackOriginOffset: 0.35
+  directionMode: 0
   attackAngle: 60
   attackDamage: 18
   attackCooldown: 2
@@ -36,7 +39,7 @@ MonoBehaviour:
   summonCount: 2
   summonRadius: 2
   isCharge: 1
-  chargeSpeedMultiplier: 3
+  chargeDistance: 2.5
   chargerCollisionLayer:
     serializedVersion: 2
     m_Bits: 0

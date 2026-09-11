@@ -205,8 +205,9 @@ public class CharacterSelectUI : MonoBehaviour
 
         if (isWerewolf)
         {
+            PlayableCharacterDefinition definition = PlayableCharacterCatalog.Get(id);
             WerewolfTransformation.EnsureOn(player);
-            WerewolfDash.EnsureOn(player);
+            WerewolfDash.EnsureOn(player, definition);
             return;
         }
 

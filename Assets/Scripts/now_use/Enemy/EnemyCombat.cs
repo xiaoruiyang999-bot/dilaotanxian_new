@@ -24,9 +24,6 @@ public class EnemyCombat : MonoBehaviour
     [SerializeField] private AttackData[] attackDataSet;
     [SerializeField] private AttackSelectionMode selectionMode = AttackSelectionMode.Random;
 
-    [Tooltip("进入攻击触发范围的额外缓冲距离（v0.6.0）：触发判定 = AttackData.AttackRange + 该缓冲，避免敌人在范围边缘继续贴近才出手")]
-    [SerializeField] private float attackRangeBuffer = 0.3f;
-
     [Header("远程（v1.0.11 自 MCP 分支还原）")]
     [Tooltip("非空 = 远程攻击：预警照常走 AttackData（同源），Active 开始时向目标发射投射物，不进近战挥砍链")]
     [SerializeField] private ProjectileData projectileData;
@@ -57,6 +54,7 @@ public class EnemyCombat : MonoBehaviour
     private EnemyBehaviorConfig behaviorConfig;
     private bool isCharging;
     private Vector2 currentChargeDirection;
+    private Vector2 chargeStartPosition;
     private System.Random combatRng;
     private float lineOfSightLostTimer;
 
@@ -135,16 +133,15 @@ public class EnemyCombat : MonoBehaviour
     }
 
     /// <summary>
-    /// 普通状态下持续朝向目标。
-    /// 武器方向由 Enemy 自身 transform 控制，不再通过 WeaponController 实时瞄准，避免追击时武器漂移。
+    /// 普通状态不驱动攻击方向。EnemyController 只保存水平视觉朝向；
+    /// 真正攻击方向在 EnterWindup 解析并锁定。
     /// </summary>
     private void UpdateAiming()
     {
         if (currentState != AttackState.None) return;
         if (currentTarget == null) return;
 
-        // Enemy 武器方向跟随自身 transform，不再每帧调用 weaponController.SetAimDirection。
-        // 攻击开始时会在 EnterWindup 中根据当前 transform.right 锁定方向。
+        // 攻击开始前不旋转身体或 WeaponPivot。
     }
 
     private void UpdateAttackState()
@@ -180,23 +177,54 @@ public class EnemyCombat : MonoBehaviour
     /// <summary>是否远程攻击（v1.0.11：projectileData 已配置）。</summary>
     public bool IsRanged => projectileData != null;
 
+    /// <summary>最近一次锁定的攻击方向；有方向攻击永远为 Left/Right。</summary>
+    public Vector2 LockedAttackDirection => attackDirection;
+
     /// <summary>
-    /// 检查目标是否在攻击范围内（距离判定，供 EnemyAI 决策使用）。
-    /// v0.6.0：判定距离 = 当前 AttackData.AttackRange + attackRangeBuffer，
-    /// 保证精英/Boss 等大范围攻击在玩家进入打击圈后即触发，不再继续贴近。
+    /// 检查目标是否落入至少一个已配置招式的真实几何。
+    /// 不再使用隐藏 attackRangeBuffer，避免 AI 启动范围、预警和实际打击不一致。
     /// </summary>
     public bool IsInAttackRange(Transform target)
     {
         if (target == null) return false;
 
-        float maxRange = attackData != null ? attackData.AttackRange : 0f;
-        if (attackDataSet != null)
-            for (int i = 0; i < attackDataSet.Length; i++)
-                if (attackDataSet[i] != null)
-                    maxRange = Mathf.Max(maxRange, attackDataSet[i].AttackRange);
+        Vector2 attackerPosition = transform.position;
+        Vector2 targetPosition = target.position;
+        if (IsTargetWithinAttackGeometry(attackerPosition, targetPosition, attackData))
+            return true;
 
-        return maxRange > 0f
-            && Vector2.Distance(transform.position, target.position) <= maxRange + attackRangeBuffer;
+        if (attackDataSet == null) return false;
+        for (int i = 0; i < attackDataSet.Length; i++)
+            if (IsTargetWithinAttackGeometry(attackerPosition, targetPosition, attackDataSet[i]))
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// 敌人攻击启动、预警和 Hitbox 共用的几何口径。召唤无命中几何，允许由 AI 独立触发；
+    /// 自身中心范围用半径，其余招式用朝目标 X 侧延伸的水平矩形带。
+    /// </summary>
+    public static bool IsTargetWithinAttackGeometry(
+        Vector2 attackerPosition, Vector2 targetPosition, AttackData data)
+    {
+        if (data == null) return false;
+        if (data.IsSummon) return true;
+        if (data.IsSelfCenteredArea)
+            return Vector2.Distance(attackerPosition, targetPosition) <= data.AttackRange;
+
+        Vector2 delta = targetPosition - attackerPosition;
+        float absoluteX = Mathf.Abs(delta.x);
+        float reach = GetHorizontalWarningReach(data);
+        return absoluteX >= data.AttackOriginOffset
+            && absoluteX <= data.AttackOriginOffset + reach
+            && Mathf.Abs(delta.y) <= data.AttackLaneWidth * 0.5f;
+    }
+
+    /// <summary>静态攻击为武器长度；冲锋还要覆盖敌人在 Active 内的完整位移走廊。</summary>
+    public static float GetHorizontalWarningReach(AttackData data)
+    {
+        if (data == null) return 0f;
+        return data.AttackRange + (data.IsCharge ? data.ChargeDistance : 0f);
     }
 
     /// <summary>
@@ -213,6 +241,7 @@ public class EnemyCombat : MonoBehaviour
         if (!CanAttack) return false;
         AttackData picked = PickAttack(target);
         if (picked == null) return false;
+        if (!IsTargetWithinAttackGeometry(transform.position, target.position, picked)) return false;
 
         currentTarget = target;
         attackData = picked;
@@ -227,7 +256,9 @@ public class EnemyCombat : MonoBehaviour
 
         attackCandidates.Clear();
         for (int i = 0; i < attackDataSet.Length; i++)
-            if (attackDataSet[i] != null) attackCandidates.Add(attackDataSet[i]);
+            if (attackDataSet[i] != null
+                && IsTargetWithinAttackGeometry(transform.position, target.position, attackDataSet[i]))
+                attackCandidates.Add(attackDataSet[i]);
 
         if (attackCandidates.Count == 0) return attackData;
         if (attackCandidates.Count == 1) return attackCandidates[0];
@@ -276,28 +307,45 @@ public class EnemyCombat : MonoBehaviour
         activeMomentTriggered = false;
         lineOfSightLostTimer = 0f;
 
-        // 攻击方向：远程朝目标（发射+预警同向）；近战用 Enemy 当前朝向（动画与判定同源）。
-        attackDirection = transform.right;
-        if (IsRanged && currentTarget != null)
+        Vector2 fallbackFacing = controller != null ? controller.HorizontalFacing : Vector2.right;
+        attackDirection = fallbackFacing;
+        if (attackData.UsesHorizontalDirection && currentTarget != null)
         {
             Vector2 to = (Vector2)currentTarget.position - (Vector2)transform.position;
-            if (to.sqrMagnitude > 0.0001f) attackDirection = to.normalized;
+            attackDirection = AttackDirectionResolver.ResolveHorizontal(to, true, fallbackFacing);
+            controller?.FaceTowards(attackDirection);
         }
 
         if (weaponController != null)
         {
-            // Enemy 的 transform 已经由 EnemyAI/EnemyController 旋转朝向目标，
-            // WeaponPivot 作为子物体保持 identity 即可自然跟随，
-            // 不需要再把世界角度写入 localRotation，否则会导致双重旋转。
-            weaponController.SetAimDirection(attackDirection, applyRotation: false);
+            weaponController.SetAttackData(attackData);
+            // 敌人根节点固定正立，武器/占位表现只在自身 Pivot 上左右定向。
+            weaponController.SetAimDirection(attackDirection, applyRotation: true);
             weaponController.LockAttackDirection();
         }
 
+        weaponHitbox?.SetAttackData(attackData);
+
         if (attackIndicator != null && attackData != null)
         {
-            attackIndicator.SetRadius(attackData.AttackRange);
-            attackIndicator.SetAngle(attackData.AttackAngle);
-            attackIndicator.SetDirection(attackDirection);
+            if (attackData.IsSummon || attackData.IsSelfCenteredArea)
+            {
+                attackIndicator.transform.position = transform.position;
+                attackIndicator.SetShape(AttackIndicator.ShapeType.Circle);
+                attackIndicator.SetRadius(attackData.IsSummon
+                    ? attackData.SummonRadius
+                    : attackData.AttackRange);
+            }
+            else
+            {
+                Vector2 origin = (Vector2)transform.position
+                    + attackDirection * attackData.AttackOriginOffset;
+                attackIndicator.transform.position = origin;
+                attackIndicator.SetDirection(attackDirection);
+                attackIndicator.SetBox(
+                    GetHorizontalWarningReach(attackData),
+                    attackData.AttackLaneWidth);
+            }
             attackIndicator.SetColor(attackIndicator.WarningColor);
             attackIndicator.Show();
         }
@@ -319,20 +367,7 @@ public class EnemyCombat : MonoBehaviour
                 return;
             }
 
-            // Windup 期间预警持续跟手；发射沿最后一次同源方向，不在 Active 再做第二套 LOS 判定。
-            if (currentTarget != null)
-            {
-                Vector2 toTarget = (Vector2)currentTarget.position - (Vector2)transform.position;
-                if (toTarget.sqrMagnitude > 0.0001f)
-                {
-                    attackDirection = toTarget.normalized;
-                    if (attackIndicator != null)
-                    {
-                        attackIndicator.SetDirection(attackDirection);
-                        attackIndicator.SetRadius(toTarget.magnitude);
-                    }
-                }
-            }
+            // V2：前摇开始即锁定 Left/Right。这里只复查 LOS，不再追踪玩家或改写预警。
         }
 
         windupTimer -= Time.deltaTime;
@@ -344,13 +379,11 @@ public class EnemyCombat : MonoBehaviour
     private void CancelAttackWithCooldown(float cooldownScale)
     {
         currentState = AttackState.None;
-        isCharging = false;
-        currentChargeDirection = Vector2.zero;
+        StopCharge();
         weaponHitbox?.EndSwing();
         attackIndicator?.Hide();
         weaponAnimator?.Stop();
-        weaponController?.ResetAimToForward();
-        controller?.StopMoving();
+        RestoreWeaponFacing();
 
         canAttack = false;
         cooldownTimer = attackData != null
@@ -369,8 +402,15 @@ public class EnemyCombat : MonoBehaviour
         // 不 BeginSwing/不播挥砍动画，UpdateActive 的 Tick 对非摆动状态为 no-op。
         if (IsRanged)
         {
-            Vector2 origin = (Vector2)transform.position + attackDirection * 0.6f;
-            Projectile.Launch(projectileData, origin, attackDirection, gameObject);
+            float radius = attackData.AttackLaneWidth * 0.5f;
+            Vector2 warningOrigin = (Vector2)transform.position
+                + attackDirection * attackData.AttackOriginOffset;
+            // 弹体圆从预警矩形起点内切并在终点内切，确保实际最大边界不越出预警。
+            Vector2 projectileOrigin = warningOrigin + attackDirection * radius;
+            float travelDistance = Mathf.Max(0.01f, attackData.AttackRange - radius * 2f);
+            Projectile.Launch(projectileData, projectileOrigin, attackDirection, gameObject,
+                maxTravelDistance: travelDistance,
+                collisionRadiusOverride: radius);
             OnActiveMoment();
             return;
         }
@@ -388,11 +428,22 @@ public class EnemyCombat : MonoBehaviour
         if (attackData != null && attackData.IsCharge)
         {
             currentChargeDirection = attackDirection;
+            chargeStartPosition = transform.position;
             isCharging = true;
         }
 
         // Active 开始，武器矩形检测同步启动
         weaponHitbox?.BeginSwing();
+        if (weaponHitbox != null)
+        {
+            if (attackData.IsSelfCenteredArea)
+                weaponHitbox.SetCircleMode(attackData.AttackRange);
+            else
+                weaponHitbox.SetLaneMode(
+                    attackData.AttackLaneWidth,
+                    attackDirection,
+                    attackData.AttackOriginOffset);
+        }
 
         // Active 阶段将指示器切换为危险色
         if (attackIndicator != null)
@@ -424,26 +475,40 @@ public class EnemyCombat : MonoBehaviour
         // 撞墙（ChargerCollisionLayer|TargetLayer）即停
         if (isCharging && currentChargeDirection.sqrMagnitude > 0.001f)
         {
-            float speed = controller != null
-                ? controller.GetStats().MoveSpeed * attackData.ChargeSpeedMultiplier
-                : 3f * attackData.ChargeSpeedMultiplier;
-            Vector2 chargeVelocity = currentChargeDirection * speed;
             if (controller == null)
             {
                 isCharging = false;
                 return;
             }
-            controller.SetChargeVelocity(chargeVelocity);
 
-            float checkDist = chargeVelocity.magnitude * Time.deltaTime + 0.1f;
-            int stopLayer = attackData.ChargerCollisionLayer | attackData.TargetLayer;
-            RaycastHit2D hit = Physics2D.Raycast(transform.position, currentChargeDirection, checkDist, stopLayer);
-            // v1.1.37：射线可能命中本帧已销毁对象（清理竞态），hit.collider 对 fake-null 判空即拦
-            if (hit.collider != null && hit.transform != null && !hit.transform.IsChildOf(transform))
+            float traveled = Mathf.Max(0f, Vector2.Dot(
+                (Vector2)transform.position - chargeStartPosition,
+                currentChargeDirection));
+            float remaining = attackData.ChargeDistance - traveled;
+            if (remaining <= 0.001f)
             {
-                currentChargeDirection = Vector2.zero;
-                isCharging = false;
-                controller.StopMoving();
+                StopCharge();
+            }
+            else
+            {
+                float nominalSpeed = attackData.ChargeDistance
+                    / Mathf.Max(0.001f, attackData.ActiveDuration);
+                // 最后一帧按剩余距离限速，保证根节点及随身 Hitbox 不越出预警走廊。
+                float speed = Mathf.Min(
+                    nominalSpeed,
+                    remaining / Mathf.Max(0.001f, Time.fixedDeltaTime));
+                Vector2 chargeVelocity = currentChargeDirection * speed;
+                controller.SetChargeVelocity(chargeVelocity);
+
+                float checkDist = Mathf.Min(
+                    remaining + 0.1f,
+                    chargeVelocity.magnitude * Time.fixedDeltaTime + 0.1f);
+                int stopLayer = attackData.ChargerCollisionLayer | attackData.TargetLayer;
+                RaycastHit2D hit = Physics2D.Raycast(
+                    transform.position, currentChargeDirection, checkDist, stopLayer);
+                // v1.1.37：射线可能命中本帧已销毁对象（清理竞态），hit.collider 对 fake-null 判空即拦
+                if (hit.collider != null && hit.transform != null && !hit.transform.IsChildOf(transform))
+                    StopCharge();
             }
         }
 
@@ -472,6 +537,7 @@ public class EnemyCombat : MonoBehaviour
     {
         currentState = AttackState.Recovery;
         recoveryTimer = attackData.RecoveryTime;
+        StopCharge();
 
         // Active 结束即停挥，关闭武器检测（不能等到 Recovery 之后）
         weaponHitbox?.EndSwing();
@@ -491,11 +557,25 @@ public class EnemyCombat : MonoBehaviour
         currentState = AttackState.None;
         weaponAnimator?.Stop();
 
-        // 攻击结束后重置武器朝向，使其跟随 Enemy 自身 transform 旋转。
-        weaponController?.ResetAimToForward();
+        RestoreWeaponFacing();
 
         canAttack = false;
         cooldownTimer = attackData.AttackCooldown * CooldownScale;
+    }
+
+    private void RestoreWeaponFacing()
+    {
+        if (weaponController == null) return;
+        weaponController.UnlockAttackDirection();
+        Vector2 facing = controller != null ? controller.HorizontalFacing : Vector2.right;
+        weaponController.SetAimDirection(facing, applyRotation: true);
+    }
+
+    private void StopCharge()
+    {
+        isCharging = false;
+        currentChargeDirection = Vector2.zero;
+        controller?.StopMoving();
     }
 
     /// <summary>
@@ -507,6 +587,7 @@ public class EnemyCombat : MonoBehaviour
         if (currentState == AttackState.None) return;
 
         currentState = AttackState.None;
+        StopCharge();
         weaponHitbox?.EndSwing();
         attackIndicator?.Hide();
     }

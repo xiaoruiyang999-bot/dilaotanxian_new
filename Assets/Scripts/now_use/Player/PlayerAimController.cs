@@ -116,7 +116,7 @@ public enum AimInputDevice
 }
 
 /// <summary>
-/// V2 v2.0.1 左右攻击规则。纯函数，不依赖场景对象，供预览、位移与 Hitbox 共用。
+/// V2 最终左右攻击规则。纯函数，不依赖场景对象，供玩家/敌人的预警、位移与 Hitbox 共用。
 /// </summary>
 public static class AttackDirectionResolver
 {
@@ -127,7 +127,7 @@ public static class AttackDirectionResolver
         bool hasValidAimInput,
         Vector2 horizontalFacing)
     {
-        // V2 已定案测试口径：键鼠有有效瞄准时只看鼠标相对角色的 X 正负，Y 不参与。
+        // V2 最终口径：有有效目标方向时只看 X 正负，Y 不参与攻击定向。
         if (hasValidAimInput && Mathf.Abs(desiredDirection.x) > DirectionEpsilon)
             return desiredDirection.x < 0f ? Vector2.left : Vector2.right;
         if (Mathf.Abs(horizontalFacing.x) > DirectionEpsilon)

@@ -34,6 +34,20 @@ public class PlayableCharacterDefinition : ScriptableObject
     [Min(0.01f)] public float armorLossMul = 1f;
     [Min(0f)] public float maxMana = 50f;
 
+    [Header("移动与闪避")]
+    [Tooltip("水平 Dash 总位移（世界单位）：推进、接近和拉开距离用")]
+    [Min(0.1f)] public float dashDistanceX = 3f;
+    [Tooltip("垂直 Dash 总位移（世界单位）：换线和脱离横向攻击带用")]
+    [Min(0.1f)] public float dashDistanceY = 1.5f;
+    [Tooltip("斜向 Dash 的 X/Y 分量共同乘此值，避免斜向净位移过长")]
+    [Range(0.1f, 1f)] public float dashDiagonalScale = 0.8f;
+    [Tooltip("Dash 持续时间（秒）")]
+    [Min(0.02f)] public float dashDuration = 0.15f;
+    [Tooltip("Dash 冷却（秒），从 Dash 结束起算")]
+    [Min(0f)] public float dashCooldown = 0.9f;
+    [Tooltip("Dash 结束后的额外无敌时间（秒）")]
+    [Min(0f)] public float dashIFrameBonus = 0.06f;
+
     [Header("武器")]
     [Tooltip("本职业角色可拾取与掉落的武器池；兼容性以此列表为唯一真值。")]
     [SerializeField] private List<WeaponData> availableWeapons = new List<WeaponData>();

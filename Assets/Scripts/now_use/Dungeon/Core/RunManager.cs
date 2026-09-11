@@ -98,7 +98,7 @@ public class RunManager : MonoBehaviour
             CharacterSelectUI.ApplyCharacterRuntime(player.gameObject, definition.Id);
             WerewolfTransformation transformation = WerewolfTransformation.EnsureOn(player.gameObject);
             transformation.Rage?.SetPassiveRecoveryEnabled(true);
-            WerewolfDash.EnsureOn(player.gameObject);   // v1.1.42 狼人冲刺
+            WerewolfDash.EnsureOn(player.gameObject, definition);   // V2 八方向差异化 Dash
             Debug.Log("[Run] 应用职业角色：狼人（怒痕满后 Q 兽化）");
         }
     }
@@ -262,7 +262,7 @@ public class RunManager : MonoBehaviour
         CharacterSelectUI.ApplyCharacterRuntime(pc.gameObject, PlayableCharacterId.Werewolf);
         WerewolfTransformation transformation = WerewolfTransformation.EnsureOn(pc.gameObject);
         transformation.Rage?.SetPassiveRecoveryEnabled(true);
-        WerewolfDash.EnsureOn(pc.gameObject);   // v1.1.42 狼人冲刺
+        WerewolfDash.EnsureOn(pc.gameObject, definition);   // V2 八方向差异化 Dash
     }
 
     [UnityEditor.MenuItem("Tools/Dungeon/Debug Toggle Beast")]

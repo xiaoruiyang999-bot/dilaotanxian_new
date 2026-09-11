@@ -18,7 +18,8 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 - 角色与职业已合并为职业角色；战士退役，首发狼人。
 - 武器视觉烘入角色 Sprite；Attack Hitbox 和身体碰撞独立。
 - 新动画只扩展 Unity Animation/Animator。
-- v2.0.1 首轮只做左右攻击灰盒：键鼠按鼠标相对角色的 X 正负定向，Y 不参与；不同时开发四方向版本，未确认手感前不量产最终攻击动画。
+- 玩家与敌人的有方向攻击最终定案为仅左右；召唤/自身中心范围技例外。跨 Y 轴能力用招式带宽/范围配置，不恢复自由角度瞄准。
+- 敌人可二维移动但身体保持正立，不旋转根节点。玩家 Space + WASD 八方向 Dash，X 长、Y 短、斜向独立缩放，相关数值全部暴露。
 - now_use 中旧 Character/Class、四向网格房间、WeaponPivot、FrameAnimator 是迁移基线，不得当作新目标继续扩建。
 
 ## 2. 写代码前 Checklist
@@ -44,13 +45,14 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 
 ## 4. 战斗与 Animator
 
-1. AttackDefinition 是前摇、有效帧、后摇、方向、判定几何、位移、伤害和反馈的同源数据。
-2. Body Hurtbox、Movement Collider、Attack Hitbox 分责；Sprite 中画出的武器不参与身体碰撞。
-3. Animator/Animation Event 只发窗口信号，不计算伤害、不直接改 Build。
-4. 每个攻击 Clip 必须包含标准的 AttackStart、HitboxOpen、HitboxClose、AttackEnd，导入或测试时验证完整性。
-5. 同武器模组共享 Controller 和时序；用 Animator Override Controller 替换 Clip。
-6. FrameAnimator 与 WeaponPivot 只作旧场景兼容。在新 Animator 链接管、引用清零并回归通过前不删除。
-7. 同帧多命中音效限流；变色/停帧/震屏协程或 Tween 必须互斥并绑定生命周期。
+1. AttackDefinition 是前摇、有效帧、后摇、方向、判定几何、位移、伤害和反馈的同源数据；冲锋使用独立 chargeDistance，预警长度为 chargeDistance + attackRange。
+2. 敌人有方向攻击在前摇开始时锁定 Left/Right；预警与实际打击使用同一原点、距离、带宽和有效时间。允许跨 Y 轴的招式只能扩大自身配置带宽/范围。
+3. Body Hurtbox、Movement Collider、Attack Hitbox 分责；Sprite 中画出的武器不参与身体碰撞。
+4. Animator/Animation Event 只发窗口信号，不计算伤害、不直接改 Build。
+5. 每个攻击 Clip 必须包含标准的 AttackStart、HitboxOpen、HitboxClose、AttackEnd，导入或测试时验证完整性。
+6. 同武器模组共享 Controller 和时序；用 Animator Override Controller 替换 Clip。
+7. FrameAnimator 与 WeaponPivot 只作旧场景兼容。在新 Animator 链接管、引用清零并回归通过前不删除。
+8. 同帧多命中音效限流；变色/停帧/震屏协程或 Tween 必须互斥并绑定生命周期。
 
 ## 5. 物理与性能
 

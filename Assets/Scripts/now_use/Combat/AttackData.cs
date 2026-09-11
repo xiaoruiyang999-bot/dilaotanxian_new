@@ -30,6 +30,16 @@ public enum AttackAnimationType
 }
 
 /// <summary>
+/// V2 攻击方向合同。Horizontal 只允许左右；SelfCentered 为以施法者为中心的无方向范围。
+/// 召唤攻击天然无方向，不读取此字段。
+/// </summary>
+public enum AttackDirectionMode
+{
+    Horizontal,
+    SelfCentered
+}
+
+/// <summary>
 /// 通用攻击配置数据。纯数据容器，不包含运行逻辑。
 /// 可用于玩家、敌人、Boss、召唤物等任意攻击者。
 /// v0.5 可扩展 AttackAnimationType、AttackShape 与自定义角度字段。
@@ -49,6 +59,15 @@ public class AttackData : ScriptableObject
     [Header("攻击判定")]
     [Tooltip("攻击判定半径（物理）")]
     [SerializeField] private float attackRange = 1.5f;
+
+    [Tooltip("V2 横向攻击带的 Y 轴宽度。个别跨 Y 轴招式可单独增大；预警与实际判定共用。")]
+    [SerializeField, Min(0.05f)] private float attackLaneWidth = 1f;
+
+    [Tooltip("横向攻击从角色中心沿攻击方向前移的距离。预警、近战 Hitbox 与远程弹体出生点共用。")]
+    [SerializeField, Min(0f)] private float attackOriginOffset = 0.35f;
+
+    [Tooltip("有方向攻击固定为 Horizontal（Left/Right）；自身中心范围技选择 SelfCentered。")]
+    [SerializeField] private AttackDirectionMode directionMode = AttackDirectionMode.Horizontal;
 
     [Tooltip("扇形全角（度）。仅用于 Arc 动画挥动幅度与预警指示器形状；v0.4.6 起近战伤害由武器矩形（WeaponHitbox）判定，不再使用此角度。")]
     [Range(0f, 360f)]
@@ -93,8 +112,8 @@ public class AttackData : ScriptableObject
 
     [Tooltip("冲锋攻击：Active 期间朝锁定方向高速位移，撞墙/撞目标停止（近战判定照常）")]
     [SerializeField] private bool isCharge;
-    [Tooltip("冲锋速度倍率（×自身移速）")]
-    [SerializeField] private float chargeSpeedMultiplier = 3f;
+    [Tooltip("冲锋在无碰撞时的最大水平位移（世界单位）。预警总长度 = 本值 + Attack Range。")]
+    [SerializeField, Min(0f)] private float chargeDistance = 2.5f;
     [Tooltip("冲锋时碰到此层停止位移（墙体/障碍等），与 TargetLayer 一起 OR 用")]
     [SerializeField] private LayerMask chargerCollisionLayer;
 
@@ -105,6 +124,9 @@ public class AttackData : ScriptableObject
     public float RecoveryTime => recoveryTime;
 
     public float AttackRange => attackRange;
+    public float AttackLaneWidth => attackLaneWidth;
+    public float AttackOriginOffset => attackOriginOffset;
+    public AttackDirectionMode DirectionMode => directionMode;
     public float AttackAngle => attackAngle;
     public float AttackDamage => attackDamage;
     public float AttackCooldown => attackCooldown;
@@ -131,9 +153,22 @@ public class AttackData : ScriptableObject
     public int SummonCount => summonCount;
     public float SummonRadius => summonRadius;
     public bool IsCharge => isCharge;
-    public float ChargeSpeedMultiplier => chargeSpeedMultiplier;
+    public float ChargeDistance => chargeDistance;
     public LayerMask ChargerCollisionLayer => chargerCollisionLayer;
     public LayerMask ObstacleLayer => obstacleLayer;
+
+    /// <summary>
+    /// V2 最终方向合同：显式自身中心、圆形、360° 或旋转攻击视为无方向范围；
+    /// 其余有方向攻击一律解析为 Left/Right。
+    /// </summary>
+    public bool IsSelfCenteredArea => !isSummon &&
+        (directionMode == AttackDirectionMode.SelfCentered
+         || attackShape == AttackShape.Circle
+         || attackAngle >= 359.9f
+         || animationType == AttackAnimationType.FullCircle
+         || animationType == AttackAnimationType.Spin);
+
+    public bool UsesHorizontalDirection => !isSummon && !IsSelfCenteredArea;
 
     /// <summary>
     /// 创建运行时副本（v0.6.3 蓄力系统：近战装备武器的参数缩放只作用于副本）。
@@ -155,6 +190,22 @@ public class AttackData : ScriptableObject
         attackAngle = Mathf.Clamp(angle, 0f, 360f);
     }
 
+    /// <summary>设置 V2 横向攻击几何。仅供运行时副本与测试使用，禁止改磁盘资产。</summary>
+    public void SetHorizontalGeometry(float range, float laneWidth, float originOffset)
+    {
+        attackRange = Mathf.Max(0.01f, range);
+        attackLaneWidth = Mathf.Max(0.05f, laneWidth);
+        attackOriginOffset = Mathf.Max(0f, originOffset);
+        directionMode = AttackDirectionMode.Horizontal;
+    }
+
+    /// <summary>设置冲锋走廊长度。仅供运行时副本与测试使用，禁止改磁盘资产。</summary>
+    public void SetChargeGeometry(float distance)
+    {
+        isCharge = true;
+        chargeDistance = Mathf.Max(0f, distance);
+    }
+
     /// <summary>
     /// 设置攻击伤害。仅供运行时副本使用，禁止改磁盘资产。
     /// </summary>
@@ -171,7 +222,10 @@ public class AttackData : ScriptableObject
         activeDuration = Mathf.Max(0.001f, activeDuration);
         recoveryTime = Mathf.Max(0.001f, recoveryTime);
         attackRange = Mathf.Max(0.01f, attackRange);
+        attackLaneWidth = Mathf.Max(0.05f, attackLaneWidth);
+        attackOriginOffset = Mathf.Max(0f, attackOriginOffset);
         attackCooldown = Mathf.Max(0f, attackCooldown);
+        chargeDistance = Mathf.Max(0f, chargeDistance);
         distanceRange.x = Mathf.Max(0f, distanceRange.x);
         distanceRange.y = Mathf.Max(0f, distanceRange.y);
         weight = Mathf.Max(0, weight);
