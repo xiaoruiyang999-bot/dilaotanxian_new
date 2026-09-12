@@ -1090,6 +1090,14 @@ public class PlayerCombat : MonoBehaviour
             weaponHitbox.SetLaneMode(currentStep.laneWidth, attackDirection);
         }
 
+        // VS 第三批 状态触发（V2 §8.2 狼人 Build 源）：狼爪组命中挂流血；
+        // 刺刀满蓄重击（DamageMultiplier ≥ 蓄满阈值）挂破甲——形态/蓄力决定,数据在 EnemyStatus 常量
+        if (weaponHitbox != null)
+        {
+            weaponHitbox.BleedOnHit = transformation != null && transformation.IsBeast;
+            weaponHitbox.ArmorBreakOnHit = !isThrustAttack && weaponHitbox.DamageMultiplier >= 1.8f;
+        }
+
         // v1.1.48 攻击踏步：判定开始瞬间向前一小步（追近差一点距离的敌人；冲量线性衰减 ~0.12s）
         if (playerMovement != null && comboStepValid && currentStep.stepImpulse > 0f)
             playerMovement.AddImpulse(attackDirection * currentStep.stepImpulse, 0.12f);

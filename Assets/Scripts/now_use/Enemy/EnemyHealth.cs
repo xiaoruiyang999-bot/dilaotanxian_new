@@ -63,6 +63,15 @@ public class EnemyHealth : MonoBehaviour, IDamageable
         }
     }
 
+    /// <summary>VS 第三批：外部护甲增减（破甲还原用；clamp 0~Max，NaN 懒读兼容）。</summary>
+    public void ModifyArmor(float delta)
+    {
+        float before = CurrentArmor;
+        currentArmor = Mathf.Clamp(before + delta, 0f, MaxArmor);
+        if (!Mathf.Approximately(before, currentArmor))
+            OnArmorChanged?.Invoke(currentArmor, MaxArmor);
+    }
+
     /// <summary>
     /// 真实伤害入口（v0.7.5 裸绞，DamageContext.trueDamage 通道）：绕过减伤甲结算直接扣血。
     /// 仅 DamageResolver.Deal 的真伤分支调用；普通受伤路径（TakeDamage）不受影响。

@@ -53,6 +53,10 @@ public class WeaponHitbox : MonoBehaviour
     /// 第 2 个目标命中时对第 1 个目标追补倍率差（走正常 TakeDamage，护甲同比例结算），保证"全部命中"同倍率。
     /// </summary>
     public float MultiHitDamageMul { get; set; } = 1f;
+    // VS 第三批 状态触发（V2 §8.2）：BleedOnHit=每次命中挂一层流血（狼爪组默认开）；
+    // ArmorBreakOnHit=命中挂破甲（刺刀满蓄重击由 PlayerCombat 置位）。敌人路径不消费。
+    public bool BleedOnHit { get; set; }
+    public bool ArmorBreakOnHit { get; set; }
 
     private const int MaxHits = 16;
     private static readonly Collider2D[] hitBuffer = new Collider2D[MaxHits];
@@ -119,6 +123,8 @@ public class WeaponHitbox : MonoBehaviour
         LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
         DamageMultiplier = 1f;   // 蓄力伤害倍率复位（v0.7.0）
         laneWidth = 0f;          // v1.1.48 横向带复位（PlayerCombat 每段按需重设）
+        BleedOnHit = false;      // VS 第三批 状态触发复位（PlayerCombat 按形态/蓄力置位）
+        ArmorBreakOnHit = false;
         laneDirection = Vector2.right;
         swingFirstTarget = null;   // 贯穿追补复位（v0.7.5 二期）
         swingFirstDealt = 0f;
@@ -174,6 +180,13 @@ public class WeaponHitbox : MonoBehaviour
                         critDamage = attackerStats.CritDamage
                     };
                     float dealt = DamageResolver.Deal(damageable, ctx);
+
+                    // VS 第三批：状态触发（有实际伤害才结算——防对无敌/物件挂状态）
+                    if (dealt > 0f && hit.TryGetComponent(out EnemyStatus status))
+                    {
+                        if (BleedOnHit) status.ApplyBleed();
+                        if (ArmorBreakOnHit) status.ApplyArmorBreak();
+                    }
 
                     if (MultiHitDamageMul > 1f)
                     {
