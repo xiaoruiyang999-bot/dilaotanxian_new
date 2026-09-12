@@ -84,8 +84,48 @@ public class DungeonNodeRunner : MonoBehaviour
         node.Completed = true;
         awaitingChoice = true;
 
+        // v2.0.6 战斗/精英先弹奖励三选一（V2 §3 核心循环：战斗→奖励→选择），关闭后再选路线
+        if (node.Type == NodeType.Combat || node.Type == NodeType.Elite)
+        {
+            var rewards = NodeRewardService.Roll(node.NodeId * 977 + manager.CurrentNodeId,
+                elite: node.Type == NodeType.Elite);
+            RewardChoiceUI.Show(rewards, ApplyReward);
+            StartCoroutine(OpenChoiceWhenRewardClosed());
+            return;
+        }
+
         if (node.NextNodeIds.Count == 0) return;
         StartCoroutine(OpenChoiceDelayed());
+    }
+
+    /// <summary>奖励应用（UI 薄层：数值写在此处，按类型分派）。</summary>
+    private void ApplyReward(NodeRewardService.RewardOption opt)
+    {
+        PlayerStats stats = player != null ? player.GetComponent<PlayerStats>() : null;
+        switch (opt.Kind)
+        {
+            case NodeRewardService.RewardKind.Coins:
+                stats?.AddCoins(Mathf.RoundToInt(opt.Value));
+                break;
+            case NodeRewardService.RewardKind.Heal:
+                if (player != null) player.GetComponent<Health>()?.Heal(opt.Value);
+                break;
+            case NodeRewardService.RewardKind.AttackUp:
+                if (stats != null) stats.PermDamageMult += opt.Value;   // 本局累计（死亡/新 Run 随 Stats 重建重置）
+                break;
+        }
+        Debug.Log($"[NodeReward] 应用奖励：{opt.Title}（{opt.Description}）");
+    }
+
+    /// <summary>等奖励界面关闭后弹路线选择（无后继的末节点跳过）。</summary>
+    private System.Collections.IEnumerator OpenChoiceWhenRewardClosed()
+    {
+        while (RewardChoiceUI.IsOpen) yield return null;
+        yield return new WaitForSeconds(0.3f);
+        DungeonGraphNode node = manager?.Graph?.Get(manager.CurrentNodeId);
+        if (node != null && node.NextNodeIds.Count > 0)
+            DungeonMapUI.OpenInteractive(manager.Graph, manager.CurrentNodeId, OnPickNode);
+        else awaitingChoice = false;
     }
 
     private IEnumerator OpenChoiceDelayed()
