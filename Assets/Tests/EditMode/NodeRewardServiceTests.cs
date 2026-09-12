@@ -55,4 +55,27 @@ public class NodeRewardServiceTests
             Assert.AreEqual(a[i].Value, b[i].Value);
         }
     }
+
+    [Test]
+    public void Roll_SometimesOffersWeaponVariant_SlotWellFormed()
+    {
+        int withVariant = 0;
+        for (int seed = 1; seed <= 60; seed++)
+        {
+            List<NodeRewardService.RewardOption> opts = NodeRewardService.Roll(seed, elite: false);
+            var variant = opts.Find(o => o.Kind == NodeRewardService.RewardKind.WeaponVariant);
+            if (variant.Kind == NodeRewardService.RewardKind.WeaponVariant)
+            {
+                withVariant++;
+                Assert.AreEqual(default(WeaponData), variant.Weapon, "纯函数不填武器——由调用方 Fill");
+            }
+            // 基础三类始终齐全（变体是追加位）
+            foreach (NodeRewardService.RewardKind kind in new[]
+                     { NodeRewardService.RewardKind.Coins, NodeRewardService.RewardKind.Heal,
+                       NodeRewardService.RewardKind.AttackUp })
+                Assert.IsTrue(opts.Exists(o => o.Kind == kind), $"seed={seed} 基础项 {kind} 缺失");
+        }
+        Assert.Greater(withVariant, 5, "60 次至少若干次出现变体位（35% 概率）");
+        Assert.Less(withVariant, 60, "不应每次都出（概率位）");
+    }
 }

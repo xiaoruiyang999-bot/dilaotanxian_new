@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class NodeRewardService
 {
-    public enum RewardKind { Coins, Heal, AttackUp }
+    public enum RewardKind { Coins, Heal, AttackUp, WeaponVariant }
 
     public struct RewardOption
     {
@@ -17,9 +17,13 @@ public static class NodeRewardService
         public string Title;
         public string Description;
         public Color Color;
+        public WeaponData Weapon;  // WeaponVariant 项：变体数据（其余为 null）
     }
 
-    /// <summary>按节点 seed 抽 3 个不重复奖励（三类各一、洗牌呈现；精英数值翻倍/高阶攻强）。</summary>
+    /// <summary>
+    /// 按节点 seed 抽 3~4 个不重复奖励（V2 §7.2/§8.4：基础三类各一；35% 概率追加武器变体项——
+    /// 变体从狼人武器池轮换，由调用方填 WeaponData；精英数值翻倍/高阶攻强）。
+    /// </summary>
     public static List<RewardOption> Roll(int nodeSeed, bool elite)
     {
         var rng = new System.Random(nodeSeed * 31 + (elite ? 7 : 13));
@@ -53,11 +57,38 @@ public static class NodeRewardService
             },
         };
 
+        // VS 第二批：35% 概率追加武器变体项（变体数据由调用方随后填入——纯函数不碰 Resources）
+        if (rng.NextDouble() < 0.35)
+        {
+            options.Add(new RewardOption
+            {
+                Kind = RewardKind.WeaponVariant,
+                Title = "未知刺刀",
+                Description = "一把变异刺刀——拾取后揭晓",
+                Color = new Color(0.8f, 0.7f, 0.5f),
+            });
+        }
+
         for (int i = options.Count - 1; i > 0; i--)
         {
             int j = rng.Next(i + 1);
             (options[i], options[j]) = (options[j], options[i]);
         }
         return options;
+    }
+
+    /// <summary>给 WeaponVariant 项填入变体数据（从角色武器池剔除当前已持武器后轮换）。</summary>
+    public static void FillWeaponVariant(ref RewardOption option,
+        System.Collections.Generic.IReadOnlyList<WeaponData> pool, WeaponData current, int roll)
+    {
+        if (option.Kind != RewardKind.WeaponVariant || pool == null || pool.Count == 0) return;
+        var candidates = new System.Collections.Generic.List<WeaponData>();
+        foreach (WeaponData w in pool)
+            if (w != null && w != current) candidates.Add(w);
+        if (candidates.Count == 0) return;
+        WeaponData pick = candidates[roll % candidates.Count];
+        option.Weapon = pick;
+        option.Title = pick.DisplayName;
+        option.Description = $"更换武器：{pick.DisplayName}（原武器收入背包）";
     }
 }
