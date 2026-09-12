@@ -216,6 +216,19 @@ public class DungeonBuilder : MonoBehaviour
         roomSkeletons.TryGetValue(node.id, out HashSet<Vector2Int> skeleton);
         StoneDecorSpawner.Spawn(room, rng, skeleton);   // v1.1.26 废墟石块：小=无碰撞点缀，大=障碍物替代（随机引用）
         BarrelDecorSpawner.Spawn(room, rng, skeleton);  // v1.1.45 可破坏木桶/木箱堆（小件纯装饰，同避让骨架）
+        if (node.type == RoomType.Shop)
+        {
+            // v2.0.6 第三批 商店付费化（V2 §13.3）：停旧免费补给表，按 ShopService 摆 3 个付费货架
+            var goods = ShopService.Roll(layoutSeed * 17 + node.id, floorNumber);
+            for (int i = 0; i < goods.Count; i++)
+            {
+                Vector3 pos = new Vector3(
+                    room.Bounds.center.x + (i - 1) * 2.0f, room.Bounds.center.y, 0f);
+                ShopStall.Create(dungeonRoot, pos, goods[i]);
+            }
+            Debug.Log($"[Shop] 商店平台开业：{goods.Count} 个货架（floor={floorNumber}）");
+            return;
+        }
         InteractableSpawner.Spawn(room, profile.interactableTable, rng);
 
         // v2.0.7 商店支线传送门对：商店平台（gridPos.y==1）↔ 其正下方主链房（同列 row 0）。
