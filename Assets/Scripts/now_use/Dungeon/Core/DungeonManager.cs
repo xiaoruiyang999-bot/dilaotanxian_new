@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
 /// 地牢门面：持有配置与种子，串起 Generator（纯 C#）→ Builder（实例化）→ 玩家出生。
@@ -78,24 +77,13 @@ public class DungeonManager : MonoBehaviour
         }
 
         ActiveSeed = seedOverride != 0 ? seedOverride : (seed != 0 ? seed : System.Environment.TickCount);
-
-        // v2.0.5 第二批：LinearHorizontal 单房节点模式——一次只建当前节点的房间（V2 §11.3
-        // 单 Active 房间），完成→DAG 选择→TransitionToNode 过渡重建；LegacyGrid 保持全图直建。
-        Graph = DungeonGraphGenerator.Generate(ActiveSeed ^ 0x0DA6);
-        if (config.topology == DungeonConfig.DungeonTopology.LinearHorizontal)
-        {
-            CurrentNodeId = Graph.StartNodeId;
-            BuildSingleNode(Graph.Get(Graph.StartNodeId), isInitialBuild: true);
-            EnsureNodeRunner();
-            return;
-        }
-
         Layout = DungeonGenerator.Generate(config, ActiveSeed);
         Vector3 spawnPos = builder.Build(Layout, config, ActiveSeed, FloorNumber);
 
-        // 第一批兼容：Legacy 模式下地图预览仍可用（全图直建的展示图）
-        DungeonMapUI.CurrentGraph = Graph;
-        DungeonMapUI.CurrentNodeId = -1;
+        // v2.0.5 第一批：同步生成 DAG 图（只读预览；节点选择/单房过渡属第二批）。
+        // 独立派生流——与布局流互不干扰，同 seed 复现
+        DungeonMapUI.CurrentGraph = DungeonGraphGenerator.Generate(ActiveSeed ^ 0x0DA6);
+        DungeonMapUI.CurrentNodeId = DungeonMapUI.CurrentGraph.StartNodeId;
 
         if (player == null)
         {
@@ -114,6 +102,7 @@ public class DungeonManager : MonoBehaviour
         }
 
         Debug.Log($"[Dungeon] 生成完成 seed={ActiveSeed} rooms={Layout.rooms.Count} connections={Layout.connections.Count} bossRoom=#{Layout.bossRoom.id} bossDist={Layout.bossRoom.distanceFromStart}");
+        RoomRewardHook.Attach(builder.Rooms);   // v2.0.7 战斗房清房→奖励三选一（全链模式挂点）
         OnGenerated?.Invoke();
     }
 
@@ -121,131 +110,9 @@ public class DungeonManager : MonoBehaviour
     public void Cleanup()
     {
         if (builder == null) return;
+        RoomRewardHook.Detach();   // 与 Attach 配对退订
         builder.ClearAll();
         Layout = null;
-    }
-
-    // ---------- v2.0.5 第二批：DAG 单房节点模式（V2 §11.1/§11.3） ----------
-
-    /// <summary>当前层 DAG 图（两种拓扑都生成；Linear 模式驱动单房流程）。</summary>
-    public DungeonGraphData Graph { get; private set; }
-    /// <summary>Linear 模式当前节点 Id。</summary>
-    public int CurrentNodeId { get; private set; } = -1;
-
-    /// <summary>把 DAG 节点建成为场上唯一房间（复用整条 Builder 房间管线：塑形/内容/轮次/Bounds/相机）。</summary>
-    private void BuildSingleNode(DungeonGraphNode node, bool isInitialBuild)
-    {
-        var mini = new DungeonLayout { seed = ActiveSeed };
-        var roomNode = new RoomNode
-        {
-            id = 0,
-            gridPos = Vector2Int.zero,
-            spanX = 1,
-            spanY = 1,
-            type = ToRoomType(node.Type),
-        };
-        mini.rooms.Add(roomNode);
-        mini.startRoom = roomNode;
-        mini.bossRoom = node.Type == NodeType.Boss ? roomNode : null;
-
-        builder.ClearAll();
-        Layout = mini;
-        Vector3 spawnPos = builder.Build(mini, config, ActiveSeed, FloorNumber);
-
-        if (player == null)
-        {
-            GameObject p = GameObject.FindGameObjectWithTag("Player");
-            if (p != null) player = p.transform;
-        }
-        if (player != null)
-        {
-            // 出生/过渡都从房间左侧入口进（V2 §4.1 左入右出）
-            Room room = null;
-            if (builder.Rooms.TryGetValue(0, out Room built)) room = built;
-            float entryX = room != null ? room.Bounds.xMin + 1.6f : spawnPos.x;
-            float entryY = room != null ? room.Bounds.center.y : spawnPos.y;
-            player.position = new Vector3(entryX, entryY, player.position.z);
-            if (Camera.main != null && Camera.main.TryGetComponent(out CameraFollow cam))
-                cam.SnapToTarget();
-        }
-
-        node.Visited = true;
-        node.Generated = true;
-        foreach (int nextId in node.NextNodeIds)
-        {
-            DungeonGraphNode t = Graph.Get(nextId);
-            if (t != null) t.Discovered = true;
-        }
-        DungeonMapUI.CurrentGraph = Graph;
-        DungeonMapUI.CurrentNodeId = node.NodeId;
-        Debug.Log($"[Dungeon] 节点房就位：#{node.NodeId} {node.Type}（后继 {node.NextNodeIds.Count} 个）");
-        OnGenerated?.Invoke();
-    }
-
-    /// <summary>过渡到下一节点（DungeonNodeRunner 消费）：黑屏淡入 → 清场重建 → 淡出。</summary>
-    public void TransitionToNode(int nodeId, System.Action onArrived = null)
-    {
-        DungeonGraphNode node = Graph != null ? Graph.Get(nodeId) : null;
-        if (node == null) return;
-        CurrentNodeId = nodeId;
-        StartCoroutine(TransitionRoutine(node, onArrived));
-    }
-
-    private System.Collections.IEnumerator TransitionRoutine(DungeonGraphNode node, System.Action onArrived)
-    {
-        CanvasGroup fader = GetOrCreateTransitionFader();
-        float t = 0f;
-        while (t < 0.25f) { t += Time.unscaledDeltaTime; fader.alpha = t / 0.25f; yield return null; }
-        fader.alpha = 1f;
-
-        BuildSingleNode(node, isInitialBuild: false);
-        onArrived?.Invoke();
-
-        t = 0f;
-        while (t < 0.35f) { t += Time.unscaledDeltaTime; fader.alpha = 1f - t / 0.35f; yield return null; }
-        fader.alpha = 0f;
-        if (fader.gameObject.activeSelf) fader.gameObject.SetActive(false);
-    }
-
-    private CanvasGroup transitionFader;
-    private CanvasGroup GetOrCreateTransitionFader()
-    {
-        if (transitionFader != null) return transitionFader;
-        var go = new GameObject("NodeTransitionFader", typeof(Canvas), typeof(CanvasGroup), typeof(Image));
-        go.transform.SetSiblingIndex(0);
-        Canvas canvas = go.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 300;   // 全 UI 之上
-        var img = go.GetComponent<Image>();
-        img.color = Color.black;
-        img.raycastTarget = false;
-        var rt = img.rectTransform;
-        rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-        rt.offsetMin = rt.offsetMax = Vector2.zero;
-        transitionFader = go.GetComponent<CanvasGroup>();
-        transitionFader.alpha = 0f;
-        return transitionFader;
-    }
-
-    private static RoomType ToRoomType(NodeType type)
-    {
-        switch (type)
-        {
-            case NodeType.Start: return RoomType.Start;
-            case NodeType.Elite: return RoomType.Elite;
-            case NodeType.Treasure: return RoomType.Treasure;
-            case NodeType.Shop: return RoomType.Shop;
-            case NodeType.Event: return RoomType.Event;
-            case NodeType.Boss: return RoomType.Boss;
-            case NodeType.Recovery: return RoomType.Event;   // 占位映射：恢复节点类型 UI 区分，房间用事件房
-            default: return RoomType.Combat;
-        }
-    }
-
-    private void EnsureNodeRunner()
-    {
-        if (GetComponent<DungeonNodeRunner>() == null)
-            gameObject.AddComponent<DungeonNodeRunner>();
     }
 
     // ---------- 离线自检 ----------

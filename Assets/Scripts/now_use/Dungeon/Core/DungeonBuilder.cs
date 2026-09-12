@@ -66,9 +66,9 @@ public class DungeonBuilder : MonoBehaviour
     private readonly Dictionary<int, HashSet<Vector2Int>> roomSkeletons = new Dictionary<int, HashSet<Vector2Int>>();
     // v1.1.46 最终布局的内容生成白名单：防止敌人/奖励/装饰刷进挖除空洞或房内墙。
     private readonly Dictionary<int, List<Vector2Int>> roomSpawnCells = new Dictionary<int, List<Vector2Int>>();
-    // v1.1.52 固定 Boss 仪式厅：地图 seed 只决定房间位置；2×2/南入口/地墙/内容均不随机。
-    // v2.0.4：仅 LegacyGrid 拓扑启用（Build 按拓扑设置）。
-    private bool useLegacyBossRitual = true;
+    // v1.1.52 固定 Boss 仪式厅：地图 seed 只决定房间位置；内容均不随机。
+    // v2.0.7 返工：撤拓扑隔离——Boss 固定厅在两种拓扑都保留（用户拍板；模板自带四向旋转
+    // 与任意尺寸兜底，横向链 Boss 房直接套用）。
     private readonly HashSet<Vector2Int> fixedBossGroundCells = new HashSet<Vector2Int>();
     private readonly Dictionary<Vector2Int, int> fixedBossWallVariants = new Dictionary<Vector2Int, int>();
     private readonly Dictionary<int, BossRitualRoomLayout> bossRitualLayouts =
@@ -83,7 +83,6 @@ public class DungeonBuilder : MonoBehaviour
         roomH = linear ? config.linearRoomHeight : config.roomHeight;
         doorW = config.doorWidth;
         layoutSeedCache = layoutSeed;   // v1.1.22：PaintRoom 塑形 rng 派生用
-        useLegacyBossRitual = !linear;   // 固定仪式厅（2×2 南入口合同）仅旧迷宫拓扑使用
 
         ClearAll();
 
@@ -300,7 +299,7 @@ public class DungeonBuilder : MonoBehaviour
         RectInt interiorRect = new RectInt(rect.xMin + 1, rect.yMin + 1, rect.width - 1, rect.height - 1);
         doorCellsByRoom.TryGetValue(node.id, out List<Vector2Int> doorCells);
         RoomPlan plan;
-        bool legacyBossRitual = node.type == RoomType.Boss && useLegacyBossRitual;
+        bool legacyBossRitual = node.type == RoomType.Boss;
         if (legacyBossRitual)
         {
             BossRitualRoomLayout bossLayout = BossRitualRoomTemplate.Build(interiorRect, doorCells);
