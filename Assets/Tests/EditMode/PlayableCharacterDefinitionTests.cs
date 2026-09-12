@@ -28,7 +28,7 @@ public class PlayableCharacterDefinitionTests
         Assert.Greater(def.beastResourceMax, 0f, "狼人必有兽性资源（GDD §8.2）");
         Assert.IsNotNull(def.basicAttack, "必须挂常态普攻组（刺刀 AttackDefinition）");
         Assert.IsNotNull(def.beastAttack, "必须挂兽化普攻组（狼爪 AttackDefinition，v2.0.3）");
-        Assert.That(def.AvailableWeapons.Count, Is.EqualTo(2), "旧战士两把武器应完整迁入狼人武器池");
+        Assert.That(def.AvailableWeapons.Count, Is.GreaterThanOrEqualTo(5), "武器池：基础两把+VS 刺刀变体×3（V2 §7.2）");
         Assert.IsNotNull(def.InitialWeapon, "狼人必须有基础武器");
         Assert.IsTrue(def.SupportsWeapon(def.InitialWeapon), "基础武器必须属于狼人兼容池");
         Assert.IsNotNull(def.SkillBranches, "旧战士小技能分支应迁入狼人定义");
