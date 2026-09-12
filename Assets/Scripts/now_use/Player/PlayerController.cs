@@ -137,8 +137,7 @@ public class PlayerController : MonoBehaviour
         else if (actionName == "Cancel" && context.performed)
         {
             // 选择类 UI 打开时 Esc 优先逐级关 UI（未确认不生效），否则关拾取列表
-            if (NarrativePanelUI.IsOpen) NarrativePanelUI.Advance();   // v2.0.7 叙事先消费 Esc（逐段推进）
-            else if (NarrativeArchiveUI.IsOpen) NarrativeArchiveUI.Close();   // v2.0.7 叙事先消费 Esc（逐段推进）
+            if (NarrativeArchiveUI.IsOpen) NarrativeArchiveUI.Close();   // 档案柜 Esc 关闭（叙事推进已改 J 键）
             else if (SkillTreeUI.IsOpen)
                 SkillTreeUI.Close();   // v1.1.47 技能树最上层（sortingOrder 230，可从暂停菜单盖入）
             else if (CharacterSelectUI.IsOpen)
@@ -182,6 +181,15 @@ public class PlayerController : MonoBehaviour
         // 鼠标瞄准与武器朝向由 PlayerAimController + WeaponController 负责，
         // PlayerController 不再直接旋转角色，避免与 WeaponPivot 叠加导致武器转得比鼠标快。
         // 移动速度写入已迁移至 PlayerMovement（v0.6.0），本类不再持有 FixedUpdate。
+
+        var keyboard = UnityEngine.InputSystem.Keyboard.current;
+        if (keyboard == null) return;
+        // v2.0.8 用户定案：叙事碎片 J 键逐段推进（Esc 不再消费；点击推进保留）
+        if (keyboard.jKey.wasPressedThisFrame && NarrativePanelUI.IsOpen)
+            NarrativePanelUI.Advance();
+        // v2.0.5 Tab 开关 DAG 地图预览（Input System 设备直读——action 表暂无 Map 键，随 T-07 重绑 action 化）
+        if (keyboard.tabKey.wasPressedThisFrame)
+            DungeonMapUI.Toggle();
     }
 
     // ========== 死亡处理 ==========
