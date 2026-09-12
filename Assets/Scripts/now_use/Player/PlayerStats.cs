@@ -140,7 +140,10 @@ public class PlayerStats : MonoBehaviour
     public System.Action<int> OnCoinsChanged;
 
     /// <summary>获得金币（≤0 忽略）。</summary>
-    public void AddCoins(int amount)
+    /// <summary>清零随身星蓝币（v2.0.6 死亡/Boss 封存结算后调用——新 Run 从 0 开始）。</summary>
+        public void ResetCoins(){ coins = 0; OnCoinsChanged?.Invoke(coins); }
+
+        public void AddCoins(int amount)
     {
         if (amount <= 0) return;
         coins += amount;

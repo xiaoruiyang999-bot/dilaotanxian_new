@@ -128,9 +128,18 @@ public class DeathPanel : MonoBehaviour
         UIHelper.CreateLabel(panel.transform, $"[魂晶]   获得魂晶  +{kills}（已入账，可在准备房间技能石碑使用）", 24,
             new Color(1f, 0.82f, 0.35f), new Vector2(0.5f, 0.25f), new Vector2(640f, 34f));
 
-        UIHelper.CreateLabel(panel.transform, "Esc 或点击任意处 返回准备房间", 16, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.14f), new Vector2(600f, 26f));
+        // v2.0.6 星蓝币死亡结算（V2 §13.1 测试值）：随身 30% 封存守灯厅，剩余清零
+        PlayerStats stats = FindAnyObjectByType<PlayerStats>();
+        int runCoins = stats != null ? stats.Coins : 0;
+        int kept = StarCoinBank.BankOnDeath(runCoins);
+        if (stats != null) stats.ResetCoins();
+        UIHelper.CreateLabel(panel.transform,
+            $"[星蓝币]   随身 {runCoins}  →  封存 +{kept}（30% 带回守灯厅）", 22,
+            new Color(0.55f, 0.75f, 1f), new Vector2(0.5f, 0.18f), new Vector2(640f, 32f));
 
-        Debug.Log($"[Death] 本局结算：楼层 {floor} / 击杀 {kills} / 存活 {minutes:00}:{seconds:00} / 魂晶 +{kills}");
+        UIHelper.CreateLabel(panel.transform, "Esc 或点击任意处 返回准备房间", 16, new Color(0.8f, 0.78f, 0.7f), new Vector2(0.5f, 0.10f), new Vector2(600f, 26f));
+
+        Debug.Log($"[Death] 本局结算：楼层 {floor} / 击杀 {kills} / 存活 {minutes:00}:{seconds:00} / 魂晶 +{kills} / 星蓝币封存 +{kept}");
     }
 
     /// <summary>返回准备房间。RunManager 的延迟重开仍在跑——本场景卸载会终止其协程，不会二次加载。</summary>

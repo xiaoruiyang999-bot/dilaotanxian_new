@@ -198,6 +198,13 @@ public class RunManager : MonoBehaviour
 
     public void NextFloor()
     {
+        // v2.0.6 星蓝币过层结算（V2 §13.1）：击败 Boss 过层 = 随身 100% 封存守灯厅
+        if (playerStats != null && playerStats.Coins > 0)
+        {
+            int banked = StarCoinBank.BankOnBossClear(playerStats.Coins);
+            playerStats.ResetCoins();
+            Debug.Log($"[Run] 星蓝币过层封存 +" + banked + "（守灯厅累计 " + StarCoinBank.Banked + "）");
+        }
         UnsubscribeBossRoom();
         dungeonManager.Cleanup();
         FloorNumber++;
