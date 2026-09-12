@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 /// <summary>
 /// 准备场景管理器（v0.6.2 阶段 C，计划书 R4：独立准备场景）。
@@ -68,6 +69,12 @@ public class PrepRoomManager : MonoBehaviour
         if (!carrier.HasPlayableCharacter)
             CharacterSelectUI.Open();
 
+        // v2.0.7 守灯厅叙事（V2 §2.1）：首次进厅连播开场碎片（苏醒/声音）
+        var opening = NarrativeService.PendingOpening();
+        if (opening.Count > 0) NarrativePanelUI.Show(opening);
+
+        CreateBankedCoinHUD();   // v2.0.7 守灯厅封存星蓝币展示
+
         // v1.1.50 相机边界锁定：准备室围墙外沿即地图边界（墙厚 0.5，BuildRoom 同参数）
         CameraFollow.SetMapBounds(new Rect(
             -roomSize.x * 0.5f - 0.5f, -roomSize.y * 0.5f - 0.5f, roomSize.x + 1f, roomSize.y + 1f));
@@ -79,6 +86,29 @@ public class PrepRoomManager : MonoBehaviour
     {
         if (holder != null)
             holder.OnWeaponChanged -= OnWeaponChanged;
+    }
+
+    /// <summary>v2.0.7 守灯厅封存星蓝币 HUD（右上角小字，仅准备房存在；星蓝币见 StarCoinBank）。</summary>
+    private void CreateBankedCoinHUD()
+    {
+        var canvasGo = new GameObject("BankedCoinCanvas", typeof(Canvas));
+        Canvas canvas = canvasGo.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 180;
+        PanelSprite.ConfigureCanvasScaler(canvasGo);
+
+        var go = new GameObject("BankedText");
+        go.transform.SetParent(canvasGo.transform, false);
+        var text = go.AddComponent<TextMeshProUGUI>();
+        text.text = $"守灯厅封存  ✦ {StarCoinBank.Banked}";
+        text.font = TMPFontProvider.Font;
+        text.fontSize = 24;
+        text.alignment = TextAlignmentOptions.TopRight;
+        text.color = new Color(0.55f, 0.75f, 1f);
+        var rt = text.rectTransform;
+        rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+        rt.anchoredPosition = new Vector2(-60f, -40f);
+        rt.sizeDelta = new Vector2(420f, 36f);
     }
 
     /// <summary>换武器回调：旧初始武器自动归位回它原来的展台（R4 初始武器规则）。</summary>

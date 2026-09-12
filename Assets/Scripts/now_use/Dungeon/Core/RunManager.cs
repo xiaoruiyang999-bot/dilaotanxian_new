@@ -66,6 +66,7 @@ public class RunManager : MonoBehaviour
         ApplyLoadoutFromCarrier();
         SubscribeBossRoom();
         Debug.Log($"[Run] 楼层循环启动：floor=1 mainSeed={MainSeed}");
+        StartCoroutine(PlayRequiredNarrative());   // v2.0.7 每 Run 必得碎片（V2 §2.3 保底）
     }
 
     /// <summary>
@@ -195,6 +196,14 @@ public class RunManager : MonoBehaviour
     }
 
     // ---------- 楼层切换 ----------
+
+    /// <summary>v2.0.7：延迟 1.2s 投放本 Run 必得碎片（玩家先落地看清房间，再读文本）。</summary>
+    private System.Collections.IEnumerator PlayRequiredNarrative()
+    {
+        yield return new WaitForSeconds(1.2f);
+        var fragment = NarrativeService.NextRequiredProgress();
+        if (fragment != null) NarrativePanelUI.Show(new[] { fragment });
+    }
 
     public void NextFloor()
     {

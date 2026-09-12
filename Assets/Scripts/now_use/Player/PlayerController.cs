@@ -137,7 +137,8 @@ public class PlayerController : MonoBehaviour
         else if (actionName == "Cancel" && context.performed)
         {
             // 选择类 UI 打开时 Esc 优先逐级关 UI（未确认不生效），否则关拾取列表
-            if (SkillTreeUI.IsOpen)
+            if (NarrativePanelUI.IsOpen) NarrativePanelUI.Advance();   // v2.0.7 叙事先消费 Esc（逐段推进）
+            else if (SkillTreeUI.IsOpen)
                 SkillTreeUI.Close();   // v1.1.47 技能树最上层（sortingOrder 230，可从暂停菜单盖入）
             else if (CharacterSelectUI.IsOpen)
                 CharacterSelectUI.Close();
