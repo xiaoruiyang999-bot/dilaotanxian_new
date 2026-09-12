@@ -205,6 +205,20 @@ public class RunManager : MonoBehaviour
         if (fragment != null) NarrativePanelUI.Show(new[] { fragment });
     }
 
+    /// <summary>
+    /// v2.0.8 通关结算（V2 §14：击败 Boss 完成本区域）：随身星蓝币 100% 封存 →
+    /// VictoryPanel 展示（楼层/击杀/时长/封存）→ 玩家确认返回守灯厅。MVP 单层=Boss 即通关；
+    /// NextFloor 多层循环保留（不再由通关传送门触发）。
+    /// </summary>
+    public void CompleteRun()
+    {
+        int runCoins = playerStats != null ? playerStats.Coins : 0;
+        int banked = StarCoinBank.BankOnBossClear(runCoins);
+        if (playerStats != null) playerStats.ResetCoins();
+        VictoryPanel.Show(FloorNumber, RunTracker.Kills, RunTracker.Elapsed, runCoins, banked);
+        Debug.Log($"[Run] 通关：星蓝币 100% 封存 +{banked}（守灯厅累计 {StarCoinBank.Banked}）");
+    }
+
     public void NextFloor()
     {
         // v2.0.6 星蓝币过层结算（V2 §13.1）：击败 Boss 过层 = 随身 100% 封存守灯厅

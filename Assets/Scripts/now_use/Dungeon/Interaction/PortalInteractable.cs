@@ -39,6 +39,6 @@ public class PortalInteractable : Interactable
             return;
         }
         Debug.Log("[Run] 踏入传送门 → 下一层");
-        runManager.NextFloor();
+        runManager.CompleteRun();   // v2.0.8：Boss 后传送门=通关结算（V2 §14），不再进下一层
     }
 }

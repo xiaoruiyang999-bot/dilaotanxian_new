@@ -2,9 +2,10 @@ using DG.Tweening;
 using UnityEngine;
 
 /// <summary>
-/// Boss 阶段控制器（M3·v0.8.1）：血量阈值切换阶段。
-/// P2（HP ≤ 50%）：替换招式池（大招入池）、冷却 ×0.7（攻速 +43%）、身体染红脉冲提示。
-/// 挂 Enemy_Boss prefab；与数值书 §5.3 的 P1/P2 行为表对应。
+/// Boss 阶段控制器（M3·v0.8.1；v2.0.8 升级三段，V2 §9.4 守门→追猎→失控）：
+/// P2 追猎（HP ≤ 50%）：替换招式池（冲锋/切割入池）、冷却 ×0.7、身体染红脉冲；
+/// P3 失控（HP ≤ 25%）：再换池（phase3Attacks 空=沿用 P2）、冷却再 ×0.85、持续赤红。
+/// 挂 Enemy_Boss prefab；阈值与倍率全参数化，具体招式差异在 AttackData SO 层配置。
 /// </summary>
 public class BossPhaseController : MonoBehaviour
 {
@@ -21,11 +22,22 @@ public class BossPhaseController : MonoBehaviour
     [Tooltip("P2 身体提示色（染红脉冲一次）")]
     [SerializeField] private Color phase2Tint = new Color(1f, 0.35f, 0.25f);
 
+    [Header("P3 失控（v2.0.8，V2 §9.4）")]
+    [Tooltip("P3 触发的血量比例（0 = 禁用第三段）")]
+    [SerializeField, Range(0f, 1f)] private float phase3Threshold = 0.25f;
+    [Tooltip("P3 招式池（空 = 沿用 P2 池，仅数值强化）")]
+    [SerializeField] private AttackData[] phase3Attacks;
+    [Tooltip("P3 冷却再乘（叠加 P2：0.85 ≈ 失控期更凶）")]
+    [SerializeField] private float phase3CooldownScale = 0.85f;
+    [Tooltip("P3 持续赤红色")]
+    [SerializeField] private Color phase3Tint = new Color(1f, 0.22f, 0.15f);
+
     private EnemyHealth health;
     private EnemyCombat combat;
     private SpriteRenderer bodySprite;
     private Color baseColor;
     private bool phase2;
+    private bool phase3;
 
     void Awake()
     {
@@ -45,8 +57,30 @@ public class BossPhaseController : MonoBehaviour
 
     private void OnHpChanged(float current, float max)
     {
-        if (phase2 || max <= 0f) return;
-        if (current / max > phase2Threshold) return;
+        if (max <= 0f) return;
+        float ratio = current / max;
+
+        // P3 失控（先于 P2 判定，防止低血直跳时漏段）
+        if (!phase3 && phase3Threshold > 0f && ratio <= phase3Threshold)
+        {
+            phase3 = true;
+            phase2 = true;   // 失控涵盖追猎强化
+            if (combat != null)
+            {
+                if (phase3Attacks != null && phase3Attacks.Length > 0)
+                    combat.SetAttackPool(phase3Attacks);
+                combat.CooldownScale *= phase3CooldownScale;
+            }
+            if (bodySprite != null)
+            {
+                bodySprite.DOKill();
+                bodySprite.color = phase3Tint;   // 持续赤红（失控态）
+            }
+            Debug.Log("[Boss] P3 失控：组合前段招式 + 更短安全窗口");
+            return;
+        }
+
+        if (phase2 || ratio > phase2Threshold) return;
 
         phase2 = true;
         if (combat != null)
