@@ -13,7 +13,7 @@ using TMPro;
 public class PrepRoomManager : MonoBehaviour
 {
     [SerializeField] private string dungeonSceneName = "v0_7_ClassWeapon";
-    [SerializeField] private Vector2 roomSize = new Vector2(16f, 12f);
+    [SerializeField] private Vector2 roomSize = new Vector2(24f, 18f);   // v2.0.8 扩建(原 16×12)
     [SerializeField] private Vector3 playerSpawn = new Vector3(0f, -2.2f, 0f);   // 三展台下方，面向展台
 
     private static readonly Color floorColor = new Color(0.17f, 0.24f, 0.31f);   // 深灰蓝 #2C3E50

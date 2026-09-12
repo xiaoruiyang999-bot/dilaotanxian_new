@@ -4,9 +4,9 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// v2.0.7 叙事碎片弹窗（V2 §16）：石板面板展示标题+正文分段，点击/Esc 逐段推进，
+/// v2.0.7 叙事碎片弹窗（V2 §16）：石板面板展示标题+正文分段，点击/J 键 逐段推进（v2.0.8 用户定案），
 /// 队列播完关闭。UI 只呈现与标记已读（MarkRead 在关闭时写入），不承载投放决策
-///（何时弹由 PrepRoomManager/RunManager 决定）。Esc 让位：面板打开时归它。
+///（何时弹由 PrepRoomManager/RunManager 决定）。J 键推进走 PlayerController.Update 设备直读。
 /// </summary>
 public static class NarrativePanelUI
 {
@@ -37,7 +37,7 @@ public static class NarrativePanelUI
         current = null;
     }
 
-    /// <summary>点击/Esc：推进正文段落，段落尽则下一篇；整队列播完关闭并标记已读。</summary>
+    /// <summary>点击/J 键：推进正文段落，段落尽则下一篇；整队列播完关闭并标记已读。</summary>
     public static void Advance()
     {
         if (current == null || canvasGo == null) return;
@@ -102,7 +102,7 @@ public static class NarrativePanelUI
         bodyText.rectTransform.sizeDelta = new Vector2(760f, 180f);
         bodyText.rectTransform.anchoredPosition = new Vector2(0f, -10f);
 
-        var hint = CreateText(panel.transform, "Hint", "点击 或 Esc 继续", 15,
+        var hint = CreateText(panel.transform, "Hint", "点击 或 J 键 继续", 15,
             TextAlignmentOptions.Center, new Color(0.8f, 0.78f, 0.7f));
         hint.rectTransform.anchoredPosition = new Vector2(0f, -170f);
     }
