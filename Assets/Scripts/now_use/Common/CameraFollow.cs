@@ -144,7 +144,7 @@ public class CameraFollow : MonoBehaviour
         Vector3 p = transform.position;
 
         p.x = ClampAxis(p.x, mapBounds.xMin, mapBounds.xMax, halfW + boundsMarginX);
-        p.y = ClampAxis(p.y, mapBounds.yMin, mapBounds.yMax, halfH + boundsMarginY);
+        // v2.0.7 用户定案：上边界不再固定（向上看时镜头可出地图上缘，后期换背景）——Y 只钳下界        float yLo = mapBounds.yMin + halfH + boundsMarginY;        p.y = p.y < yLo ? yLo : p.y;
         transform.position = p;
     }
 

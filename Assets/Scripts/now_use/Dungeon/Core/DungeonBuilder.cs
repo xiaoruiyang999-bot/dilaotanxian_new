@@ -217,6 +217,38 @@ public class DungeonBuilder : MonoBehaviour
         StoneDecorSpawner.Spawn(room, rng, skeleton);   // v1.1.26 废墟石块：小=无碰撞点缀，大=障碍物替代（随机引用）
         BarrelDecorSpawner.Spawn(room, rng, skeleton);  // v1.1.45 可破坏木桶/木箱堆（小件纯装饰，同避让骨架）
         InteractableSpawner.Spawn(room, profile.interactableTable, rng);
+
+        // v2.0.7 商店支线传送门对：商店平台（gridPos.y==1）↔ 其正下方主链房（同列 row 0）。
+        // 商店房放回程门（南墙中）；配对主房放进门（北墙中）。配对关系由列号推导，无额外数据。
+        if (node.type == RoomType.Shop)
+        {
+            Room mainBelow = FindRoomAtGrid(new Vector2Int(node.gridPos.x, 0));
+            if (mainBelow != null)
+            {
+                Vector3 back = new Vector3(room.Bounds.center.x, room.Bounds.yMin + 1.2f, 0f);
+                Vector3 entry = new Vector3(mainBelow.Bounds.center.x, mainBelow.Bounds.yMax - 1.2f, 0f);
+                SceneTeleporter.Create(dungeonRoot, back, entry, $"ShopBack_{node.id}");
+                SceneTeleporter.Create(dungeonRoot, entry, back, $"ShopEntry_{node.id}");
+            }
+        }
+    }
+
+    /// <summary>v2.0.7：按粗格坐标找已建房间（商店配对用；房间按 CellOrigin 反查）。</summary>
+    private Room FindRoomAtGrid(Vector2Int gridPos)
+    {
+        Vector2Int origin = new Vector2Int(gridPos.x * CellWidth, gridPos.y * CellHeight);
+        foreach (KeyValuePair<int, Room> kv in rooms)
+        {
+            if (kv.Value == null) continue;
+            Vector2 bMin = new Vector2(kv.Value.Bounds.xMin - 1f, kv.Value.Bounds.yMin - 1f);
+            Vector2 bMax = new Vector2(kv.Value.Bounds.xMax, kv.Value.Bounds.yMax);
+            // 主链房 TileRect 起点 = 粗格原点（商店才偏移），用原点包含判定
+            if ((Vector2)kv.Value.Bounds.center != Vector2.zero
+                && Mathf.Approximately(kv.Value.Bounds.xMin - 1f, origin.x)
+                && Mathf.Approximately(kv.Value.Bounds.yMin - 1f, origin.y))
+                return kv.Value;
+        }
+        return null;
     }
 
     /// <summary>清空 Tilemap 与全部生成物（重建 / 楼层切换共用）。</summary>
@@ -258,6 +290,15 @@ public class DungeonBuilder : MonoBehaviour
     private RectInt TileRect(RoomNode node)
     {
         Vector2Int o = CellOrigin(node);
+        // v2.0.7 商店支线平台（用户定案）：半尺寸（linear 尺寸的 1/2）、粗格内水平居中、
+        // 垂直抬高 6 格与主链隔空——不与战斗房在同一条线上，进出只靠传送门对
+        if (node.type == RoomType.Shop)
+        {
+            int w = Mathf.Max(8, roomW / 2);
+            int h = Mathf.Max(8, roomH / 2);
+            int offsetX = (CellWidth - (w + 1)) / 2;
+            return new RectInt(o.x + offsetX, o.y + 6, w + 1, h + 1);
+        }
         return new RectInt(o.x, o.y, node.spanX * CellWidth, node.spanY * CellHeight);
     }
 

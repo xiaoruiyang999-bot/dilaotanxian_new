@@ -19,12 +19,14 @@ public static class DungeonGenerator
 
         // v2.0.4 V2 横向单向拓扑（《无名之地》V2 §4/§10）：长矩形房从左向右串接、
         // 左入右出、Boss 最右——DungeonGraph 骨架的 MVP 形态（分叉/节点选择属 v2.0.5 地图 UI）。
-        // 特殊房类型沿用 Assign（商店/宝箱穿插链上）；Boss 固定厅/粗格扩展为旧迷宫体系专属，旁路。
+        // 特殊房类型沿用 Assign（宝箱/事件留链上）；v2.0.7 商店摘链为上方支线平台（传送门进出）。
         if (config.topology == DungeonConfig.DungeonTopology.LinearHorizontal)
         {
             DungeonLayout chain = BuildLinearChain(config, seed, target);
             var chainTypeRng = new System.Random(seed * 31 + 7);
             RoomTypeAssigner.Assign(chain, config, chainTypeRng);
+            DetachShopsToSidePlatforms(chain);
+            RepackMainChainColumns(chain);   // v2.0.7 摘链后压缩主链列号，保证桥接连接物理相邻
             return chain;
         }
 
@@ -52,6 +54,72 @@ public static class DungeonGenerator
         RoomTypeAssigner.Assign(fallback, config, fallbackTypeRng);
         RoomSizeExpander.Expand(fallback, config, fallbackTypeRng);
         return fallback;
+    }
+
+    /// <summary>
+    /// v2.0.7 商店支线化（用户定案）：链上 Shop 节点摘出主链——前后主链节点直连绕过；
+    /// 商店移到其前驱的正上方一格（gridPos=(前驱.x, 1)）且清空全部连接=孤立平台，
+    /// 进出只靠 Builder 生成的传送门对。摘链后主链连通性不变。
+    /// </summary>
+    /// <summary>v2.0.7：主链（非商店）按原顺序重编为连续列 0..n-1；商店保持其支线格（前驱列）。</summary>
+    private static void RepackMainChainColumns(DungeonLayout layout)
+    {
+        var mainChain = new System.Collections.Generic.List<RoomNode>();
+        foreach (RoomNode r in layout.rooms)
+            if (r.type != RoomType.Shop) mainChain.Add(r);
+        mainChain.Sort((a, b) => a.gridPos.x.CompareTo(b.gridPos.x));
+
+        int col = 0;
+        foreach (RoomNode r in mainChain)
+        {
+            r.gridPos = new Vector2Int(col, 0);
+            col++;
+        }
+        // 商店列号 = 前驱新列（DetachShops 里商店已在原前驱上方；重排后原列号失效，
+        // 用"商店在旧列 x"→ 新列 = min(x, 主链数-1) 近似——商店原前驱新列 ≤ x，取 x 与末列的较小值
+        foreach (RoomNode shop in layout.rooms)
+            if (shop.type == RoomType.Shop && shop.gridPos.y == 1)
+                shop.gridPos = new Vector2Int(Mathf.Min(shop.gridPos.x, mainChain.Count - 1), 1);
+    }
+
+    private static void DetachShopsToSidePlatforms(DungeonLayout layout)
+    {
+        for (int i = layout.rooms.Count - 1; i >= 0; i--)
+        {
+            RoomNode shop = layout.rooms[i];
+            if (shop.type != RoomType.Shop || shop.connections.Count == 0) continue;
+
+            // 链上商店恰有前后两条连接（左入右出）；防御取首尾
+            RoomConnection left = shop.connections[0];
+            RoomConnection right = shop.connections[shop.connections.Count - 1];
+            RoomNode prev = left.Other(shop);
+            RoomNode next = right.Other(shop);
+
+            // 摘除两条连接（全局表 + 双方列表）
+            RemoveConnection(layout, left);
+            RemoveConnection(layout, right);
+
+            // 前后直连（保持主链贯通）
+            if (prev != null && next != null && prev != next)
+            {
+                var bridge = new RoomConnection(prev, next);
+                layout.connections.Add(bridge);
+                prev.connections.Add(bridge);
+                next.connections.Add(bridge);
+            }
+
+            // 商店移到前驱正上方、清连接=孤立平台
+            shop.gridPos = new Vector2Int(prev != null ? prev.gridPos.x : shop.gridPos.x, 1);
+            shop.connections.Clear();
+        }
+    }
+
+    private static void RemoveConnection(DungeonLayout layout, RoomConnection conn)
+    {
+        layout.connections.Remove(conn);
+        RoomNode a = conn.a, b = conn.b;
+        if (a != null) a.connections.Remove(conn);
+        if (b != null) b.connections.Remove(conn);
     }
 
     /// <summary>

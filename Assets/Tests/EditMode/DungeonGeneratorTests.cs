@@ -48,8 +48,11 @@ public class DungeonGeneratorTests
                 Assert.AreEqual(left.gridPos.x + 1, right.gridPos.x, $"seed={seed} 非相邻列连接");
             }
 
-            // 房间数 = 连接数 + 1（链式无分叉）；Start 最左、Boss 最右
-            Assert.AreEqual(layout.rooms.Count - 1, layout.connections.Count, $"seed={seed} 不是纯链结构");
+            // v2.0.7 商店摘链：连接数 = 房数 - 1 - 商店数（商店孤立为支线平台）
+            int shops = 0;
+            foreach (RoomNode r in layout.rooms) if (r.type == RoomType.Shop) shops++;
+            Assert.AreEqual(layout.rooms.Count - 1 - shops, layout.connections.Count,
+                $"seed={seed} 链结构不符（商店应孤立）");
             int maxX = int.MinValue; RoomNode rightmost = null;
             foreach (RoomNode r in layout.rooms)
                 if (r.gridPos.x > maxX) { maxX = r.gridPos.x; rightmost = r; }
@@ -90,7 +93,10 @@ public class DungeonGeneratorTests
                 if (next != null && visited.Add(next)) queue.Enqueue(next);
             }
         }
-        Assert.AreEqual(layout.rooms.Count, visited.Count, "水平链必须全可达");
+        // v2.0.7 商店为支线平台（传送门进出）——可达性排除商店
+        int expected = 0;
+        foreach (RoomNode r in layout.rooms) if (r.type != RoomType.Shop) expected++;
+        Assert.AreEqual(expected, visited.Count, "主链必须全可达（商店除外）");
     }
 
     [Test]
