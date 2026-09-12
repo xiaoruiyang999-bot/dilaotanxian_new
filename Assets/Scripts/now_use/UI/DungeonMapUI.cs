@@ -13,6 +13,7 @@ public static class DungeonMapUI
 {
     private static GameObject canvasGo;
     private static readonly List<GameObject> items = new List<GameObject>();
+    private static System.Action<int> pickCallback;   // v2.0.5 交互模式：选择回调（null = 只读预览）
 
     /// <summary>当前层的图（地牢生成时由 DungeonManager 写入；null 时 Tab 不响应）。</summary>
     public static DungeonGraphData CurrentGraph { get; set; }
@@ -47,6 +48,15 @@ public static class DungeonMapUI
         else Open();
     }
 
+    /// <summary>交互选择模式（v2.0.5 第二批）：可选节点（当前节点的 Next）金色可点，其余只读。</summary>
+    public static void OpenInteractive(DungeonGraphData graph, int currentNodeId, System.Action<int> onPick)
+    {
+        CurrentGraph = graph;
+        CurrentNodeId = currentNodeId;
+        pickCallback = onPick;
+        Open();
+    }
+
     public static void Open()
     {
         if (IsOpen || CurrentGraph == null) return;
@@ -74,7 +84,8 @@ public static class DungeonMapUI
 
         var title = CreateText(panel.transform, "Title", "路 线 图", 34, TextAlignmentOptions.Center, Color.white);
         title.rectTransform.anchoredPosition = new Vector2(0f, 235f);
-        var hint = CreateText(panel.transform, "Hint", "Tab 关闭 · 节点选择将在下一版本开放",
+        string hint_text = pickCallback != null ? "选择下一个节点（金色可点）· Esc 取消" : "Tab 关闭";
+        var hint = CreateText(panel.transform, "Hint", hint_text,
             16, TextAlignmentOptions.Center, new Color(0.8f, 0.78f, 0.7f));
         hint.rectTransform.anchoredPosition = new Vector2(0f, -235f);
 
@@ -87,6 +98,7 @@ public static class DungeonMapUI
         Object.Destroy(canvasGo);
         canvasGo = null;
         items.Clear();
+        pickCallback = null;
     }
 
     private static void Rebuild(Transform panel)
@@ -111,8 +123,9 @@ public static class DungeonMapUI
                     Mathf.Atan2(b.y - a.y, b.x - a.x) * Mathf.Rad2Deg);
             }
 
+        DungeonGraphNode currentNode = graph.Get(CurrentNodeId);
         foreach (DungeonGraphNode n in graph.Nodes)
-            CreateNode(panel, n, NodePos(n, maxColumn));
+            CreateNode(panel, n, NodePos(n, maxColumn), currentNode);
     }
 
     private static Vector2 NodePos(DungeonGraphNode n, int maxColumn)
@@ -123,10 +136,13 @@ public static class DungeonMapUI
         return new Vector2(x, y);
     }
 
-    private static void CreateNode(Transform panel, DungeonGraphNode n, Vector2 pos)
+    private static void CreateNode(Transform panel, DungeonGraphNode n, Vector2 pos, DungeonGraphNode currentNode)
     {
         bool isCurrent = n.NodeId == CurrentNodeId;
         bool revealed = n.Discovered;
+        // v2.0.5 交互模式：当前节点的直接后继为"可选"
+        bool selectable = pickCallback != null && currentNode != null
+            && currentNode.NextNodeIds.Contains(n.NodeId);
 
         var go = new GameObject($"Node_{n.NodeId}_{n.Type}", typeof(Image));
         go.transform.SetParent(panel, false);
@@ -144,6 +160,28 @@ public static class DungeonMapUI
         var text = CreateText(go.transform, "Glyph", glyph, 26, TextAlignmentOptions.Center,
             n.Completed ? new Color(0.7f, 0.7f, 0.7f) : Color.white);
         text.rectTransform.anchoredPosition = Vector2.zero;
+
+        if (selectable)
+        {
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            int picked = n.NodeId;
+            btn.onClick.AddListener(() =>
+            {
+                var cb = pickCallback;
+                Close();
+                cb?.Invoke(picked);
+            });
+
+            var border = new GameObject("SelectBorder", typeof(Image));
+            border.transform.SetParent(go.transform, false);
+            Image borderImg = border.GetComponent<Image>();
+            borderImg.color = gold;
+            borderImg.rectTransform.anchorMin = borderImg.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            borderImg.rectTransform.anchoredPosition = Vector2.zero;
+            borderImg.rectTransform.sizeDelta = new Vector2(84f, 84f);
+            border.transform.SetAsFirstSibling();
+        }
 
         if (isCurrent)
         {
