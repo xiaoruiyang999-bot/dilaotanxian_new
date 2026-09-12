@@ -39,6 +39,11 @@ public class EnemyStatus : MonoBehaviour
 
     private void Awake() => health = GetComponent<EnemyHealth>();
 
+    // VS 第四批 遗物聚合消费（RelicRuntime.Run，无遗物=0 零差异）
+    private float BleedDamage => BleedDamagePerTick * (1f + RelicRuntime.Run.BleedDamageBonus);
+    private float BleedDuration => BleedLayerDuration + RelicRuntime.Run.BleedDurationBonus;
+    private float ArmorBreakDur => ArmorBreakDuration + RelicRuntime.Run.ArmorBreakDurationBonus;
+
     private void OnDisable()
     {
         // 死亡/失活清理：停协程、清层、还原破甲（不依赖 OnDestroy 时序——对象池复用安全）
@@ -52,9 +57,9 @@ public class EnemyStatus : MonoBehaviour
     {
         if (health == null || health.IsDead) return;
         if (bleedLayers.Count >= BleedMaxStacks)
-            bleedLayers[0] = BleedLayerDuration;   // 满层：刷新最旧
+            bleedLayers[0] = BleedDuration;   // 满层：刷新最旧（遗物加成时长）
         else
-            bleedLayers.Add(BleedLayerDuration);
+            bleedLayers.Add(BleedDuration);
         if (bleedRoutine == null)
             bleedRoutine = StartCoroutine(BleedTick());
     }
@@ -69,7 +74,7 @@ public class EnemyStatus : MonoBehaviour
             health.ModifyArmor(-armorBrokenAmount);
             armorBreakActive = true;
         }
-        armorBreakRemaining = ArmorBreakDuration;
+        armorBreakRemaining = ArmorBreakDur;   // 遗物延长窗口
     }
 
     private void RestoreArmor()
@@ -97,7 +102,7 @@ public class EnemyStatus : MonoBehaviour
             }
 
             if (bleedLayers.Count > 0)
-                health.TakeTrueDamage(bleedLayers.Count * BleedDamagePerTick);   // 流血=真伤（不吃减伤甲）
+                health.TakeTrueDamage(bleedLayers.Count * BleedDamage);   // 流血=真伤（不吃减伤甲；遗物加深）
             else
                 yield break;   // 层尽：协程自灭（下次 Apply 重启）
         }

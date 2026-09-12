@@ -49,7 +49,7 @@ public class WerewolfTransformation : MonoBehaviour
     public bool IsTransforming => transforming;
     public float BeastTimeRemaining => beastTimeRemaining;
     public float BeastNormalizedRemaining => IsBeast && beastDuration > 0f
-        ? Mathf.Clamp01(beastTimeRemaining / beastDuration)
+        ? Mathf.Clamp01(beastTimeRemaining / (beastDuration + RelicRuntime.Run.BeastDurationBonus))
         : 0f;
 
     /// <summary>确保玩家身上挂了狼人变身组件（场景应用侧/选择页确认时调用）。</summary>
@@ -222,7 +222,7 @@ public class WerewolfTransformation : MonoBehaviour
         energyBar?.SetBeastVisualProgress(1f);
 
         IsBeast = true;
-        beastTimeRemaining = beastDuration;
+        beastTimeRemaining = beastDuration + RelicRuntime.Run.BeastDurationBonus;   // VS 第四批 月光之皮
         if (health != null) health.ScaleMaxHealth(beastHealthScale);
         ApplyBeastStats(true);
         if (animator != null) animator.SetBeastForm(true);   // 切 Beast 帧组，缩放回基准（1080px 画布自带大体型）

@@ -60,6 +60,11 @@ public static class RoomRewardHook
                     room.Id * 31 + 7);
                 if (opt.Weapon == null) { rewards.RemoveAt(i); i--; continue; }   // 无可换变体则移除该项
             }
+            if (opt.Kind == NodeRewardService.RewardKind.Relic)
+            {
+                NodeRewardService.FillRelic(ref opt, RelicRuntime.Run, room.Id * 53 + 3);
+                if (opt.Relic == null) { rewards.RemoveAt(i); i--; continue; }   // 池空/全持有则移除
+            }
             rewards[i] = opt;
         }
         RewardChoiceUI.Show(rewards, opt => Apply(opt, stats, health));
@@ -81,6 +86,9 @@ public static class RoomRewardHook
             case NodeRewardService.RewardKind.WeaponVariant:
                 PlayerWeaponHolder weaponHolder = stats != null ? stats.GetComponent<PlayerWeaponHolder>() : null;
                 weaponHolder?.Equip(opt.Weapon);   // 旧武器自动入背包（v0.7.2 挤出掉落规则）
+                break;
+            case NodeRewardService.RewardKind.Relic:
+                RelicRuntime.Run.TryAdd(opt.Relic);   // 本局持有；数值经聚合通道自动生效
                 break;
         }
         Debug.Log($"[RoomReward] 应用奖励：{opt.Title}（{opt.Description}）");

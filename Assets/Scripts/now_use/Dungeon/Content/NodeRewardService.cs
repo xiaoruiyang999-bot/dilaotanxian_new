@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 public static class NodeRewardService
 {
-    public enum RewardKind { Coins, Heal, AttackUp, WeaponVariant }
+    public enum RewardKind { Coins, Heal, AttackUp, WeaponVariant, Relic }
 
     public struct RewardOption
     {
@@ -18,6 +18,7 @@ public static class NodeRewardService
         public string Description;
         public Color Color;
         public WeaponData Weapon;  // WeaponVariant 项：变体数据（其余为 null）
+        public RelicDefinition Relic;   // Relic 项：遗物数据（其余为 null）
     }
 
     /// <summary>
@@ -69,12 +70,40 @@ public static class NodeRewardService
             });
         }
 
+        // VS 第四批：25% 概率追加遗物位（数据由调用方从 Resources 池轮换填入——纯函数不碰 IO）
+        if (rng.NextDouble() < 0.25)
+        {
+            options.Add(new RewardOption
+            {
+                Kind = RewardKind.Relic,
+                Title = "未知遗物",
+                Description = "一件古老遗物——拾取后揭晓",
+                Color = new Color(0.8f, 0.65f, 0.35f),
+            });
+        }
+
         for (int i = options.Count - 1; i > 0; i--)
         {
             int j = rng.Next(i + 1);
             (options[i], options[j]) = (options[j], options[i]);
         }
         return options;
+    }
+
+    /// <summary>给 Relic 项填入遗物数据（从 Resources/Relics 轮换、剔除本局已持有）。</summary>
+    public static void FillRelic(ref RewardOption option, RelicInventory owned, int roll)
+    {
+        if (option.Kind != RewardKind.Relic) return;
+        RelicDefinition[] pool = Resources.LoadAll<RelicDefinition>("Relics");
+        var candidates = new System.Collections.Generic.List<RelicDefinition>();
+        foreach (RelicDefinition r in pool)
+            if (r != null && (owned == null || !owned.Contains(r.relicId))) candidates.Add(r);
+        if (candidates.Count == 0) return;
+        RelicDefinition pick = candidates[roll % candidates.Count];
+        option.Relic = pick;
+        option.Title = pick.displayName;
+        option.Description = pick.description;
+        option.Color = pick.tint;
     }
 
     /// <summary>给 WeaponVariant 项填入变体数据（从角色武器池剔除当前已持武器后轮换）。</summary>

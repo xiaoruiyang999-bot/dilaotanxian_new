@@ -102,7 +102,13 @@ public class CoinDrop : MonoBehaviour
         if (dist < PickupRange)
         {
             var stats = player.GetComponent<PlayerStats>();
-            if (stats != null) stats.AddCoins(1);
+            if (stats != null)
+            {
+                // VS 第四批 商人之牙：+X% 概率双倍（近似价值加成，避免碎币）
+                int amount = RelicRuntime.Run.CoinValueBonus > 0f
+                    && Random.value < RelicRuntime.Run.CoinValueBonus ? 2 : 1;
+                stats.AddCoins(amount);
+            }
             AudioManager.PlaySFX("coin");   // 表未配置 id 时静默（v1.1.3 已接 impactTin）
             Destroy(gameObject);
             return;

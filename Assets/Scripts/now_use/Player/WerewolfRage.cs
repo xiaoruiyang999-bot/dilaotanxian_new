@@ -42,7 +42,7 @@ public sealed class WerewolfRage : MonoBehaviour
     private void Update()
     {
         if (!PassiveRecoveryEnabled || GainPaused || IsFull) return;
-        AddRage(passiveRagePerSecond * Time.deltaTime);
+        AddRage(passiveRagePerSecond * (1f + RelicRuntime.Run.RageGainBonus) * Time.deltaTime);   // VS 第四批 狼群之饥
     }
 
     /// <summary>由 Run 生命周期显式控制；准备房默认关闭，避免站在大厅自动充满。</summary>
@@ -95,8 +95,9 @@ public sealed class WerewolfRage : MonoBehaviour
             damageGainThisFrame = 0f;
         }
 
+        float relicMul = 1f + RelicRuntime.Run.RageGainBonus;   // VS 第四批 狼群之饥（伤害转化路）
         float gain = CalculateDamageGain(
-            actualDamage,
+            actualDamage * relicMul,
             ragePerDamage,
             maxRagePerDamageEvent,
             damageGainThisFrame,

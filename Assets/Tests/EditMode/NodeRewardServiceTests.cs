@@ -14,8 +14,8 @@ public class NodeRewardServiceTests
         for (int seed = 1; seed <= 50; seed++)
         {
             List<NodeRewardService.RewardOption> opts = NodeRewardService.Roll(seed, elite: false);
-            // VS 第二批：基础三类 + 35% 概率第 4 张武器变体位（3~4 张，类别不重复）
-            Assert.That(opts.Count, Is.InRange(3, 4), $"seed={seed} 必须三~四选一");
+            // VS 第二~四批：基础三类 + 35% 武器变体位 + 25% 遗物位（3~5 张，类别不重复）
+            Assert.That(opts.Count, Is.InRange(3, 5), $"seed={seed} 必须三~五选一");
             Assert.AreEqual(opts.Count, opts.Select(o => o.Kind).Distinct().Count(), $"seed={seed} 类别不得重复");
         }
     }

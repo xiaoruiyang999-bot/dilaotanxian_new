@@ -11,6 +11,9 @@ public class RunStateCarrier : MonoBehaviour
     /// <summary>职业角色身份的唯一运行真值。</summary>
     public PlayableCharacterId ChosenPlayableCharacterId { get; private set; } = PlayableCharacterId.Werewolf;
     public bool HasPlayableCharacter { get; private set; }
+    /// <summary>本局遗物（VS 第四批；新 Run/死亡重开清空——ResetWeaponToCharacterDefault 同点位清理）。</summary>
+    public RelicInventory Relics { get; } = new RelicInventory();
+
     public PlayableCharacterDefinition ChosenPlayableCharacter =>
         HasPlayableCharacter ? PlayableCharacterCatalog.Get(ChosenPlayableCharacterId) : null;
 
@@ -78,6 +81,7 @@ public class RunStateCarrier : MonoBehaviour
     /// <summary>死亡/复活时恢复职业角色的基础武器。</summary>
     public void ResetWeaponToCharacterDefault()
     {
+        Relics.Clear();   // VS 第四批：重开清空本局遗物
         LastWeapon = ChosenPlayableCharacter != null ? ChosenPlayableCharacter.InitialWeapon : null;
     }
 
