@@ -80,6 +80,11 @@ public class DungeonManager : MonoBehaviour
         Layout = DungeonGenerator.Generate(config, ActiveSeed);
         Vector3 spawnPos = builder.Build(Layout, config, ActiveSeed, FloorNumber);
 
+        // v2.0.5 第一批：同步生成 DAG 图（只读预览；节点选择/单房过渡属第二批）。
+        // 独立派生流——与布局流互不干扰，同 seed 复现
+        DungeonMapUI.CurrentGraph = DungeonGraphGenerator.Generate(ActiveSeed ^ 0x0DA6);
+        DungeonMapUI.CurrentNodeId = DungeonMapUI.CurrentGraph.StartNodeId;
+
         if (player == null)
         {
             GameObject p = GameObject.FindGameObjectWithTag("Player");
