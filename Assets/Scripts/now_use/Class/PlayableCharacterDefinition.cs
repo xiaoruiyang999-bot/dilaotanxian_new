@@ -51,9 +51,11 @@ public class PlayableCharacterDefinition : ScriptableObject
     [Tooltip("满能变身持续时间（秒）")]
     [Min(1f)] public float beastDuration = 12f;
 
-    [Header("普攻模组（同源数据）")]
-    [Tooltip("普攻连段定义（空 = 未配置，灰盒期回退 MeleeComboTable）")]
+    [Header("普攻模组（同源数据，v2.0.3）")]
+    [Tooltip("常态普攻连段（刺刀）。空 = 未配置，灰盒期回退 MeleeComboTable")]
     public AttackDefinition basicAttack;
+    [Tooltip("兽化普攻连段（狼爪：大招期间整体替换刺刀组——高速/短距/多段，不是刺刀×倍率）。空 = 兽化沿用常态组")]
+    public AttackDefinition beastAttack;
 
     [Header("动画模组（WerewolfClipFactory 目录合同）")]
     [Tooltip("Resources/Art/Characters/ 下的角色目录名")]

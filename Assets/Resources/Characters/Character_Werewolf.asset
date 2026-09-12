@@ -34,6 +34,7 @@ MonoBehaviour:
   beastPerHit: 4
   beastDuration: 12
   basicAttack: {fileID: 11400000, guid: 5128ea26423e4dc7ae50c71351a42c16, type: 2}
+  beastAttack: {fileID: 11400000, guid: 6a8b6a8194684b1d9039d4269bb3ecbd, type: 2}
   artFolder: Werewolf
   idleFolder: Idle
   walkFolder: Walk

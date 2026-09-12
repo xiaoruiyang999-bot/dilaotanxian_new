@@ -175,6 +175,9 @@ public class WerewolfTransformation : MonoBehaviour
         }
     }
 
+    /// <summary>形态切换通知（v2.0.3，参数 = 是否兽化）：PlayerCombat 据此切狼爪/刺刀攻击组。订阅须配对退订。</summary>
+    public event System.Action<bool> OnBeastFormChanged;
+
     private void ExitBeastForm()
     {
         IsBeast = false;
@@ -188,6 +191,7 @@ public class WerewolfTransformation : MonoBehaviour
         }
         energyBar?.SetBeastVisualTarget(false);
         rage?.SetGainPaused(false);
+        OnBeastFormChanged?.Invoke(false);
     }
 
     private IEnumerator BeastTransformRoutine()
@@ -224,6 +228,7 @@ public class WerewolfTransformation : MonoBehaviour
         if (animator != null) animator.SetBeastForm(true);   // 切 Beast 帧组，缩放回基准（1080px 画布自带大体型）
         energyBar?.SetBeastVisualTarget(true);
         transforming = false;
+        OnBeastFormChanged?.Invoke(true);
         Debug.Log("[Werewolf] 兽化完成：血量/伤害/攻速/移速已提升");
     }
     /// <summary>兽化数值乘数（v0.7.1 乘数体系：写入 PlayerStats，消费点为 Attack/MoveSpeed/AttackSpeedMul）。</summary>

@@ -10,45 +10,45 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 985256598c90c584eb704839cafcf2a9, type: 3}
-  m_Name: Attack_WerewolfClaws
+  m_Name: Attack_WerewolfBeastClaws
   m_EditorClassIdentifier:
   steps:
   - displayName: "爪击一式"
-    windup: 0.14
-    active: 0.11
-    recovery: 0.15
-    reach: 1.6
-    laneWidth: 0.95
-    stepImpulse: 2.2
+    windup: 0.08
+    active: 0.07
+    recovery: 0.11
+    reach: 1.35
+    laneWidth: 1.15
+    stepImpulse: 1.4
     recoveryCancelRatio: 0.35
     comboWindow: 0.3
-    damageMultiplier: 1
+    damageMultiplier: 0.9
     bonusDamage: 0
     animationState:
     windowFromAnimationEvent: 0
   - displayName: "爪击二式"
-    windup: 0.12
-    active: 0.11
-    recovery: 0.15
-    reach: 1.68
-    laneWidth: 0.95
-    stepImpulse: 2.6
+    windup: 0.08
+    active: 0.07
+    recovery: 0.11
+    reach: 1.35
+    laneWidth: 1.15
+    stepImpulse: 1.4
     recoveryCancelRatio: 0.35
     comboWindow: 0.3
-    damageMultiplier: 1.05
+    damageMultiplier: 0.9
     bonusDamage: 0
     animationState: 
     windowFromAnimationEvent: 0
   - displayName: "爪击三式"
-    windup: 0.22
-    active: 0.15
-    recovery: 0.4
-    reach: 2.08
-    laneWidth: 1.05
-    stepImpulse: 1.2
+    windup: 0.08
+    active: 0.07
+    recovery: 0.11
+    reach: 1.35
+    laneWidth: 1.15
+    stepImpulse: 1.4
     recoveryCancelRatio: 0.75
     comboWindow: 0.3
-    damageMultiplier: 1.45
+    damageMultiplier: 0.9
     bonusDamage: 0
     animationState:
     windowFromAnimationEvent: 0

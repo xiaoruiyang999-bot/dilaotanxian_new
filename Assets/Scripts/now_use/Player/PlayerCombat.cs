@@ -52,6 +52,9 @@ public class PlayerCombat : MonoBehaviour
     private bool bufferedAttack;            // 攻击流程中按下的输入缓存——被听见，不吞
     private float comboWindowTimer;         // 后摇完毕后的连段接受窗口倒计时
     private PlayerController playerControllerCache;   // 水平朝向读取（FacingDirection）
+    private WerewolfTransformation transformation;    // v2.0.3 形态事件源
+    private AttackDefinition beastAttackDef;          // v2.0.3 兽化攻击组缓存（角色定义派生）
+    private float activeComboWindow = MeleeComboTable.ComboWindow;   // v2.0.3 当前组连段窗口
 
     // ===== v0.6.3：三模式与武器实例 =====
     private enum CombatMode { Melee, Ranged, SelfCast }
@@ -152,9 +155,60 @@ public class PlayerCombat : MonoBehaviour
         playerMovement = GetComponent<PlayerMovement>();
         health = GetComponent<Health>();
 
+        // v2.0.3 形态双攻击组：兽化切狼爪组、退出回刺刀组（事件订阅与 OnDisable 退订配对）
+        transformation = GetComponent<WerewolfTransformation>();
+        if (transformation != null)
+            transformation.OnBeastFormChanged += OnBeastFormChanged;
+
         // v0.6.3：玩家近战范围显示跟随玩家（敌人预警仍用脱离父物体模式）
         if (attackIndicator != null)
             attackIndicator.detachOnShow = false;
+    }
+
+    /// <summary>
+    /// v2.0.3 形态切换：整体替换普攻组（刺刀↔狼爪）。不打断进行中的攻击段（当前段参数快照
+    /// 继续有效），仅复位段序与缓冲——下一次起手用新组（V2 §6.2：狼爪独立招式组，非数值乘倍）。
+    /// </summary>
+    private void OnBeastFormChanged(bool beast)
+    {
+        comboIndex = 0;
+        bufferedAttack = false;
+        comboWindowTimer = 0f;
+        RebuildComboSet();
+    }
+
+    /// <summary>
+    /// 按"当前职业角色 + 当前形态"重建普攻组（V2 §6.1：普攻模组属于职业角色，与武器无关）：
+    /// 角色定义的 AttackDefinition（绝对值）经 Adapter 换算到运行倍率；未配置/未选角色时
+    /// 回退 MeleeComboTable 旧链（迁移期兼容）。在攻击中调用不销毁当前段快照。
+    /// </summary>
+    private void RebuildComboSet()
+    {
+        RunStateCarrier carrier = RunStateCarrier.Ensure();
+        PlayableCharacterDefinition def = carrier != null ? carrier.ChosenPlayableCharacter : null;
+        if (def == null)
+        {
+            comboSet = MeleeComboTable.ForWeapon(weapon);
+            return;
+        }
+
+        beastAttackDef = def.beastAttack;
+        AttackDefinition source = transformation != null && transformation.IsBeast
+            ? (def.beastAttack != null ? def.beastAttack : def.basicAttack)
+            : def.basicAttack;
+
+        if (attackData != null)
+        {
+            MeleeComboStep[] built = AttackDefinitionAdapter.Build(source,
+                attackData.WindupTime, attackData.ActiveDuration, attackData.RecoveryTime,
+                attackData.AttackRange);
+            if (built != null)
+            {
+                comboSet = built;
+                return;
+            }
+        }
+        comboSet = MeleeComboTable.ForWeapon(weapon);   // 兜底：SO 缺失回旧链
     }
 
     void Update()
@@ -192,6 +246,10 @@ public class PlayerCombat : MonoBehaviour
         pendingCharge = false;
         if (isCharging)
             EndCharge();
+
+        // v2.0.3：形态事件退订（与 Awake 订阅配对）
+        if (transformation != null)
+            transformation.OnBeastFormChanged -= OnBeastFormChanged;
     }
 
     /// <summary>
@@ -1170,6 +1228,6 @@ public class PlayerCombat : MonoBehaviour
         }
 
         OnAttackEnd?.Invoke();
-        comboWindowTimer = MeleeComboTable.ComboWindow;
+        comboWindowTimer = activeComboWindow;
     }
 }
