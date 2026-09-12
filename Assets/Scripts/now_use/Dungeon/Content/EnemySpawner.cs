@@ -78,7 +78,17 @@ public static class EnemySpawner
 
                 pos = fixedPositions[fixedPositionIndex++];
             }
-            else if (!SpawnPositionHelper.TryFind(room, rng, out pos)) continue;
+            else
+            {
+                if (!SpawnPositionHelper.TryFind(room, rng, out pos)) continue;
+                // v2.0.7 前方阵型（V2 §9.2）：普通房敌人不刷玩家身后——出生点须在房间右半（x > 中线-2），
+                // 最多重试 4 次取右侧点，失败回退任意点（保生成不保阵型）
+                for (int sideTry = 0; sideTry < 4 && pos.x < room.Bounds.center.x - 2f; sideTry++)
+                {
+                    if (!SpawnPositionHelper.TryFind(room, rng, out Vector3 rightPrefer)) break;
+                    if (rightPrefer.x >= room.Bounds.center.x - 2f) { pos = rightPrefer; break; }
+                }
+            }
 
             GameObject go = Object.Instantiate(picks[i].prefab, pos, Quaternion.identity, room.ContentRoot);
             go.name = $"{picks[i].prefab.name}_{room.Id}_{i}";

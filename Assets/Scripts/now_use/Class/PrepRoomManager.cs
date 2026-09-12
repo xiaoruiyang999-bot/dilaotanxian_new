@@ -35,6 +35,9 @@ public class PrepRoomManager : MonoBehaviour
         // v1.1.47 技能石碑（传送门西侧）：E 打开局外技能树（魂晶加点）
         SkillTreeBeacon.Create(new Vector3(-3.5f, 4.4f, 0f), transform);
 
+        // v2.0.7 档案柜：守灯厅回看已读叙事碎片（与技能石碑对称，传送门东侧）
+        ArchiveCabinet.Create(transform, new Vector3(3.5f, 4.4f, 0f));
+
         // 玩家出生位 + 准备场景专属换武器规则
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null)
