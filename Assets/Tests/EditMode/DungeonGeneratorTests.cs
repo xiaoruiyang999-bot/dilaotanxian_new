@@ -14,6 +14,10 @@ public class DungeonGeneratorTests
         //（v2.0.4 起 config 默认 LinearHorizontal 横向链，旧语义测试不受默认值漂移影响）
         var config = ScriptableObject.CreateInstance<DungeonConfig>();
         config.topology = DungeonConfig.DungeonTopology.LegacyGrid;
+        // 门禁锚定典型迷宫规模 8~12（v2.0.5 全局默认翻倍到 16~24 后网格更挤、
+        // 扩容达成率自然下降——扩展机制的达标线不应随全局默认漂移）
+        config.roomCountMin = 8;
+        config.roomCountMax = 12;
         return config;
     }
 

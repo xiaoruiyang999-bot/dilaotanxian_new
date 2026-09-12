@@ -9,7 +9,7 @@ public class DungeonConfig : ScriptableObject
 {
     [Header("地图")]
     [Tooltip("每层房间数量区间（含起始房与 Boss 房）")]
-    public int roomCountMin = 8, roomCountMax = 12;
+    public int roomCountMin = 16, roomCountMax = 24;   // v2.0.5 用户定案：整层规模翻倍（原 8~12）
     [Tooltip("房间内部尺寸（瓦片数），不含四周各 1 格墙。v1.1.4 地皮契约：地皮图 85px@PPU85 = 1×1 世界单位，本值必须为整数（=地皮图块数），否则铺设错位")]
     [Range(8, 48)] public int roomWidth = 18;
     [Range(8, 48)] public int roomHeight = 11;

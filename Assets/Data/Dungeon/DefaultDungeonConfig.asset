@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f13331479a5e514b81aae3ae0a3d4a3, type: 3}
   m_Name: DefaultDungeonConfig
   m_EditorClassIdentifier: Assembly-CSharp::DungeonConfig
-  roomCountMin: 8
-  roomCountMax: 12
+  roomCountMin: 16
+  roomCountMax: 24
   roomWidth: 30
   roomHeight: 18
   doorWidth: 2
