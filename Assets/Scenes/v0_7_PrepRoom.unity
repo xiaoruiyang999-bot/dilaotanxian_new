@@ -311,7 +311,7 @@ MonoBehaviour:
   smoothSpeed: 10
   offset: {x: 0, y: 0, z: -10}
   snapToScreenPixels: 1
-  pixelPerfectOrtho: 0
+  pixelPerfectOrtho: 1
   tilePPU: 144
   targetOrthoSize: 9
   allowSubPixelZoom: 1

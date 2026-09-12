@@ -13,7 +13,7 @@ public class CameraFollow : MonoBehaviour
 
     [Header("像素对齐（v1.1.49）")]
     [Tooltip("正交尺寸自动换算为『每地皮纹素 = 整数屏幕像素』——非整数缩放比下砖缝随相机移动取舍闪烁的根治；关闭则用场景原值")]
-    [SerializeField] private bool pixelPerfectOrtho = false;   // 用户定案:相机定死不自动换算
+    [SerializeField] private bool pixelPerfectOrtho = true;
     [Tooltip("主 Tilemap（地皮）的 PPU。ortho = 屏幕高 ÷ (2×PPU×n)，n 取最贴近原视野的整数档")]
     [SerializeField] private float tilePPU = 144f;
     [Tooltip("目标视野（正交尺寸，越大看得越多；0 = 沿用相机在场景里的初始值）。整纹素档自动向它逼近——注意 1080p 下最大档约 3.75，想更远需开下方亚像素开关")]
@@ -53,16 +53,8 @@ public class CameraFollow : MonoBehaviour
     /// </summary>
     private void ApplyPixelPerfectOrtho()
     {
-        if (attachedCamera == null || !attachedCamera.orthographic) return;
+        if (!pixelPerfectOrtho || attachedCamera == null || !attachedCamera.orthographic) return;
         if (Screen.height <= 0) return;
-
-        // v2.0.5 用户定案：相机数值定死不自动换算——Target Ortho Size > 0 时直接采用并保持恒定
-        //（仅分辨率变化时重设同值，幂等）；整纹素档仅在 pixelPerfectOrtho 显式开启时参与
-        if (!pixelPerfectOrtho)
-        {
-            if (targetOrthoSize > 0f) attachedCamera.orthographicSize = targetOrthoSize;
-            return;
-        }
 
         float design = targetOrthoSize > 0f ? targetOrthoSize : designOrthoSize;
         float texelOnePixel = Screen.height / (2f * tilePPU);
