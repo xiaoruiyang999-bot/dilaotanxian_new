@@ -27,6 +27,9 @@ MonoBehaviour:
   availableWeapons:
   - {fileID: 11400000, guid: aa19f9cc77565094299ace416a3756f2, type: 2}
   - {fileID: 11400000, guid: 1cef4d0b9c8bb0ec6296a4fabcf765dc, type: 2}
+  - {fileID: 11400000, guid: 462071cd75734e60994c09fe02dc5a48, type: 2}
+  - {fileID: 11400000, guid: 50612261c9ee4437b09dc4d67cb11805, type: 2}
+  - {fileID: 11400000, guid: 66e651aaab3a4b6bbed5285bfcdd1c43, type: 2}
   initialWeapon: {fileID: 11400000, guid: aa19f9cc77565094299ace416a3756f2, type: 2}
   skillBranches: {fileID: 11400000, guid: 4059a4249b8e4517ba9585be23c98a15, type: 2}
   ultimateSkill: {fileID: 11400000, guid: 1ae985a2e9654e4083ddb7e9e1bc3775, type: 2}
