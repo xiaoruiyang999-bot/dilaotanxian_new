@@ -9,7 +9,7 @@ public class DungeonConfig : ScriptableObject
 {
     [Header("地图")]
     [Tooltip("每层房间数量区间（含起始房与 Boss 房）")]
-    public int roomCountMin = 16, roomCountMax = 24;   // v2.0.5 用户定案：整层规模翻倍（原 8~12）
+    public int roomCountMin = 8, roomCountMax = 12;
     [Tooltip("房间内部尺寸（瓦片数），不含四周各 1 格墙。v1.1.4 地皮契约：地皮图 85px@PPU85 = 1×1 世界单位，本值必须为整数（=地皮图块数），否则铺设错位")]
     [Range(8, 48)] public int roomWidth = 18;
     [Range(8, 48)] public int roomHeight = 11;
@@ -22,8 +22,8 @@ public class DungeonConfig : ScriptableObject
     [Tooltip("LinearHorizontal = V2 横向单向：长矩形房从左向右串接、左入右出、Boss 在最右（DungeonGraph 骨架的 MVP 形态，分叉选择属 v2.0.5 地图 UI）；LegacyGrid = v1.x 四向网格迷宫（迁移回退口）")]
     public DungeonTopology topology = DungeonTopology.LinearHorizontal;
     [Tooltip("横向拓扑的房间内部尺寸（瓦特，不含墙）——长宽比约 3:1、约 2 屏宽（V2 §4.3：2.2:1~4:1）")]
-    [Range(12, 60)] public int linearRoomWidth = 34;
-    [Range(8, 24)] public int linearRoomHeight = 12;
+    [Range(12, 96)] public int linearRoomWidth = 68;   // 用户定案:单间尺寸翻倍(超 V2 1~3 屏契约,用户优先)
+    [Range(8, 24)] public int linearRoomHeight = 24;
 
     [Header("楼层入场表现")]
     [Tooltip("生成新楼层时，墙体以独立视觉层逐块从上方坠落；真实墙体碰撞始终保持在最终位置")]
