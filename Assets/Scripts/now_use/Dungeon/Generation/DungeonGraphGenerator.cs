@@ -10,10 +10,12 @@ using System.Collections.Generic;
 /// </summary>
 public static class DungeonGraphGenerator
 {
-    private const int MinColumns = 5;
-    private const int MaxColumns = 7;
-    private const int MaxRowsPerColumn = 2;
+    // VS 第五批（V2 §10.6 Vertical Slice 口径）：10~12 列、每列 1~3 节点
+    private const int MinColumns = 10;
+    private const int MaxColumns = 12;
+    private const int MaxRowsPerColumn = 3;   // VS 每列 1~3
     private const int TypeSpacing = 2;   // 同类型特殊节点的最小列距
+    private const double BranchChance = 0.62;   // VS 长图分叉率（原 0.55，列多选项需更密）
 
     public static DungeonGraphData Generate(int seed, System.Random rngOverride = null)
     {
@@ -60,7 +62,7 @@ public static class DungeonGraphGenerator
                 DungeonGraphNode target = next[Math.Min(from.Row, next.Count - 1)];
                 Link(from, target);
                 // 分叉：下一列比当前列多节点且掷中 → 追加第二条出边
-                if (next.Count > 1 && cur.Count < next.Count && rng.NextDouble() < 0.55)
+                if (next.Count > 1 && cur.Count < next.Count && rng.NextDouble() < BranchChance)
                     Link(from, next[(target.Row + 1) % next.Count]);
             }
             // 汇聚保证：下一列每个节点必须有入边——缺的从当前列就近节点补

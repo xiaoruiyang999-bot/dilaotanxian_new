@@ -16,7 +16,7 @@ public class DungeonGraphGeneratorTests
             int seed = rngMeta.Next();
             DungeonGraphData graph = DungeonGraphGenerator.Generate(seed);
             Assert.IsTrue(graph.Validate(out string error), $"seed={seed}: {error}");
-            Assert.GreaterOrEqual(graph.Nodes.Count, 5, $"seed={seed} 节点数低于 MVP 下限");
+            Assert.GreaterOrEqual(graph.Nodes.Count, 10, $"seed={seed} 节点数低于 VS 下限（10 列）");
 
             int maxColumn = int.MinValue;
             foreach (DungeonGraphNode n in graph.Nodes) maxColumn = System.Math.Max(maxColumn, n.Column);
