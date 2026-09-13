@@ -10,7 +10,6 @@ using UnityEngine;
 /// </summary>
 public static class StarCoinBank
 {
-    private const string KeyBanked = "starcoin_banked";
 
     [Header("结算比例（V2 §13.1 首轮测试值）")]
     public const float DeathKeepRatio = 0.30f;    // 死亡：随身 30% 封存
@@ -18,7 +17,7 @@ public static class StarCoinBank
     public const float BossClearRatio = 1.00f;    // 击败 Boss 过层：100%
 
     /// <summary>已封存星蓝币（守灯厅钱包，只读）。</summary>
-    public static int Banked => PlayerPrefs.GetInt(KeyBanked, 0);
+    public static int Banked => SaveService.LoadProfile().bankedStarCoins;   // VS 收尾：真值迁入 Profile 存档
 
     /// <summary>死亡结算：随身按 30% 封存并清零。返回本次封存数。</summary>
     public static int BankOnDeath(int runCoins)
@@ -37,14 +36,17 @@ public static class StarCoinBank
 
     private static void Deposit(int amount)
     {
-        if (amount > 0) PlayerPrefs.SetInt(KeyBanked, Banked + amount);
-        PlayerPrefs.Save();
+        if (amount <= 0) return;
+        var profile = SaveService.LoadProfile();
+        profile.bankedStarCoins += amount;
+        SaveService.SaveProfile(profile);
     }
 
     /// <summary>测试/调试：清空封存。</summary>
     public static void ResetAll()
     {
-        PlayerPrefs.DeleteKey(KeyBanked);
-        PlayerPrefs.Save();
+        var profile = SaveService.LoadProfile();
+        profile.bankedStarCoins = 0;
+        SaveService.SaveProfile(profile);
     }
 }

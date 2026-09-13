@@ -17,7 +17,6 @@ public static class NarrativeService
         public bool IsOpening;      // 开场序列（首次进守灯厅连播）
     }
 
-    private const string KeyRead = "narrative_read";
 
     public static readonly List<Fragment> Library = new List<Fragment>
     {
@@ -98,16 +97,19 @@ public static class NarrativeService
     /// <summary>已读片段 Id 集（PlayerPrefs 位集持久）。</summary>
     public static HashSet<string> ReadIds()
     {
+        // VS 收尾：已读迁入 Profile 存档（首次 LoadProfile 自动吸收旧 PlayerPrefs）
+        var profile = SaveService.LoadProfile();
         var set = new HashSet<string>();
-        foreach (string part in (PlayerPrefs.GetString(KeyRead, "")).Split(','))
-            if (!string.IsNullOrEmpty(part)) set.Add(part);
+        foreach (string id in profile.readNarrativeIds)
+            if (!string.IsNullOrEmpty(id)) set.Add(id);
         return set;
     }
 
     private static void SaveRead(HashSet<string> set)
     {
-        PlayerPrefs.SetString(KeyRead, string.Join(",", set));
-        PlayerPrefs.Save();
+        var profile = SaveService.LoadProfile();
+        profile.readNarrativeIds = new List<string>(set);
+        SaveService.SaveProfile(profile);
     }
 
     /// <summary>标记已读（幂等）。</summary>
@@ -139,7 +141,8 @@ public static class NarrativeService
     /// <summary>测试/调试：清空已读。</summary>
     public static void ResetAll()
     {
-        PlayerPrefs.DeleteKey(KeyRead);
-        PlayerPrefs.Save();
+        var profile = SaveService.LoadProfile();
+        profile.readNarrativeIds = new List<string>();
+        SaveService.SaveProfile(profile);
     }
 }
