@@ -84,7 +84,7 @@ MonoBehaviour:
   - minDistance: 4
     budgetMin: 7
     budgetMax: 10
-    affixChance: 0.2
+    affixChance: 0.25
     allowSupport: 1
     maxSpecialRoles: 3
   - minDistance: 6
@@ -93,7 +93,10 @@ MonoBehaviour:
     affixChance: 0.3
     allowSupport: 1
     maxSpecialRoles: 4
-  affixChance: 0.2
+  affixChance: 0.25
   affixes:
   - {fileID: 11400000, guid: 3cd92ecbb36f1d4409ba225492b0be76, type: 2}
   - {fileID: 11400000, guid: bff9fb956214bbc499046f411d3e9105, type: 2}
+  - {fileID: 11400000, guid: ca60df401acd459fb0b4fa1f463b700f, type: 2}
+  - {fileID: 11400000, guid: b8d26f2b57484210ab812a62cd54024e, type: 2}
+  - {fileID: 11400000, guid: d4fb535730c44bf1a679705246ce1e2d, type: 2}
