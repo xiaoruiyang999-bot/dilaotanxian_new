@@ -164,6 +164,18 @@ PrefabInstance:
       propertyPath: phase2Attacks.Array.data[1]
       value: 
       objectReference: {fileID: 11400000, guid: 4041da820c184a3bad77e120d91ce616, type: 2}
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: phase3Attacks.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: phase3Attacks.Array.data[0]
+      value: 
+      objectReference: {fileID: 11400000, guid: 8b81c97ee45e456db8ff513eb48f8f15, type: 2}
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: phase3Attacks.Array.data[1]
+      value: 
+      objectReference: {fileID: 11400000, guid: fd8a57277def4fe9a569ed84fd958c00, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
