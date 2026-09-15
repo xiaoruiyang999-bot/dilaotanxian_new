@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: LangZhuaLianZhan
+  m_Name: PoFangQiangXi
   m_EditorClassIdentifier: 
-  talentId: Werewolf_F01_T2
-  character: 0
+  talentId: Werewolf_F01_T3
+  compatType: 2
+  tags:
+  - buff
   branchId: F01
   branchTint: {r: 0.9, g: 0.45, b: 0.3, a: 1}
-  tier: 2
-  prerequisiteId: Werewolf_F01_T1
-  displayName: "LangZhuaLianZhan"
-  description: "ShouHua QiJian LangZhua MeiCi YouXiao MingZhong HuoDe 1 Ceng LangZhua LianJi,MeiCeng LangZhua ZhiShang +6%,ZuiDuo 4 Ceng;1 Miao Wei MingZhong MeiMiao ShiQu 1 Ceng."
+  tier: 3
+  prerequisiteId: Werewolf_F01_T2
+  displayName: "破防强袭"
+  description: "满 4 层连势命中破甲或虚弱目标时，无视额外 20% 护甲并再加 +20% 直伤；每目标 3 秒一次。"
   drawback: ""
-  values: [6, 4]
+  values: [20, 20, 3]

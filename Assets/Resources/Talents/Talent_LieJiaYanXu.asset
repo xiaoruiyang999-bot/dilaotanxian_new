@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: LieShaBanJing
+  m_Name: LieJiaYanXu
   m_EditorClassIdentifier: 
-  talentId: Werewolf_F14_T1
-  character: 0
-  branchId: F14
-  branchTint: {r: 0.55, g: 0.85, b: 0.5, a: 1}
-  tier: 1
-  prerequisiteId: 
-  displayName: "LieShaBanJing"
-  description: "JinShen BanJing(Yue 2.2 PengZhuangTi Kuan)Nei JinZhan ZhiShang +12%;LiKai BanJing LiKe ShiXiao."
+  talentId: Werewolf_F03_T2
+  compatType: 1
+  tags:
+  - armorbreak
+  branchId: F03
+  branchTint: {r: 0.5, g: 0.6, b: 0.9, a: 1}
+  tier: 2
+  prerequisiteId: Werewolf_F03_T1
+  displayName: "裂甲延续"
+  description: "攻击已破甲目标时破甲延长 0.5 秒；每次攻击最多一次，最多延长至 7 秒。"
   drawback: ""
-  values: [12, 2.2]
+  values: [0.5, 7]

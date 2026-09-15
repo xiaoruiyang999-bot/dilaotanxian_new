@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: DingLaoShangKou
+  m_Name: LianShiZhuiJi
   m_EditorClassIdentifier: 
-  talentId: Werewolf_F03_T2
-  character: 0
-  branchId: F03
-  branchTint: {r: 0.5, g: 0.6, b: 0.9, a: 1}
+  talentId: Werewolf_F01_T2
+  compatType: 2
+  tags:
+  - buff
+  branchId: F01
+  branchTint: {r: 0.9, g: 0.45, b: 0.3, a: 1}
   tier: 2
-  prerequisiteId: Werewolf_F03_T1
-  displayName: "DingLaoShangKou"
-  description: "GongJi Yi PoJia MuBiao Shi PoJia YanChang 0.5 Miao;MeiCi GongJi ZuiDuo Yi Ci,ZuiDuo YanChang Dao 7 Miao."
+  prerequisiteId: Werewolf_F01_T1
+  displayName: "连势追击"
+  description: "强化状态内每次有效命中获得 1 层连势，每层直伤 +6%，最多 4 层；1 秒未命中每秒失去 1 层。"
   drawback: ""
-  values: [0.5, 7]
+  values: [6, 4]

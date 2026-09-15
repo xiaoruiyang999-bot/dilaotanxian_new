@@ -14,14 +14,55 @@ public static class TalentCatalog
     [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void ResetCache() { cache = null; loaded = false; }
 
+    /// <summary>请求职业的可用标签（P0 狼人：近战/DOT/破甲；法师/弓箭手标签随实装扩充）。</summary>
+    private static readonly Dictionary<PlayableCharacterId, string[]> CharacterTags = new Dictionary<PlayableCharacterId, string[]>
+    {
+        { PlayableCharacterId.Werewolf, new[] { "melee", "dot", "armorbreak" } },
+    };
+
+    private static string[] TagsOf(PlayableCharacterId character)
+        => CharacterTags.TryGetValue(character, out var tags) ? tags : new string[0];
+
+    /// <summary>奖励池视角的可用节点（§3.3 兼容规则；NotReady 仅预览不入池）。</summary>
     public static IReadOnlyList<TalentDefinition> All(PlayableCharacterId character)
     {
         Load();
         var list = new List<TalentDefinition>();
         if (cache == null) return list;
+        string[] charTags = TagsOf(character);
         foreach (TalentDefinition t in cache)
-            if (t != null && t.character == character) list.Add(t);
+        {
+            if (t == null || t.compatType == TalentCompat.NotReady) continue;
+            if (Compatible(t, charTags)) list.Add(t);
+        }
         return list;
+    }
+
+    /// <summary>预览视角（石碑树展示）：全部节点含未就绪（§3.3"可预览"）。</summary>
+    public static IReadOnlyList<TalentDefinition> Preview()
+    {
+        Load();
+        return cache ?? new TalentDefinition[0];
+    }
+
+    private static bool Compatible(TalentDefinition t, string[] charTags)
+    {
+        switch (t.compatType)
+        {
+            case TalentCompat.Universal:
+            case TalentCompat.ClassAdapted:
+                return true;   // 职业适配：结构通用，回报运行时映射
+            case TalentCompat.TagUniversal:
+                foreach (string need in t.tags)
+                {
+                    bool hit = false;
+                    foreach (string have in charTags) if (have == need) { hit = true; break; }
+                    if (!hit) return false;
+                }
+                return true;
+            default:
+                return false;
+        }
     }
 
     public static TalentDefinition Find(string talentId)

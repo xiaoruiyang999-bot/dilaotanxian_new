@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: ChuanCiKeHen
+  m_Name: PoFangZhongJi
   m_EditorClassIdentifier: 
-  talentId: Werewolf_F03_T1
-  character: 0
-  branchId: F03
-  branchTint: {r: 0.5, g: 0.6, b: 0.9, a: 1}
-  tier: 1
-  prerequisiteId: 
-  displayName: "ChuanCiKeHen"
-  description: "ZhongCi/BeiJi/TuJin MingZhong ShiJia PoJia:HuJia -6,ChiXu 5 Miao."
+  talentId: Werewolf_F14_T3
+  compatType: 1
+  tags:
+  - melee
+  branchId: F14
+  branchTint: {r: 0.55, g: 0.85, b: 0.5, a: 1}
+  tier: 3
+  prerequisiteId: Werewolf_F14_T2
+  displayName: "破防重击"
+  description: "贴身压制满层时下一次重击无视 20% 护甲并消耗全部贴身压制。"
   drawback: ""
-  values: [6, 5]
+  values: [20]

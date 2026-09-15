@@ -131,10 +131,31 @@ public class TalentSystemTests
     }
 
     [Test]
-    public void ClassIsolation_WerewolfPoolOnly()
+    public void Compatibility_WerewolfSeesAllSixteen()
     {
+        // §3.3 通用树：狼人(melee/dot/armorbreak 标签)可见全部 16 节点(F01 职业适配+三标签分支)
         IReadOnlyList<TalentDefinition> pool = TalentCatalog.All((PlayableCharacterId)Werewolf);
+        Assert.AreEqual(16, pool.Count);
         foreach (TalentDefinition t in pool)
-            Assert.AreEqual((PlayableCharacterId)Werewolf, t.character, $"{t.talentId} 职业不属狼人");
+            Assert.AreNotEqual(TalentCompat.NotReady, t.compatType, "未就绪节点不得进入奖励池");
+    }
+
+    [Test]
+    public void Naming_UniversalNoWerewolfSpecificTerms()
+    {
+        // §3.2 改名规则：名称不得含狼人专属词；displayName 必须是中文(防拼音占位回归)
+        string[] banned = { "狼", "兽化", "怒痕", "狼爪", "刺刀" };
+        IReadOnlyList<TalentDefinition> pool = TalentCatalog.Preview();
+        Assert.GreaterOrEqual(pool.Count, 16);
+        foreach (TalentDefinition t in pool)
+        {
+            foreach (string term in banned)
+                Assert.IsFalse(t.displayName.Contains(term),
+                    $"{t.talentId} 名称含狼人专属词「{term}」（§3.2 通用化禁令）");
+            bool hasCjk = false;
+            foreach (char c in t.displayName)
+                if (c >= 0x4E00 && c <= 0x9FFF) { hasCjk = true; break; }
+            Assert.IsTrue(hasCjk, $"{t.talentId} 名称必须为中文（拼音占位不允许交付）");
+        }
     }
 }

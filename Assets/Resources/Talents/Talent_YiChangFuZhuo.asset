@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: KaiFangShangKou
+  m_Name: YiChangFuZhuo
   m_EditorClassIdentifier: 
   talentId: Werewolf_F09_T1
-  character: 0
+  compatType: 1
+  tags:
+  - dot
   branchId: F09
   branchTint: {r: 0.8, g: 0.25, b: 0.25, a: 1}
   tier: 1
   prerequisiteId: 
-  displayName: "KaiFangShangKou"
-  description: "ZhiDing GongJi MingZhong ShiJia 1 Ceng LiuXue(4 Miao);TongYi GongJi Dui TongYi MuBiao 0.4 Miao ZuiDuo Yi Ci."
+  displayName: "异常附着"
+  description: "兼容攻击命中施加当前流派持续伤害（狼人为流血）1 层，持续 4 秒；同一攻击对同一目标 0.4 秒最多一次。"
   drawback: ""
   values: [1, 4, 0.4]

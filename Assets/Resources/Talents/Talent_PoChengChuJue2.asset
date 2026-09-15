@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: PoChengChuJue
+  m_Name: PoChengChuJue2
   m_EditorClassIdentifier: 
   talentId: Werewolf_F03_T4
-  character: 0
+  compatType: 1
+  tags:
+  - armorbreak
   branchId: F03
   branchTint: {r: 0.5, g: 0.6, b: 0.9, a: 1}
   tier: 4
   prerequisiteId: Werewolf_F03_T3
-  displayName: "PoChengChuJue"
-  description: "GuanChuanChuangKou MingZhong ShengMing DiYu 35% De JingYing/Boss Shi ZhuiJia 60% WuQi ShangHai;Boss MeiJieDuan Yi Ci."
-  drawback: "XuYao Xian JianLi PoJia ChuangKou;Dui ManXue MuBiao WuXiao."
+  displayName: "破城处决"
+  description: "贯穿窗口命中生命低于 35% 的精英或 Boss 时追加 60% 武器伤害；Boss 每阶段一次。"
+  drawback: "需先建立破甲窗口；对满血目标无效。"
   values: [35, 60]

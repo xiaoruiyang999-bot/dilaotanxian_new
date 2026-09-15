@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: ManYanXueJi
+  m_Name: CengCengQinShi
   m_EditorClassIdentifier: 
-  talentId: Werewolf_F09_T3
-  character: 0
+  talentId: Werewolf_F09_T2
+  compatType: 1
+  tags:
+  - dot
   branchId: F09
   branchTint: {r: 0.8, g: 0.25, b: 0.25, a: 1}
-  tier: 3
-  prerequisiteId: Werewolf_F09_T2
-  displayName: "ManYanXueJi"
-  description: "Dai ManCeng LiuXue De PuTong DiRen SiWang Shi,Jiang 2 Ceng LiuXue ZhuanYi Gei BanJing Nei ZuiJin PuTong DiRen;JingYing/Boss Bu ZhuanYi."
+  tier: 2
+  prerequisiteId: Werewolf_F09_T1
+  displayName: "层层侵蚀"
+  description: "命中已有持续伤害的目标时 35% 概率追加 1 层；最大 5 层，满层后改为刷新全部层数。"
   drawback: ""
-  values: [2]
+  values: [35, 5]

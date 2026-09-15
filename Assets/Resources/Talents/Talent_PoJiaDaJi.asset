@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: PoJiaSiYao
+  m_Name: PoJiaDaJi
   m_EditorClassIdentifier: 
-  talentId: Werewolf_F01_T3
-  character: 0
-  branchId: F01
-  branchTint: {r: 0.9, g: 0.45, b: 0.3, a: 1}
-  tier: 3
-  prerequisiteId: Werewolf_F01_T2
-  displayName: "PoJiaSiYao"
-  description: "Man 4 Ceng LangZhua LianJi MingZhong PoJia MuBiao Shi WuShi E Wai 20% HuJia Bing ZaiJia +20% ZhiShang;Mei MuBiao 3 Miao Yi Ci."
+  talentId: Werewolf_F03_T1
+  compatType: 1
+  tags:
+  - armorbreak
+  branchId: F03
+  branchTint: {r: 0.5, g: 0.6, b: 0.9, a: 1}
+  tier: 1
+  prerequisiteId: 
+  displayName: "破甲打击"
+  description: "重击、背击或突进命中时施加破甲：目标护甲 -6、持续 5 秒。"
   drawback: ""
-  values: [20, 20, 3]
+  values: [6, 5]

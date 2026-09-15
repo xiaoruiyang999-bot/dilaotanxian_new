@@ -13,12 +13,14 @@ MonoBehaviour:
   m_Name: GuanChuanChuangKou
   m_EditorClassIdentifier: 
   talentId: Werewolf_F03_T3
-  character: 0
+  compatType: 1
+  tags:
+  - armorbreak
   branchId: F03
   branchTint: {r: 0.5, g: 0.6, b: 0.9, a: 1}
   tier: 3
   prerequisiteId: Werewolf_F03_T2
-  displayName: "GuanChuanChuangKou"
-  description: "Dui PoJia MuBiao De XiaYiCi ZhongCi/XuLi GongJi WuShi E Wai 15% HuJia,Bing Shi WuLi ZhiShang +12%."
+  displayName: "贯穿窗口"
+  description: "对破甲目标的下一次重击或蓄力攻击无视额外 15% 护甲，并使物理直伤 +12%。"
   drawback: ""
   values: [15, 12]

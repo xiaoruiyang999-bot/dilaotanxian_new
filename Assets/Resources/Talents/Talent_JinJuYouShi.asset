@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
-  m_Name: TieShenYaPo
+  m_Name: JinJuYouShi
   m_EditorClassIdentifier: 
-  talentId: Werewolf_F14_T2
-  character: 0
+  talentId: Werewolf_F14_T1
+  compatType: 1
+  tags:
+  - melee
   branchId: F14
   branchTint: {r: 0.55, g: 0.85, b: 0.5, a: 1}
-  tier: 2
-  prerequisiteId: Werewolf_F14_T1
-  displayName: "TieShenYaPo"
-  description: "JinShen MingZhong TongYi MuBiao HuoDe 1 Ceng TieShen YaZhi,MeiCeng +3% Dui Gai MuBiao ShangHai,ZuiDuo 5 Ceng;1 Miao Wei MingZhong QingKong."
+  tier: 1
+  prerequisiteId: 
+  displayName: "近距优势"
+  description: "近身半径（约 2.2 个碰撞体宽）内近战直伤 +12%；离开半径立刻失效。"
   drawback: ""
-  values: [3, 5, 1]
+  values: [12, 2.2]
