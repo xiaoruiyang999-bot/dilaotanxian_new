@@ -13,6 +13,8 @@ public class RunStateCarrier : MonoBehaviour
     public bool HasPlayableCharacter { get; private set; }
     /// <summary>本局遗物（VS 第四批；新 Run/死亡重开清空——ResetWeaponToCharacterDefault 同点位清理）。</summary>
     public RelicInventory Relics { get; } = new RelicInventory();
+    /// <summary>本局天赋（v2.0.9 唯一战力真值：起始铭文 + 已获得 ID 集合）。</summary>
+    public RunTalentState Talents { get; } = new RunTalentState();
 
     public PlayableCharacterDefinition ChosenPlayableCharacter =>
         HasPlayableCharacter ? PlayableCharacterCatalog.Get(ChosenPlayableCharacterId) : null;
@@ -82,6 +84,7 @@ public class RunStateCarrier : MonoBehaviour
     public void ResetWeaponToCharacterDefault()
     {
         Relics.Clear();   // VS 第四批：重开清空本局遗物
+        Talents.Clear();  // v2.0.9：重开清空本局天赋（新 Run 重新选起始铭文）
         LastWeapon = ChosenPlayableCharacter != null ? ChosenPlayableCharacter.InitialWeapon : null;
     }
 

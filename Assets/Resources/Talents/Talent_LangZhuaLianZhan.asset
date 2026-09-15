@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 109e9bdd0fcc649c5bc59085c35bdc83, type: 3}
+  m_Name: LangZhuaLianZhan
+  m_EditorClassIdentifier: 
+  talentId: Werewolf_F01_T2
+  character: 0
+  branchId: F01
+  branchTint: {r: 0.9, g: 0.45, b: 0.3, a: 1}
+  tier: 2
+  prerequisiteId: Werewolf_F01_T1
+  displayName: "LangZhuaLianZhan"
+  description: "ShouHua QiJian LangZhua MeiCi YouXiao MingZhong HuoDe 1 Ceng LangZhua LianJi,MeiCeng LangZhua ZhiShang +6%,ZuiDuo 4 Ceng;1 Miao Wei MingZhong MeiMiao ShiQu 1 Ceng."
+  drawback: ""
+  values: [6, 4]

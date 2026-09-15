@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 109e9bdd0fcc649c5bc59085c35bdc83, type: 3}
+  m_Name: GuanChuanChuangKou
+  m_EditorClassIdentifier: 
+  talentId: Werewolf_F03_T3
+  character: 0
+  branchId: F03
+  branchTint: {r: 0.5, g: 0.6, b: 0.9, a: 1}
+  tier: 3
+  prerequisiteId: Werewolf_F03_T2
+  displayName: "GuanChuanChuangKou"
+  description: "Dui PoJia MuBiao De XiaYiCi ZhongCi/XuLi GongJi WuShi E Wai 15% HuJia,Bing Shi WuLi ZhiShang +12%."
+  drawback: ""
+  values: [15, 12]

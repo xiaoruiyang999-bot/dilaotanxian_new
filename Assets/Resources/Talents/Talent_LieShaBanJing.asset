@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 109e9bdd0fcc649c5bc59085c35bdc83, type: 3}
+  m_Name: LieShaBanJing
+  m_EditorClassIdentifier: 
+  talentId: Werewolf_F14_T1
+  character: 0
+  branchId: F14
+  branchTint: {r: 0.55, g: 0.85, b: 0.5, a: 1}
+  tier: 1
+  prerequisiteId: 
+  displayName: "LieShaBanJing"
+  description: "JinShen BanJing(Yue 2.2 PengZhuangTi Kuan)Nei JinZhan ZhiShang +12%;LiKai BanJing LiKe ShiXiao."
+  drawback: ""
+  values: [12, 2.2]

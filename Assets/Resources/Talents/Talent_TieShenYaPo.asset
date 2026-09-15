@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 109e9bdd0fcc649c5bc59085c35bdc83, type: 3}
+  m_Name: TieShenYaPo
+  m_EditorClassIdentifier: 
+  talentId: Werewolf_F14_T2
+  character: 0
+  branchId: F14
+  branchTint: {r: 0.55, g: 0.85, b: 0.5, a: 1}
+  tier: 2
+  prerequisiteId: Werewolf_F14_T1
+  displayName: "TieShenYaPo"
+  description: "JinShen MingZhong TongYi MuBiao HuoDe 1 Ceng TieShen YaZhi,MeiCeng +3% Dui Gai MuBiao ShangHai,ZuiDuo 5 Ceng;1 Miao Wei MingZhong QingKong."
+  drawback: ""
+  values: [3, 5, 1]
