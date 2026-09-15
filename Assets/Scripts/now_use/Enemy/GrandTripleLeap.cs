@@ -29,6 +29,11 @@ public class GrandTripleLeap : MonoBehaviour
 
     public bool LastRunHitPlayer { get; private set; }
 
+    // ========== 美术预留事件（v2.0.10）：跳跃子时机——起跳(前摇结束)/落地(判定瞬间)/眩晕开始 ==========
+    public event System.Action<int, Vector2> OnLeapTakeoff;   // (跳序0起,起跳点)
+    public event System.Action<int, Vector2, bool> OnLeapLanded;   // (跳序,落点,中心命中)
+    public event System.Action OnStunned;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -59,6 +64,7 @@ public class GrandTripleLeap : MonoBehaviour
             yield return new WaitForSeconds(jumpWindup);
             if (cancelled) yield break;
             Vector2 landPos = player.position;   // 记录时刻快照，锁定后不追踪
+            OnLeapTakeoff?.Invoke(jump, landPos);   // 美术：起跳时机
 
             telegraph?.ShowCircle(landPos, shockRadius, jumpWindup + airTime);
 
@@ -77,6 +83,7 @@ public class GrandTripleLeap : MonoBehaviour
             // 落地：中心坠落判定（跃击命中口径）+ 外围震荡
             bool centerHit = ResolveLanding(landPos);
             if (centerHit) LastRunHitPlayer = true;
+            OnLeapLanded?.Invoke(jump, landPos, centerHit);   // 美术：落地/尘土/命中反馈
 
             if (jump < 2)
                 yield return new WaitForSeconds(gapBetweenJumps);
@@ -86,7 +93,10 @@ public class GrandTripleLeap : MonoBehaviour
 
         // 三跳结束条件分支（文档 §三.2）
         if (!LastRunHitPlayer)
-            brain.EnterSubState(GrandBossBrain.BossState.Stunned);   // 全落空→眩晕（Brain 恢复后回循环）
+        {
+            OnStunned?.Invoke();   // 美术：眩晕开始（星星/摇晃）
+            brain.EnterSubState(GrandBossBrain.BossState.Stunned);
+        }   // 全落空→眩晕（Brain 恢复后回循环）
         // 命中口径下接双爪连击：交回 Brain 决策（近距离必选 BasicCombo）
     }
 

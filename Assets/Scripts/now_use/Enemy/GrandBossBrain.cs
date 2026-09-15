@@ -22,6 +22,18 @@ public class GrandBossBrain : MonoBehaviour
     public BossState State { get; private set; } = BossState.Idle;
     public bool PhaseTwo { get; private set; }
 
+    // ========== v2.0.10 美术预留接口（事件驱动——表现层订阅，逻辑零依赖美术存在） ==========
+    // 挂点约定：子物体 "ArtRoot"（美术建预制体时放置角色渲染层级；不存在时全部事件静默空跑）
+    // 状态进入事件（参数=状态名）——Animator 状态机/序列帧/VFX 均可订阅；FireOnStateEntered 广播
+    public event System.Action<BossState> OnStateEntered;
+
+    /// <summary>美术挂点（Awake 自动查找子物体 "ArtRoot"；缺省=自身——程序占位色块挂这里）。</summary>
+    public Transform ArtRoot { get; private set; }
+
+    [Header("美术预留（v2.0.10）")]
+    [Tooltip("状态广播开关（关闭时 OnStateEntered 不触发——纯逻辑测试用）")]
+    [SerializeField] private bool broadcastState = true;
+
     [Header("一阶段参数（文档 §二/§三 测试值）")]
     [SerializeField, Min(0.1f)] private float decisionInterval = 0.6f;   // 动作间最小间隔
     [SerializeField, Min(0f)] private float attackRange = 2.6f;          // 双爪起手距离
@@ -67,6 +79,7 @@ public class GrandBossBrain : MonoBehaviour
         // 预制体变体路径不在 Resources 下——双路径兜底（编辑器 AssetDatabase 由调用环境保证;
         // 这里用完整路径 Load 尝试：Assets/Data 在 Resources 外,故复制到 Resources/Data 一份见资产步骤）
         brain.WireModules(combo, leap);
+        GrandBossArtAdapter.EnsureOn(boss, brain);   // v2.0.10 美术适配层（占位表现+事件合同示范）
         return brain;
     }
 
@@ -79,6 +92,7 @@ public class GrandBossBrain : MonoBehaviour
 
     private void Awake()
     {
+        ArtRoot = transform.Find("ArtRoot");   // 美术挂点（缺省=自身，占位渲染不丢）
         ai = GetComponent<EnemyAI>();
         combat = GetComponent<EnemyCombat>();
         health = GetComponent<EnemyHealth>();
@@ -148,6 +162,7 @@ public class GrandBossBrain : MonoBehaviour
     {
         StopActiveRoutine();
         State = next;
+        if (broadcastState) OnStateEntered?.Invoke(next);   // 美术广播
 
         switch (next)
         {
@@ -189,6 +204,7 @@ public class GrandBossBrain : MonoBehaviour
     public void EnterSubState(BossState sub)
     {
         State = sub;
+        if (broadcastState) OnStateEntered?.Invoke(sub);   // 美术广播（含 Retreat/Stunned）
         if (sub == BossState.Stunned)
         {
             SetAILocomotion(false);
@@ -231,6 +247,7 @@ public class GrandBossBrain : MonoBehaviour
         dead = true;
         StopActiveRoutine();
         State = BossState.Dead;
+        OnStateEntered?.Invoke(BossState.Dead);   // 美术广播（死亡必发）
     }
 
     private void SetAILocomotion(bool on)

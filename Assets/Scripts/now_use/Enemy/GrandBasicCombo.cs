@@ -23,6 +23,10 @@ public class GrandBasicCombo : MonoBehaviour
     private Rigidbody2D rb;
     private bool cancelled;
 
+    // ========== 美术预留事件（v2.0.10）：爪击子时机——挥爪(前摇开始)/后退开始 ==========
+    public event System.Action<bool> OnClawStarted;   // (是否左爪)
+    public event System.Action OnRetreatStarted;
+
     private void Awake()
     {
         combat = GetComponent<EnemyCombat>();
@@ -57,6 +61,7 @@ public class GrandBasicCombo : MonoBehaviour
         if (retreatDistance > 0f && rb != null && player != null)
         {
             brain.EnterSubState(GrandBossBrain.BossState.Retreat);
+            OnRetreatStarted?.Invoke();   // 美术：后退起步
             Vector2 away = ((Vector2)transform.position - (Vector2)player.position).normalized;
             if (away.sqrMagnitude < 0.001f) away = Vector2.left;
             float travelled = 0f;
@@ -79,6 +84,7 @@ public class GrandBasicCombo : MonoBehaviour
         if (maxTurn > 0f && trackPlayer)
             ApplyLimitedFacing(maxTurn);
 
+        OnClawStarted?.Invoke(claw == leftClaw);   // 美术：挥爪时机（右/左区分）
         combat.SetAttackPool(new[] { claw });
         combat.TryStartAttack(player);   // 既有链路：预警→判定→收招（三态在 EnemyCombat 内）
 
