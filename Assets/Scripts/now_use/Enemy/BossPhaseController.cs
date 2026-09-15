@@ -34,6 +34,7 @@ public class BossPhaseController : MonoBehaviour
 
     private EnemyHealth health;
     private EnemyCombat combat;
+    private GrandBossBrain brain;   // v2.0.10 批1：有脑时阶段命令发脑，不再直改攻击池
     private SpriteRenderer bodySprite;
     private Color baseColor;
     private bool phase2;
@@ -43,6 +44,7 @@ public class BossPhaseController : MonoBehaviour
     {
         health = GetComponent<EnemyHealth>();
         combat = GetComponent<EnemyCombat>();
+        brain = GetComponent<GrandBossBrain>();
         bodySprite = GetComponent<SpriteRenderer>();
         if (bodySprite != null) baseColor = bodySprite.color;
         if (health != null)
@@ -83,6 +85,7 @@ public class BossPhaseController : MonoBehaviour
         if (phase2 || ratio > phase2Threshold) return;
 
         phase2 = true;
+        if (brain != null) brain.EnterPhaseTwo();   // v2.0.10：状态机接管阶段切换（批2 起完整生效）
         if (combat != null)
         {
             if (phase2Attacks != null && phase2Attacks.Length > 0)

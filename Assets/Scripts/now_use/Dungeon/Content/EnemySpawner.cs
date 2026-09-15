@@ -121,6 +121,10 @@ public static class EnemySpawner
             // v0.5.4 楼层 HP 缩放（dmgMul 预留恒 1，见 EnemyStats.ApplyFloorScale 注释）
             if (config != null && floorNumber > 1)
                 go.GetComponent<EnemyStats>()?.ApplyFloorScale(1f + config.hpMultiplierPerFloor * (floorNumber - 1), 1f);
+            // v2.0.10 格兰总脑自举（Boss 类型敌人；幂等——缺资产时静默保持旧攻击池行为）
+            if (go.GetComponent<BossPhaseController>() != null)
+                GrandBossBrain.EnsureOn(go);
+
             room.RegisterEnemy(go.GetComponent<EnemyHealth>());
         }
     }
