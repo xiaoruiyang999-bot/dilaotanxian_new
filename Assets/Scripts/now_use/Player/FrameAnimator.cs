@@ -182,10 +182,9 @@ public class FrameAnimator : MonoBehaviour
         // Start + yield return null 之后才调 SetWerewolfVisual，本组件 Awake 已按战士渲染了一帧。
         // 在首次渲染前读载体直接初始化对应外形；SetWerewolfVisual 幂等，场景侧后续调用为 no-op。
         // 武器/属性等仍走原延迟链路，此处只对齐视觉首帧。
-        RunStateCarrier carrier = RunStateCarrier.Ensure();
-        if (carrier.HasPlayableCharacter
-            && carrier.ChosenPlayableCharacterId == PlayableCharacterId.Werewolf)
-            SetWerewolfVisual(true);
+        // v2.0.9 战士角色退役（用户定案）：狼人是唯一角色——默认视觉无条件狼人帧组，
+        // 战士帧目录已删除（空组=零干预，旧路径留存待 FrameAnimator 整体退役）
+        SetWerewolfVisual(true);
     }
 
     void Update()
