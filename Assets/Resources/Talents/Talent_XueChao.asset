@@ -9,7 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 109e9bdd0fcc649c5bc59085c35bdc83, type: 3}
+  m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
   m_Name: XueChao
   m_EditorClassIdentifier: 
   talentId: Werewolf_F09_T4

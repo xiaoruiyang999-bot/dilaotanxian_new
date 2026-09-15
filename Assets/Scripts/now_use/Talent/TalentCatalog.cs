@@ -54,13 +54,14 @@ public static class TalentCatalog
 
     private static void Load()
     {
+        // 资产可能晚于域加载（编辑器内首次导入/guid 修复后再跑）——空结果不置 loaded，下次重试
         if (loaded) return;
-        loaded = true;
         cache = Resources.LoadAll<TalentDefinition>(ResourceDir);
         if (cache == null || cache.Length == 0)
         {
-            Debug.LogWarning($"[Talent] 无天赋资产（Resources/{ResourceDir}）——奖励回退旧池");
             cache = null;
+            return;
         }
+        loaded = true;
     }
 }
