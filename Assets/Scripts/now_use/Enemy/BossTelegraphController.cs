@@ -18,11 +18,15 @@ public class BossTelegraphController : MonoBehaviour
     private GrandBossBrain brainCache;
     internal void WireBrain(GrandBossBrain brain) => brainCache = brain;
 
+    /// <summary>批2:预警世界空间挂点(§4.3 WorldHazardRoot;缺省=场景根——P0-7 兜底)。</summary>
+    private Transform hazardRoot;
+    internal void WireHazardRoot(Transform root) => hazardRoot = root;
+
     public void ShowCircle(Vector2 center, float radius, float duration)
     {
         if (brainCache != null) brainCache.BroadcastWarning(center, radius);
         var go = new GameObject("BossTelegraph_Circle");
-        go.transform.SetParent(null, false);   // P0-7:预警挂场景根不挂 Boss(锁点后不随 Boss 移动)
+        go.transform.SetParent(hazardRoot, false);   // §4.3 WorldHazardRoot(缺省场景根——P0-7)
         go.transform.position = center;
         var mf = go.AddComponent<MeshFilter>();
         var mr = go.AddComponent<MeshRenderer>();
@@ -41,7 +45,7 @@ public class BossTelegraphController : MonoBehaviour
         if (brainCache != null) brainCache.BroadcastWarning(start, length);
 
         var go = new GameObject("BossTelegraph_Line");
-        go.transform.SetParent(null, false);   // P0-7:预警挂场景根不挂 Boss(锁点后不随 Boss 移动)
+        go.transform.SetParent(hazardRoot, false);   // §4.3 WorldHazardRoot(缺省场景根——P0-7)
         go.transform.position = start + dir * (length * 0.5f);
         go.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
         var sr = go.AddComponent<SpriteRenderer>();

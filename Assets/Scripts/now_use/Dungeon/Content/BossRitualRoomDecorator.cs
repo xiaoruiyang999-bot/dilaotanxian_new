@@ -29,6 +29,11 @@ public static class BossRitualRoomDecorator
         BuildPillars(rootGo.transform, room, layout);
         // P0-4:Boss 房四柱注册到 BossArenaState(石柱三态真值;奔袭/围猎消费)
         RegisterArenaPillars(rootGo, room, layout);
+
+        // v2.0.10 批2:组合根——Boss 模块消费的显式上下文(§3.3)
+        var context = GrandBossEncounterContext.Create(room, rootGo.transform);
+        var arenaComponent = rootGo.GetComponentInChildren<BossArenaState>();
+        if (arenaComponent != null) context.BindArena(arenaComponent);
         BuildAltar(rootGo.transform, room, layout);
         BuildTorches(rootGo.transform, room, layout);
         BuildClutter(rootGo.transform, room, layout);

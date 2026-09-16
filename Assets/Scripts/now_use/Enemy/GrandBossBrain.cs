@@ -74,6 +74,14 @@ public class GrandBossBrain : MonoBehaviour
         BossTelegraphController tele = boss.GetComponent<BossTelegraphController>();
         if (tele == null) tele = boss.AddComponent<BossTelegraphController>();
 
+        // v2.0.10 批2:优先从 EncounterContext 获取(§3.3 显式注入)
+        GrandBossEncounterContext context = boss.GetComponentInParent<GrandBossEncounterContext>();
+        BossArenaState arenaState = context != null && context.Arena != null
+            ? context.Arena
+            : boss.GetComponentInParent<BossArenaState>();
+        if (arenaState == null)
+            Debug.LogWarning("[Grand] 无 EncounterContext/BossArenaState——二阶段石柱联动降级");
+
         combo.WireAssets(
             Resources.Load<AttackData>("Data/AttackData_GrandRightClaw"),
             Resources.Load<AttackData>("Data/AttackData_GrandLeftClaw"),
@@ -82,16 +90,14 @@ public class GrandBossBrain : MonoBehaviour
         leap.WireAssets(Resources.Load<AttackData>("Data/AttackData_GrandLeapLand"), tele);
         brain.WireModules(combo, leap, tele);
         tele.WireBrain(brain);
+        if (context != null) tele.WireHazardRoot(context.WorldHazardRoot);   // §4.3
 
         // v2.0.10 批2:奔袭/围猎/石柱状态
         GrandChargeAttack charge = boss.GetComponent<GrandChargeAttack>();
         if (charge == null) charge = boss.AddComponent<GrandChargeAttack>();
         GrandMoonHunt hunt = boss.GetComponent<GrandMoonHunt>();
         if (hunt == null) hunt = boss.AddComponent<GrandMoonHunt>();
-        BossArenaState arenaState = boss.GetComponentInParent<BossArenaState>();
-        // P0-5:缺 Arena 不再静默创建空对象(空 Arena 使石柱联动静默失效)——
-        // 记警告继续但二阶段石柱功能明确降级(训练房/测试可手动挂)
-        if (arenaState == null) Debug.LogWarning("[Grand] 无 BossArenaState 上下文——二阶段石柱联动降级(奔袭/围猎可用,撞柱无效果)");
+
         charge.Wire(arenaState, tele, LayerMask.GetMask("Default"), LayerMask.GetMask("Default", "Obstacle"));   // v2.0.10:玩家在 Default(无 Player Layer)
         hunt.Wire(arenaState, tele, LayerMask.GetMask("Default"));
         brain.chargeAttack = charge;
