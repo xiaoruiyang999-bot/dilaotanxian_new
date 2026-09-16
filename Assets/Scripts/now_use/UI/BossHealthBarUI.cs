@@ -47,6 +47,10 @@ public static class BossHealthBarUI
         var health = boss.GetComponent<EnemyHealth>();
         if (health == null) return;
 
+        // 隐藏 Boss 头顶世界空间血条(屏幕血条取代)
+        var worldBar = boss.GetComponent<WorldSpaceHealthBar>();
+        if (worldBar != null) worldBar.enabled = false;
+
         Unsubscribe();   // 防重复(切 Boss 房时先清旧追踪)
         trackedHealth = health;
         trackedRoom = room;
@@ -75,6 +79,12 @@ public static class BossHealthBarUI
 
     public static void Hide()
     {
+        // 恢复世界血条(Boss 还活着且未销毁时——如玩家跑出房间;死亡则无意义)
+        if (trackedHealth != null && !trackedHealth.IsDead)
+        {
+            var worldBar = trackedHealth.GetComponent<WorldSpaceHealthBar>();
+            if (worldBar != null) worldBar.enabled = true;
+        }
         Unsubscribe();
         if (canvasGo != null)
         {
