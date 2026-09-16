@@ -44,6 +44,9 @@ public class GrandBossBrain : MonoBehaviour
     [SerializeField] private EnemyController controller;
     [SerializeField] private GrandBasicCombo basicCombo;
     [SerializeField] private GrandTripleLeap tripleLeap;
+    [SerializeField] private GrandChargeAttack chargeAttack;   // v2.0.10 批2
+    [SerializeField] private GrandMoonHunt moonHunt;           // v2.0.10 批2
+    [SerializeField] private BossArenaState arena;             // v2.0.10 批2 石柱状态
     [SerializeField] private BossTelegraphController telegraph;
 
     private Transform player;
@@ -73,6 +76,19 @@ public class GrandBossBrain : MonoBehaviour
         brain.WireModules(combo, leap, tele);
         tele.WireBrain(brain);
 
+        // v2.0.10 批2:奔袭/围猎/石柱状态
+        GrandChargeAttack charge = boss.GetComponent<GrandChargeAttack>();
+        if (charge == null) charge = boss.AddComponent<GrandChargeAttack>();
+        GrandMoonHunt hunt = boss.GetComponent<GrandMoonHunt>();
+        if (hunt == null) hunt = boss.AddComponent<GrandMoonHunt>();
+        BossArenaState arenaState = boss.GetComponentInParent<BossArenaState>();
+        if (arenaState == null) { var ago = new GameObject("BossArenaState"); arenaState = ago.AddComponent<BossArenaState>(); }
+        charge.Wire(arenaState, tele, LayerMask.GetMask("Player"), LayerMask.GetMask("Default"));
+        hunt.Wire(arenaState, tele, LayerMask.GetMask("Player"));
+        brain.chargeAttack = charge;
+        brain.moonHunt = hunt;
+        brain.arena = arenaState;
+
         BossPhaseController phase = boss.GetComponent<BossPhaseController>();
         if (phase != null) phase.BindBrain(brain);
         GrandBossArtAdapter.EnsureOn(boss, brain);
@@ -90,6 +106,14 @@ public class GrandBossBrain : MonoBehaviour
         telegraph = warningController;
     }
 
+    /// <summary>批2 组件接线（EnsureOn 内联调用——保持 WireModules 签名兼容）。</summary>
+    public void WirePhaseTwoModules(GrandChargeAttack charge, GrandMoonHunt hunt, BossArenaState arenaState)
+    {
+        chargeAttack = charge;
+        moonHunt = hunt;
+        arena = arenaState;
+    }
+
     public void BroadcastWarning(Vector2 pos, float radius)
         => OnWarningShown?.Invoke(pos, radius);
 
@@ -102,6 +126,9 @@ public class GrandBossBrain : MonoBehaviour
         controller = GetComponent<EnemyController>();
         basicCombo = GetComponent<GrandBasicCombo>();
         tripleLeap = GetComponent<GrandTripleLeap>();
+        chargeAttack = GetComponent<GrandChargeAttack>();
+        moonHunt = GetComponent<GrandMoonHunt>();
+        arena = GetComponentInParent<BossArenaState>();
         telegraph = GetComponent<BossTelegraphController>();
         if (health != null) health.OnDeath += OnDead;
     }
@@ -262,26 +289,38 @@ public class GrandBossBrain : MonoBehaviour
     /// 二阶段专项模块接入前的兼容执行器：只消费 BossPhaseController 配置的 P2 AttackData 池，
     /// 不会回退到一阶段双爪或三重跃击。
     /// </summary>
+    /// <summary>二阶段招式：奔袭/围猎交替（不连续同招，文档 §四）;批2 真实模块接入。</summary>
     private IEnumerator RunPhaseTwoAttack()
     {
         controller?.StopMoving();
-        if (player != null)
-        {
-            Vector2 direction = (Vector2)player.position - (Vector2)transform.position;
-            controller?.FaceTowards(direction);
-        }
 
-        if (combat == null || player == null || !combat.TryStartAttack(player))
+        bool chargeNext = lastAttackState != BossState.ChargeAttack;   // 交替
+        if (chargeNext && chargeAttack != null)
         {
-            FinishAction();
-            yield break;
+            yield return chargeAttack.Run(player, this);
         }
-
-        float timeout = 8f;
-        while (combat.IsAttacking && timeout > 0f && !dead)
+        else if (!chargeNext && moonHunt != null)
         {
-            timeout -= Time.deltaTime;
-            yield return null;
+            yield return moonHunt.Run(player, this);
+        }
+        else if (chargeAttack != null)
+        {
+            yield return chargeAttack.Run(player, this);   // 围猎缺组件兜底
+        }
+        else
+        {
+            // 批2 组件全缺的极端兜底：回旧 AttackData 池路径
+            if (combat == null || player == null || !combat.TryStartAttack(player))
+            {
+                FinishAction();
+                yield break;
+            }
+            float timeout = 8f;
+            while (combat.IsAttacking && timeout > 0f && !dead)
+            {
+                timeout -= Time.deltaTime;
+                yield return null;
+            }
         }
         FinishAction();
     }

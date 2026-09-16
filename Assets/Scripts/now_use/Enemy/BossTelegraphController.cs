@@ -35,6 +35,38 @@ public class BossTelegraphController : MonoBehaviour
         if (duration > 0f) StartCoroutine(AutoHide(go, duration));
     }
 
+    /// <summary>直线锁定预警（奔袭/扑击）：起点+方向+长度；duration 后自动隐藏。</summary>
+    public void ShowLine(Vector2 start, Vector2 dir, float length, float duration)
+    {
+        if (brainCache != null) brainCache.BroadcastWarning(start, length);
+
+        var go = new GameObject("BossTelegraph_Line");
+        go.transform.SetParent(transform, false);
+        go.transform.position = start + dir * (length * 0.5f);
+        go.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = CreateWhiteSprite();
+        sr.color = new Color(1f, 0.45f, 0.25f, 0.35f);
+        sr.sortingOrder = 1;
+        go.transform.localScale = new Vector3(length, 1.2f, 1f);
+
+        active.Add(go);
+        if (duration > 0f) StartCoroutine(AutoHide(go, duration));
+    }
+
+    private static Sprite ws;
+    private static Sprite CreateWhiteSprite()
+    {
+        if (ws == null)
+        {
+            Texture2D tex = Texture2D.whiteTexture;
+            ws = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f), tex.width);
+            ws.name = "RT_TelegraphWhite";
+        }
+        return ws;
+    }
+
     public void HideAll()
     {
         foreach (GameObject go in active) if (go != null) Destroy(go);
