@@ -36,6 +36,11 @@ public class GrandBossBrain : MonoBehaviour
     [SerializeField, Min(0f)] private float phaseWarningDuration = 1.8f;
     [SerializeField, Min(0f)] private float phaseTransitionDuration = 0.9f;
     [SerializeField, Min(0.1f)] private float phaseTwoMoveSpeedMultiplier = 1.35f;
+    [Header("四足追猎(§4.7 批4)")]
+    [SerializeField] private float timeSinceQuadHop = 99f;
+    [SerializeField] private float timeSinceLastCharge = 99f;
+    private System.Random quadRng;
+    private Vector2 lastFaceDirection = Vector2.right;   // 四足限速转向用
 
     [Header("组件（自动查找）")]
     [SerializeField] private EnemyAI ai;
@@ -124,6 +129,7 @@ public class GrandBossBrain : MonoBehaviour
     private void Awake()
     {
         ArtRoot = transform.Find("ArtRoot");
+        quadRng = new System.Random(System.Environment.TickCount);
         ai = GetComponent<EnemyAI>();
         combat = GetComponent<EnemyCombat>();
         health = GetComponent<EnemyHealth>();
@@ -188,7 +194,7 @@ public class GrandBossBrain : MonoBehaviour
                 DriveApproach(1f, criticalFrenzy ? BossState.FourHitCombo : BossState.BasicCombo);
                 break;
             case BossState.QuadrupedChase:
-                DriveApproach(phaseTwoMoveSpeedMultiplier, BossState.ChargeAttack);
+                DriveQuadruped();
                 break;
             case BossState.BasicCombo:
             case BossState.Retreat:
@@ -230,6 +236,58 @@ public class GrandBossBrain : MonoBehaviour
         }
         if (delta.magnitude <= attackRange && decisionTimer <= 0f)
             Enter(attackState);
+    }
+
+    /// <summary>四足追猎(§4.7):四行为决策器驱动——Chase/Orbit/Reposition/SideHop。</summary>
+    private void DriveQuadruped()
+    {
+        if (player == null) return;
+        timeSinceQuadHop += Time.deltaTime;
+        timeSinceLastCharge += Time.deltaTime;
+
+        // RoomBounds 简化:取 Boss 房 ContentRoot 的第一个 Collider(或用固定包围盒)
+        Rect bounds = EstimateRoomBounds();
+
+        var d = GrandQuadLocomotion.Decide(
+            transform.position, player.position,
+            lastFaceDirection,
+            bounds, timeSinceQuadHop, timeSinceLastCharge, quadRng);
+
+        // 执行决策
+        lastFaceDirection = d.Direction;   // 记录当前朝向(限速转向基准)
+        controller?.FaceTowards(d.Direction);
+        controller?.MoveTowards(d.Direction, phaseTwoMoveSpeedMultiplier * d.SpeedMultiplier);
+
+        if (d.Mode == GrandQuadLocomotion.MoveMode.SideHop)
+            timeSinceQuadHop = 0f;
+
+        // 满足招式条件→进入
+        if (d.ReadyToCharge && decisionTimer <= 0f)
+        {
+            timeSinceLastCharge = 0f;
+            Enter(BossState.ChargeAttack);
+        }
+        else if (d.ReadyToMoonHunt && decisionTimer <= 0f)
+        {
+            timeSinceLastCharge = 0f;
+            Enter(BossState.ChargeAttack);   // 围猎也走 ChargeAttack 调度(RunPhaseTwoAttack 内交替)
+        }
+    }
+
+    /// <summary>估算房间包围盒(批4 简化:从 Arena 或固定范围)。</summary>
+    private Rect EstimateRoomBounds()
+    {
+        if (arena != null)
+        {
+            // 从 Arena 的第一根柱估算
+            var pillar = arena.FindNearest(transform.position, s => true);
+            if (pillar != null)
+            {
+                float cx = pillar.Center.x, cy = pillar.Center.y;
+                return new Rect(cx - 15f, cy - 10f, 30f, 20f);
+            }
+        }
+        return new Rect(transform.position.x - 15f, transform.position.y - 10f, 30f, 20f);
     }
 
     private void Enter(BossState next)
