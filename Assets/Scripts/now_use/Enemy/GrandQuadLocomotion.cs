@@ -81,7 +81,7 @@ public static class GrandQuadLocomotion
 
         // 中距:追击(限速转向——不瞬移)
         d.Mode = MoveMode.Chase;
-        d.Direction = LimitTurn(currentFacing, dirToPlayer, TurnRateDeg * 0.016f);   // 每帧限转
+        d.Direction = LimitTurn(currentFacing, dirToPlayer, TurnRateDeg * Time.deltaTime * Mathf.Deg2Rad);   // P1:帧率无关限转
         d.SpeedMultiplier = 1f;
         return d;
     }

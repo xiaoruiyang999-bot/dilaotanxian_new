@@ -24,6 +24,7 @@ public class GrandTripleLeap : MonoBehaviour
     [SerializeField] private LayerMask playerLayer;
 
     private readonly Collider2D[] overlapBuffer = new Collider2D[OverlapCapacity];
+    private static readonly RaycastHit2D[] blockBuf = new RaycastHit2D[2];   // P1 零GC:柱遮挡查询缓冲
     private readonly IDamageable[] damagedTargets = new IDamageable[OverlapCapacity];
     private Rigidbody2D rb;
     private bool cancelled;
@@ -166,9 +167,10 @@ public class GrandTripleLeap : MonoBehaviour
         if (pillarMask == 0) return false;
         Vector2 dir = to - from;
         float dist = dir.magnitude;
-        var filter = new ContactFilter2D { layerMask = pillarMask, useLayerMask = true, useTriggers = false };
-        var buf = new Collider2D[2];
-        return Physics2D.CircleCastAll(from, 0.1f, dir.normalized, dist, pillarMask).Length > 0;
+        // P1 零GC:Unity 6 NonAlloc(带 results 数组,无分配)
+        var filter = new ContactFilter2D { useLayerMask = true };
+        filter.SetLayerMask(pillarMask);
+        return Physics2D.CircleCast(from, 0.1f, dir.normalized, dist, filter, blockBuf) > 0;
     }
 
     private static IDamageable FindPlayerDamageable(Collider2D hit)

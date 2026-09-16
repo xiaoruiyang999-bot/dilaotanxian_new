@@ -99,7 +99,7 @@ public class GrandBossBrain : MonoBehaviour
         if (hunt == null) hunt = boss.AddComponent<GrandMoonHunt>();
 
         charge.Wire(arenaState, tele, LayerMask.GetMask("Default"), LayerMask.GetMask("Default", "Obstacle"));   // v2.0.10:玩家在 Default(无 Player Layer)
-        hunt.Wire(arenaState, tele, LayerMask.GetMask("Default"));
+        hunt.Wire(arenaState, tele, LayerMask.GetMask("Default"), context != null ? context.WorldHazardRoot : null);
         brain.chargeAttack = charge;
         brain.moonHunt = hunt;
         brain.arena = arenaState;
@@ -219,7 +219,9 @@ public class GrandBossBrain : MonoBehaviour
     {
         float distance = DistanceToPlayer();
         if (PhaseTwo)
-            return distance <= attackRange + 1f ? BossState.ChargeAttack : BossState.QuadrupedChase;
+            return distance <= attackRange + 1f && timeSinceLastCharge > 3f
+            ? BossState.ChargeAttack
+            : BossState.QuadrupedChase;   // P1:近距仍需冷却好才直入奔袭(否则四足调整)
         if (criticalFrenzy)
             return distance <= attackRange ? BossState.FourHitCombo : BossState.Approach;
 

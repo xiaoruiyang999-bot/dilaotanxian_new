@@ -30,8 +30,9 @@ public static class BossRitualRoomDecorator
         // P0-4:Boss 房四柱注册到 BossArenaState(石柱三态真值;奔袭/围猎消费)
         RegisterArenaPillars(rootGo, room, layout);
 
-        // v2.0.10 批2:组合根——Boss 模块消费的显式上下文(§3.3)
-        var context = GrandBossEncounterContext.Create(room, rootGo.transform);
+        // v2.0.10 批2 修正:组合根挂 room.ContentRoot 直下(与 Boss 实例同父——
+        // Boss.EnsureOn 的 GetComponentInParent 能找到;原挂 rootGo 下是 Boss 的兄弟子节点永远找不到)
+        var context = GrandBossEncounterContext.Create(room, room.ContentRoot);
         var arenaComponent = rootGo.GetComponentInChildren<BossArenaState>();
         if (arenaComponent != null) context.BindArena(arenaComponent);
         BuildAltar(rootGo.transform, room, layout);
@@ -418,6 +419,8 @@ public static class BossRitualRoomDecorator
             col.transform.position = new Vector3(centers[i].x, centers[i].y, 0f);
             var box = col.AddComponent<BoxCollider2D>();
             box.size = new Vector2(2f, 2f);
+            int pillarLayer = LayerMask.NameToLayer("BossPillar");
+            if (pillarLayer >= 0) col.layer = pillarLayer;   // P0-新4:柱设 BossPillar Layer(遮挡查询依赖)
             arena.RegisterPillar(i, centers[i], slot != null ? slot.gameObject : null, box);
         }
     }

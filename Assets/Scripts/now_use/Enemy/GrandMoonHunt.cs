@@ -49,10 +49,14 @@ public class GrandMoonHunt : MonoBehaviour
         if (telegraph == null) telegraph = GetComponent<BossTelegraphController>();
     }
 
-    public void Wire(BossArenaState arenaState, BossTelegraphController tele, LayerMask player)
+    public void Wire(BossArenaState arenaState, BossTelegraphController tele, LayerMask player,
+        Transform worldHazardRoot = null)
     {
         arena = arenaState; telegraph = tele; playerMask = player;
+        hazardRoot = worldHazardRoot;
     }
+
+    private Transform hazardRoot;
 
     public void Cancel()
     {
@@ -105,8 +109,8 @@ public class GrandMoonHunt : MonoBehaviour
             if (Vector2.Distance(rb.position, target) < 1f)
                 pathIndex++;
 
-            // 中途扑击：绕了约半程后掷中
-            if (!pounceLocked && markCount >= maxMoonMarks / 2 && Random.value < 0.02f)
+            // P1 确定性扑击(§4.10:路径进度 55%~70% 区间必然锁定一次——禁止逐帧随机导致不扑击)
+            if (!pounceLocked && markCount >= Mathf.CeilToInt(maxMoonMarks * 0.55f))
             {
                 pounceTarget = player.position;   // 锁定玩家位置（不追踪）
                 pounceLocked = true;
@@ -205,7 +209,7 @@ public class GrandMoonHunt : MonoBehaviour
             Go = new GameObject("MoonMark"),
             Sr = null,
         };
-        mark.Go.transform.SetParent(transform, false);
+        mark.Go.transform.SetParent(hazardRoot, false);   // P1:月痕不挂 Boss(围猎移动时不拖拽)
         var sr = mark.Go.AddComponent<SpriteRenderer>();
         sr.sprite = CreateWhiteSprite();
         sr.color = new Color(0.7f, 0.5f, 0.9f, 0.4f);
@@ -227,15 +231,20 @@ public class GrandMoonHunt : MonoBehaviour
         foreach (MoonMark m in markPool) DeactivateMark(m);
     }
 
+    private Rect? cachedBounds;
+    /// <summary>P1:bounds 由 Wire 时注入或从 EncounterContext 获取(去除 FindAnyObjectByType)。</summary>
     private Rect GetRoomBounds()
     {
-        // 从 Brain 或自身向上找 Room（批2 简化：用 Boss 当前位置的固定包围盒）
-        var brain = GetComponent<GrandBossBrain>();
-        if (brain == null) return new Rect(-10, -6, 20, 12);
-        var room = FindAnyObjectByType<Room>();
-        if (room == null) return new Rect(-10, -6, 20, 12);
-        return new Rect(room.Bounds.xMin + 2f, room.Bounds.yMin + 2f,
-            room.Bounds.width - 4f, room.Bounds.height - 4f);
+        if (cachedBounds.HasValue) return cachedBounds.Value;
+        var context = GetComponentInParent<GrandBossEncounterContext>();
+        if (context != null && context.Room != null)
+        {
+            var b = context.Room.Bounds;
+            cachedBounds = new Rect(b.xMin + 2f, b.yMin + 2f, b.width - 4f, b.height - 4f);
+            return cachedBounds.Value;
+        }
+        cachedBounds = new Rect(transform.position.x - 15f, transform.position.y - 10f, 30f, 20f);
+        return cachedBounds.Value;
     }
 
     /// <summary>房间外围路径（四角矩形，顺/逆时针）。</summary>

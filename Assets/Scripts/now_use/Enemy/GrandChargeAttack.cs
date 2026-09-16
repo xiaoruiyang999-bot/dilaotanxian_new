@@ -106,7 +106,9 @@ public class GrandChargeAttack : MonoBehaviour
                     yield return new WaitForSeconds(intactPillarStagger);
                     yield break;   // 撞柱即断连
                 case ChargeEndReason.HitCrackedPillar:
-                    brain.EnterSubState(GrandBossBrain.BossState.Stunned);   // 长眩晕→Brain 收管恢复
+                    // P0-新2 修复:不走 EnterSubState(Stunned)(FinishAction 会拦截且无恢复协程——
+                    // 永久卡死);改为自等待 crackedPillarStun 后自然结束→Brain FinishAction 正常收管
+                    yield return new WaitForSeconds(crackedPillarStun);
                     yield break;
                 case ChargeEndReason.HitWall:
                     yield return new WaitForSeconds(wallRecover);
@@ -133,11 +135,11 @@ public class GrandChargeAttack : MonoBehaviour
     /// <summary>撞击检测：玩家(圆)→完整柱→裂柱→外墙。</summary>
     private ChargeEndReason CheckImpact()
     {
-        // 玩家
+        // 玩家(P0-新3:必须同时有 IDamageable 才算命中——不能碰任何 Default 就 HitPlayer)
         Collider2D player = Physics2D.OverlapCircle(rb.position, bodyHitRadius, playerMask);
-        if (player != null)
+        if (player != null && player.TryGetComponent(out IDamageable dmg))
         {
-            if (player.TryGetComponent(out IDamageable dmg)) dmg.TakeDamage(chargeDamage);
+            dmg.TakeDamage(chargeDamage);
             return ChargeEndReason.HitPlayer;
         }
 

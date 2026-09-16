@@ -177,11 +177,10 @@ public class TrainingRoomManager : MonoBehaviour
         var go = Instantiate(prefab, pos, Quaternion.identity, spawnRoot);
         go.name = "Training_GrandBoss";
 
-        // 全套组件自举（§5.1）
+        // 全套组件自举（§5.1）——先建 Arena 再 EnsureOn(顺序修正)
+        SetupPillars();
         GrandBossBrain.EnsureOn(go);
 
-        // 石柱布置（§5.2）：四角内缩 4 格
-        SetupPillars();
         statsPanel?.Track(go.GetComponent<EnemyHealth>(), "格兰 Boss");
 
         Debug.Log("[Training] 格兰 Boss 刷出（全套组件 + 4 石柱）");
@@ -210,8 +209,14 @@ public class TrainingRoomManager : MonoBehaviour
             pgo.transform.localScale = new Vector3(1.8f, 2.6f, 1f);
             var col = pgo.AddComponent<BoxCollider2D>();
             col.size = new Vector2(1.8f, 2.6f);
+            int pillarLayer = LayerMask.NameToLayer("BossPillar");
+            if (pillarLayer >= 0) pgo.layer = pillarLayer;
             arenaState.RegisterPillar(i, corners[i], pgo, col);
         }
+
+        // 批2修正:训练房也建 EncounterContext(与 Boss 同父)
+        var ctx = GrandBossEncounterContext.Create(null, spawnRoot);
+        ctx.BindArena(arenaState);
     }
 
     // ---------- 功能键（§3.3） ----------

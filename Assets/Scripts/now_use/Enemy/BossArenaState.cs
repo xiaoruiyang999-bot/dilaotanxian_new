@@ -86,7 +86,12 @@ public class BossArenaState : MonoBehaviour
             p.State = PillarState.Intact;
             if (p.Collider != null) p.Collider.enabled = true;
             if (p.RubbleZone != null) p.RubbleZone.SetActive(false);
-            if (p.Visual != null) p.Visual.SetActive(true);
+            if (p.Visual != null)
+            {
+                p.Visual.SetActive(true);
+                foreach (var sr in p.Visual.GetComponentsInChildren<SpriteRenderer>())
+                    sr.color = Color.white;   // P1:恢复原始颜色(开裂染的暗红要洗掉)
+            }
         }
     }
 
