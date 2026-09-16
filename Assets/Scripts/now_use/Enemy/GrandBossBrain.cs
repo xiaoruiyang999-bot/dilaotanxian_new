@@ -175,8 +175,10 @@ public class GrandBossBrain : MonoBehaviour
                 leapCooldownTimer = tripleLeapCooldown;
                 activeRoutine = StartCoroutine(RunModule(tripleLeap.Run(player, this)));
                 break;
+            // 非招式状态（Idle/Approach/二阶段预留）：只设状态不递归——原 default 里
+            // Enter(Approach) 对 Approach 自身无限递归（美术广播链上 body.color 反复赋值
+            // 即用户看到的"color setter 死循环"堆栈），修复为直落
             default:
-                Enter(BossState.Approach);
                 break;
         }
     }
