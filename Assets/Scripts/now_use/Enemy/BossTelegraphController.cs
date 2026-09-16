@@ -77,5 +77,9 @@ public class BossTelegraphController : MonoBehaviour
         return matCache;
     }
 
-    private void OnDisable() => HideAll();
+    private void OnDisable()
+    {
+        StopAllCoroutines();
+        HideAll();
+    }
 }

@@ -2,108 +2,122 @@ using DG.Tweening;
 using UnityEngine;
 
 /// <summary>
-/// Boss 阶段控制器（M3·v0.8.1；v2.0.8 升级三段，V2 §9.4 守门→追猎→失控）：
-/// P2 追猎（HP ≤ 50%）：替换招式池（冲锋/切割入池）、冷却 ×0.7、身体染红脉冲；
-/// P3 失控（HP ≤ 25%）：再换池（phase3Attacks 空=沿用 P2）、冷却再 ×0.85、持续赤红。
-/// 挂 Enemy_Boss prefab；阈值与倍率全参数化，具体招式差异在 AttackData SO 层配置。
+/// 格兰双阶段生命阈值监听器。只负责发送“临界狼嚎”和“进入二阶段”命令，
+/// 招式启动权始终属于 GrandBossBrain。旧 P3 三阶段逻辑已停用。
 /// </summary>
 public class BossPhaseController : MonoBehaviour
 {
     [Header("阶段阈值")]
-    [Tooltip("P2 触发的血量比例（0.5 = 50%）")]
     [SerializeField, Range(0.05f, 1f)] private float phase2Threshold = 0.5f;
+    [SerializeField, Range(0f, 0.25f)] private float phaseWarningLead = 0.05f;
 
-    [Header("P2 招式池（空=不换池）")]
+    [Header("P2 AttackData 兼容池")]
     [SerializeField] private AttackData[] phase2Attacks;
-
-    [Header("P2 强化")]
-    [Tooltip("冷却乘数（0.7 ≈ 攻速 +43%，数值书 §5.3 攻击频率 +30% 档）")]
-    [SerializeField] private float phase2CooldownScale = 0.7f;
-    [Tooltip("P2 身体提示色（染红脉冲一次）")]
+    [SerializeField, Min(0.05f)] private float phase2CooldownScale = 0.7f;
     [SerializeField] private Color phase2Tint = new Color(1f, 0.35f, 0.25f);
 
-    [Header("P3 失控（v2.0.8，V2 §9.4）")]
-    [Tooltip("P3 触发的血量比例（0 = 禁用第三段）")]
-    [SerializeField, Range(0f, 1f)] private float phase3Threshold = 0.25f;
-    [Tooltip("P3 招式池（空 = 沿用 P2 池，仅数值强化）")]
-    [SerializeField] private AttackData[] phase3Attacks;
-    [Tooltip("P3 冷却再乘（叠加 P2：0.85 ≈ 失控期更凶）")]
-    [SerializeField] private float phase3CooldownScale = 0.85f;
-    [Tooltip("P3 持续赤红色")]
-    [SerializeField] private Color phase3Tint = new Color(1f, 0.22f, 0.15f);
+    // 仅承接旧 Prefab 已序列化的 P3 引用，避免迁移期产生悬空覆盖项；运行逻辑禁止消费。
+    [SerializeField, HideInInspector] private AttackData[] phase3Attacks;
 
     private EnemyHealth health;
     private EnemyCombat combat;
-    private GrandBossBrain brain;   // v2.0.10 批1：有脑时阶段命令发脑，不再直改攻击池
+    private GrandBossBrain brain;
     private SpriteRenderer bodySprite;
     private Color baseColor;
+    private float baseCooldownScale = 1f;
+    private bool warningSent;
     private bool phase2;
-    private bool phase3;
-    public bool Phase3 => phase3;
 
-    // v2.0.10 美术事件：阶段进入（P2 追猎/P3 失控）——染色外的独立订阅口
-    public event System.Action<int> OnPhaseEntered;   // (2 或 3)
+    public bool WarningSent => warningSent;
+    public bool PhaseTwoEntered => phase2;
+    public event System.Action<int> OnPhaseEntered;
 
-    void Awake()
+    public static bool ShouldEnterPhaseTwo(float healthRatio, float threshold, bool alreadyEntered)
+        => !alreadyEntered && healthRatio <= threshold;
+
+    public static bool ShouldSendWarning(float healthRatio, float phaseThreshold, float warningLead,
+        bool alreadySent, bool phaseEntered)
+    {
+        float warningThreshold = Mathf.Clamp01(phaseThreshold + warningLead);
+        return !alreadySent && !phaseEntered
+            && healthRatio > phaseThreshold && healthRatio <= warningThreshold;
+    }
+
+    private void Awake()
     {
         health = GetComponent<EnemyHealth>();
         combat = GetComponent<EnemyCombat>();
         brain = GetComponent<GrandBossBrain>();
         bodySprite = GetComponent<SpriteRenderer>();
         if (bodySprite != null) baseColor = bodySprite.color;
-        if (health != null)
-            health.OnHealthChanged += OnHpChanged;
+        if (combat != null) baseCooldownScale = combat.CooldownScale;
+        if (health != null) health.OnHealthChanged += OnHpChanged;
     }
 
-    void OnDestroy()
+    private void OnEnable()
     {
-        if (health != null)
-            health.OnHealthChanged -= OnHpChanged;
+        warningSent = false;
+        phase2 = false;
+        if (combat != null) combat.CooldownScale = baseCooldownScale;
+        if (bodySprite != null)
+        {
+            bodySprite.DOKill();
+            bodySprite.color = baseColor;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (bodySprite != null) bodySprite.DOKill();
+    }
+
+    private void OnDestroy()
+    {
+        if (health != null) health.OnHealthChanged -= OnHpChanged;
+    }
+
+    /// <summary>运行时自举时补接 Brain，消除 Prefab Awake 早于 AddComponent 的顺序依赖。</summary>
+    public void BindBrain(GrandBossBrain owner)
+    {
+        brain = owner;
     }
 
     private void OnHpChanged(float current, float max)
     {
-        if (max <= 0f) return;
+        if (max <= 0f || phase2) return;
         float ratio = current / max;
 
-        // P3 失控（先于 P2 判定，防止低血直跳时漏段）
-        if (!phase3 && phase3Threshold > 0f && ratio <= phase3Threshold)
+        if (ShouldEnterPhaseTwo(ratio, phase2Threshold, phase2))
         {
-            phase3 = true;
-            OnPhaseEntered?.Invoke(3);   // 美术广播
-            phase2 = true;   // 失控涵盖追猎强化
+            phase2 = true;
             if (combat != null)
             {
-                if (phase3Attacks != null && phase3Attacks.Length > 0)
-                    combat.SetAttackPool(phase3Attacks);
-                combat.CooldownScale *= phase3CooldownScale;
+                if (phase2Attacks != null && phase2Attacks.Length > 0)
+                    combat.SetAttackPool(phase2Attacks);
+                combat.CooldownScale = baseCooldownScale * phase2CooldownScale;
             }
+
+            brain?.EnterPhaseTwo();
+            OnPhaseEntered?.Invoke(2);
             if (bodySprite != null)
             {
                 bodySprite.DOKill();
-                bodySprite.color = phase3Tint;   // 持续赤红（失控态）
+                bodySprite.color = Color.Lerp(baseColor, phase2Tint, 0.65f);
             }
-            Debug.Log("[Boss] P3 失控：组合前段招式 + 更短安全窗口");
             return;
         }
 
-        if (phase2 || ratio > phase2Threshold) return;
-
-        phase2 = true;
-        if (brain != null) brain.EnterPhaseTwo();
-        OnPhaseEntered?.Invoke(2);   // 美术广播   // v2.0.10：状态机接管阶段切换（批2 起完整生效）
-        if (combat != null)
+        if (ShouldSendWarning(ratio, phase2Threshold, phaseWarningLead, warningSent, phase2))
         {
-            if (phase2Attacks != null && phase2Attacks.Length > 0)
-                combat.SetAttackPool(phase2Attacks);
-            combat.CooldownScale = phase2CooldownScale;
+            warningSent = true;
+            brain?.EnterPhaseWarning();
+            if (bodySprite != null)
+            {
+                bodySprite.DOKill();
+                bodySprite.DOColor(phase2Tint, 0.22f)
+                    .SetLoops(6, LoopType.Yoyo)
+                    .SetLink(gameObject);
+            }
         }
-        // 染红脉冲提示（DOTween；目标销毁自动 kill）
-        if (bodySprite != null)
-            bodySprite.DOColor(phase2Tint, 0.3f).SetLoops(4, LoopType.Yoyo)
-                .OnComplete(() => bodySprite.color = Color.Lerp(baseColor, phase2Tint, 0.35f))
-                .SetLink(gameObject);
-        AudioManager.PlaySFX("enemyDie");   // 低吼提示（未配静默）
-        Debug.Log("[Boss] 进入 P2：招式池切换 + 攻速提升");
     }
 }

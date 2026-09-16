@@ -1,38 +1,106 @@
 using NUnit.Framework;
+using UnityEngine;
+using UnityEditor;
 
-/// <summary>
-/// v2.0.10 批1 格兰状态机门禁（开发文档 §十一 验收：始终只有一个行为在运行等）。
-/// 纯枚举/合同测试——状态互斥与生命周期由 GrandBossBrain 运行时保证，EditMode 锁口径。
-/// </summary>
 public class GrandBossTests
 {
     [Test]
-    public void BossStates_MatchDesignDoc()
+    public void BossStates_MatchDesignContract()
     {
-        // 文档 §一 的 13 状态一个不少（新增/漏删都会在此红灯）
         string[] expected =
         {
             "Idle", "Approach", "BasicCombo", "Retreat", "TripleLeap", "PhaseWarning",
             "FourHitCombo", "PhaseTransition", "QuadrupedChase", "ChargeAttack", "MoonHunt",
             "Stunned", "Dead",
         };
-        var actual = System.Enum.GetNames(typeof(GrandBossBrain.BossState));
-        Assert.AreEqual(expected.Length, actual.Length, $"状态数 {actual.Length} ≠ 设计 {expected.Length}");
-        foreach (string name in expected)
-            Assert.Contains(name, actual, $"缺状态 {name}");
+        CollectionAssert.AreEquivalent(expected, System.Enum.GetNames(typeof(GrandBossBrain.BossState)));
+    }
+
+    [TestCase(0.56f, false)]
+    [TestCase(0.55f, true)]
+    [TestCase(0.51f, true)]
+    [TestCase(0.50f, false)]
+    public void PhaseWarning_OnlyOccursInsideLeadWindow(float ratio, bool expected)
+    {
+        Assert.AreEqual(expected,
+            BossPhaseController.ShouldSendWarning(ratio, 0.50f, 0.05f, false, false));
     }
 
     [Test]
-    public void ExecutingStates_AreCoroutineDriven_NonBlockingInUpdate()
+    public void PhaseCommands_AreIdempotent()
     {
-        // 执行态（协程模块驱动）在 Update 里必须空转（防 Update 与协程双驱动）
-        var executing = new[]
+        Assert.IsFalse(BossPhaseController.ShouldSendWarning(0.53f, 0.50f, 0.05f, true, false));
+        Assert.IsFalse(BossPhaseController.ShouldSendWarning(0.53f, 0.50f, 0.05f, false, true));
+        Assert.IsTrue(BossPhaseController.ShouldEnterPhaseTwo(0.50f, 0.50f, false));
+        Assert.IsFalse(BossPhaseController.ShouldEnterPhaseTwo(0.25f, 0.50f, true));
+    }
+
+    [Test]
+    public void TripleLeapOutcome_IsDeterministic()
+    {
+        Assert.AreEqual(GrandTripleLeap.Outcome.FollowUpCombo, GrandTripleLeap.ResolveOutcome(true));
+        Assert.AreEqual(GrandTripleLeap.Outcome.Stunned, GrandTripleLeap.ResolveOutcome(false));
+    }
+
+    [Test]
+    public void RuntimeAttackAssets_HaveUsableTargetLayers()
+    {
+        AttackData right = Resources.Load<AttackData>("Data/AttackData_GrandRightClaw");
+        AttackData left = Resources.Load<AttackData>("Data/AttackData_GrandLeftClaw");
+        AttackData leap = Resources.Load<AttackData>("Data/AttackData_GrandLeapLand");
+
+        Assert.NotNull(right);
+        Assert.NotNull(left);
+        Assert.NotNull(leap);
+        Assert.AreNotEqual(0, right.TargetLayer.value);
+        Assert.AreNotEqual(0, left.TargetLayer.value);
+        Assert.AreNotEqual(0, leap.TargetLayer.value);
+        Assert.AreNotEqual(0, leap.TargetLayer.value & (1 << LayerMask.NameToLayer("Default")),
+            "玩家 Prefab 当前位于 Default 层，跃击资产必须包含该层。");
+    }
+
+    [Test]
+    public void BossPrefab_ContainsFormalGrandComponents()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        Assert.NotNull(prefab);
+        Assert.NotNull(prefab.GetComponent<GrandBossBrain>());
+        Assert.NotNull(prefab.GetComponent<GrandBasicCombo>());
+        Assert.NotNull(prefab.GetComponent<GrandTripleLeap>());
+        Assert.NotNull(prefab.GetComponent<BossTelegraphController>());
+        Assert.NotNull(prefab.GetComponent<GrandBossArtAdapter>());
+    }
+
+    [Test]
+    public void EnsureOn_IsIdempotent_AndDisablesLegacyAiAuthority()
+    {
+        var boss = new GameObject("Enemy_Boss_Test");
+        try
         {
-            GrandBossBrain.BossState.BasicCombo, GrandBossBrain.BossState.Retreat,
-            GrandBossBrain.BossState.TripleLeap, GrandBossBrain.BossState.Stunned,
-            GrandBossBrain.BossState.PhaseWarning, GrandBossBrain.BossState.PhaseTransition,
-        };
-        foreach (var s in executing)
-            Assert.That((int)s, Is.GreaterThanOrEqualTo(0));   // 占位口径：执行态集合完整性由编译期枚举保证
+            boss.AddComponent<Rigidbody2D>();
+            boss.AddComponent<EnemyStats>();
+            boss.AddComponent<EnemyHealth>();
+            EnemyAI ai = boss.AddComponent<EnemyAI>();
+            boss.AddComponent<EnemyCombat>();
+            boss.AddComponent<EnemyController>();
+
+            GrandBossBrain first = GrandBossBrain.EnsureOn(boss);
+            GrandBossBrain second = GrandBossBrain.EnsureOn(boss);
+
+            Assert.AreSame(first, second);
+            Assert.IsFalse(ai.enabled, "格兰启用 GrandBossBrain 后，旧 EnemyAI 不得继续发起攻击。");
+            Assert.AreEqual(1, boss.GetComponents<GrandBossBrain>().Length);
+            Assert.AreEqual(1, boss.GetComponents<GrandBasicCombo>().Length);
+            Assert.AreEqual(1, boss.GetComponents<GrandTripleLeap>().Length);
+            Assert.AreEqual(1, boss.GetComponents<BossTelegraphController>().Length);
+
+            GrandTripleLeap leap = boss.GetComponent<GrandTripleLeap>();
+            AttackData leapData = Resources.Load<AttackData>("Data/AttackData_GrandLeapLand");
+            Assert.AreEqual(leapData.TargetLayer.value, leap.TargetLayer.value);
+        }
+        finally
+        {
+            Object.DestroyImmediate(boss);
+        }
     }
 }

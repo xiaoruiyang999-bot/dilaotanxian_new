@@ -16,6 +16,7 @@ public class GrandBossArtAdapter : MonoBehaviour
     private GrandBossBrain brain;
     private GrandTripleLeap leap;
     private GrandBasicCombo combo;
+    private BossPhaseController phase;
     private SpriteRenderer body;
     private Color baseColor;
 
@@ -26,11 +27,8 @@ public class GrandBossArtAdapter : MonoBehaviour
     public static GrandBossArtAdapter EnsureOn(GameObject boss, GrandBossBrain brain)
     {
         var adapter = boss.GetComponent<GrandBossArtAdapter>();
-        if (adapter == null)
-        {
-            adapter = boss.AddComponent<GrandBossArtAdapter>();
-            adapter.Bind(brain);
-        }
+        if (adapter == null) adapter = boss.AddComponent<GrandBossArtAdapter>();
+        if (adapter.brain != brain) adapter.Bind(brain);
         return adapter;
     }
 
@@ -39,6 +37,7 @@ public class GrandBossArtAdapter : MonoBehaviour
         brain = brainOwner;
         leap = GetComponent<GrandTripleLeap>();
         combo = GetComponent<GrandBasicCombo>();
+        phase = GetComponent<BossPhaseController>();
         // 占位渲染挂在 ArtRoot 指向的物体（缺省=自身——Boss 的 SpriteRenderer）
         body = (brain.ArtRoot != null ? brain.ArtRoot : transform).GetComponentInChildren<SpriteRenderer>();
         if (body != null) baseColor = body.color;
@@ -87,7 +86,7 @@ public class GrandBossArtAdapter : MonoBehaviour
                 body.color = new Color(0.25f, 0.25f, 0.25f);
                 break;
             default:
-                body.color = baseColor;   // 非特殊态回基色（阶段变色由 PhaseController 管理，此处不覆盖）
+                if (phase == null || !phase.PhaseTwoEntered) body.color = baseColor;
                 break;
         }
     }
