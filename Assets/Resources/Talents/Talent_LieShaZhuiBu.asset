@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 937f5a3542dc4914bb43797b3cf08c8d, type: 3}
+  m_Name: LieShaZhuiBu
+  m_EditorClassIdentifier: 
+  talentId: Werewolf_F14_T4
+  compatType: 1
+  tags:
+  - melee
+  branchId: F14
+  branchTint: {r: 0.55, g: 0.85, b: 0.5, a: 1}
+  tier: 4
+  prerequisiteId: Werewolf_F14_T3
+  displayName: "猎杀追步"
+  description: "近身承伤 +10%；完美闪避后获得 2 层贴身压制，满层重击击杀普通敌时自动突进最近敌并保留 2 层。"
+  drawback: "近身承伤提高——站桩输出更危险。"
+  values: [10, 2]

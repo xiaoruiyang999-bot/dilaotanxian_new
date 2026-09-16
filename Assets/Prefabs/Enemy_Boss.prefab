@@ -8,10 +8,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Name
-      value: Enemy_Boss
-      objectReference: {fileID: 0}
     - target: {fileID: 1048759183800617251, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxHealth
       value: 9000
@@ -42,11 +38,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3942204860829104876, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 7.7
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3942204860829104876, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 4
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3942204860829104876, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_LocalPosition.z
@@ -81,16 +77,24 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Color.r
-      value: 0.45
+      propertyPath: m_Color.b
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_Color.g
       value: 0.05
       objectReference: {fileID: 0}
     - target: {fileID: 4130923934963827647, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: m_Color.b
-      value: 0.1
+      propertyPath: m_Color.r
+      value: 0.45
+      objectReference: {fileID: 0}
+    - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackData
+      value:
+      objectReference: {fileID: 11400000, guid: 514c8444bec47b7478015d2f3b53c1c3, type: 2}
+    - target: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: m_Name
+      value: Enemy_Boss
       objectReference: {fileID: 0}
     - target: {fileID: 6461820464174567309, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: maxArmor
@@ -124,30 +128,6 @@ PrefabInstance:
       propertyPath: losePlayerRange
       value: 13
       objectReference: {fileID: 0}
-    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackDataSet.Array.size
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackDataSet.Array.data[0]
-      value:
-      objectReference: {fileID: 11400000, guid: 7e0665142feb4f7d920a25ff3e57dca5, type: 2}
-    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackDataSet.Array.data[1]
-      value:
-      objectReference: {fileID: 11400000, guid: 210c64513e4f470d9f50994bb63fdb09, type: 2}
-    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackDataSet.Array.data[2]
-      value:
-      objectReference: {fileID: 11400000, guid: 35da26beaf2e476997cc17491a01345a, type: 2}
-    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: selectionMode
-      value: 3
-      objectReference: {fileID: 0}
-    - target: {fileID: 5500000000000000005, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: attackData
-      value:
-      objectReference: {fileID: 11400000, guid: 514c8444bec47b7478015d2f3b53c1c3, type: 2}
     - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -157,27 +137,228 @@ PrefabInstance:
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: phase2Attacks.Array.data[0]
-      value: 
-      objectReference: {fileID: 11400000, guid: 514c8444bec47b7478015d2f3b53c1c3, type: 2}
-    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: phase2Attacks.Array.data[1]
-      value: 
-      objectReference: {fileID: 11400000, guid: 4041da820c184a3bad77e120d91ce616, type: 2}
-    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       propertyPath: phase3Attacks.Array.size
       value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: phase3Attacks.Array.data[0]
-      value: 
+      propertyPath: 'phase2Attacks.Array.data[0]'
+      value:
+      objectReference: {fileID: 11400000, guid: 514c8444bec47b7478015d2f3b53c1c3, type: 2}
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: 'phase2Attacks.Array.data[1]'
+      value:
+      objectReference: {fileID: 11400000, guid: 4041da820c184a3bad77e120d91ce616, type: 2}
+    - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: 'phase3Attacks.Array.data[0]'
+      value:
       objectReference: {fileID: 11400000, guid: 8b81c97ee45e456db8ff513eb48f8f15, type: 2}
     - target: {fileID: 6660000000000000001, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
-      propertyPath: phase3Attacks.Array.data[1]
-      value: 
+      propertyPath: 'phase3Attacks.Array.data[1]'
+      value:
       objectReference: {fileID: 11400000, guid: fd8a57277def4fe9a569ed84fd958c00, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: selectionMode
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: attackDataSet.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: 'attackDataSet.Array.data[0]'
+      value:
+      objectReference: {fileID: 11400000, guid: 7e0665142feb4f7d920a25ff3e57dca5, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: 'attackDataSet.Array.data[1]'
+      value:
+      objectReference: {fileID: 11400000, guid: 210c64513e4f470d9f50994bb63fdb09, type: 2}
+    - target: {fileID: 8337342438853369050, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      propertyPath: 'attackDataSet.Array.data[2]'
+      value:
+      objectReference: {fileID: 11400000, guid: 35da26beaf2e476997cc17491a01345a, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6158618763668716058}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1576233264357266839}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1643404637063177382}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 354103389674171855}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4699517870455456335}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6158618763668716059}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6158618763668716060}
   m_SourcePrefab: {fileID: 100100000, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+--- !u!1 &6136619345674069884 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+  m_PrefabInstance: {fileID: 1000000000000000000}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &6158618763668716058
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6136619345674069884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c99d3750f7a4b81a0abfb41197cc451, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game::GrandBossBrain
+  decisionInterval: 0.6
+  attackRange: 2.6
+  tripleLeapCooldown: 14
+  leapPickChance: 0.4
+  phaseWarningDuration: 1.8
+  phaseTransitionDuration: 0.9
+  phaseTwoMoveSpeedMultiplier: 1.35
+  ai: {fileID: 0}
+  combat: {fileID: 0}
+  health: {fileID: 0}
+  controller: {fileID: 0}
+  basicCombo: {fileID: 0}
+  tripleLeap: {fileID: 0}
+  telegraph: {fileID: 0}
+--- !u!114 &1576233264357266839
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6136619345674069884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f923fc90df624cc186e916d2157d7231, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game::GrandBasicCombo
+  rightClaw: {fileID: 0}
+  leftClaw: {fileID: 0}
+  gapBetweenClaws: 1
+  retreatDistance: 2.2
+  retreatSpeed: 3.2
+  maxTurnAnglePerClaw: 35
+  criticalComboGap: 0.55
+  criticalRecovery: 1
+--- !u!114 &1643404637063177382
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6136619345674069884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e5fc49b7ecd4fb18da4c8f3f465937e, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game::GrandTripleLeap
+  jumpWindup: 0.7
+  airTime: 0.55
+  gapBetweenJumps: 2
+  centerRadius: 1.3
+  shockRadius: 2.8
+  shockDamage: 18
+  allMissStunSeconds: 6.5
+  landAttack: {fileID: 0}
+  telegraph: {fileID: 0}
+  playerLayer:
+    serializedVersion: 2
+    m_Bits: 0
+--- !u!114 &354103389674171855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6136619345674069884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51baad7d5d8d46d09f3b67f8f192b2ab, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game::BossTelegraphController
+--- !u!114 &4699517870455456335
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6136619345674069884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b572a3b36a0b48c99e62146c8a326476, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game::GrandBossArtAdapter
+
+--- !u!114 &6158618763668716059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6397662869274847100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3024915ab2eaf0e44b53bb909d1fc2aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  windupTime: 0.9
+  chargeSpeed: 12
+  maxChargeDistance: 14
+  bodyHitRadius: 1.4
+  chargeDamage: 80
+  gapBetweenCharges: 0.8
+  allMissRecoverTime: 2.5
+  hitPlayerRecover: 1
+  intactPillarStagger: 1.8
+  crackedPillarStun: 4
+  wallRecover: 1.2
+  arena: {fileID: 0}
+  telegraph: {fileID: 0}
+  brain: {fileID: 0}
+  playerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  wallMask:
+    serializedVersion: 2
+    m_Bits: 257
+--- !u!114 &6158618763668716060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6397662869274847100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c83a334b9b61354385e32c2348b16cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  prepTime: 1.2
+  runSpeed: 8
+  moonMarkSpacing: 2.5
+  maxMoonMarks: 14
+  moonMarkDamage: 22
+  moonMarkRadius: 1.2
+  markBurstInterval: 0.3
+  moonMarkTelegraph: 0.5
+  pounceDamage: 90
+  pounceRadius: 1.6
+  recoverTime: 1.8
+  arena: {fileID: 0}
+  telegraph: {fileID: 0}
+  playerMask:
+    serializedVersion: 2
+    m_Bits: 1

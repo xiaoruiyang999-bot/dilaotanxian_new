@@ -242,11 +242,39 @@ public class EnemyCombat : MonoBehaviour
         AttackData picked = PickAttack(target);
         if (picked == null) return false;
         if (!IsTargetWithinAttackGeometry(transform.position, target.position, picked)) return false;
+        return BeginAttack(target, picked);
+    }
 
+    /// <summary>
+    /// 由上层状态机执行指定攻击。不会改写随机攻击池，供 Boss 连段等确定性流程使用。
+    /// </summary>
+    public bool TryStartAttack(Transform target, AttackData forcedAttack)
+    {
+        if (target == null || !CanAttack) return false;
+        return BeginAttack(target, forcedAttack);
+    }
+
+    private bool BeginAttack(Transform target, AttackData picked)
+    {
+        if (picked == null) return false;
         currentTarget = target;
         attackData = picked;
         EnterWindup();
         return true;
+    }
+
+    /// <summary>外部状态机在死亡、阶段转换或房间卸载时立即清除攻击判定与预警。</summary>
+    public void CancelCurrentAttack()
+    {
+        if (currentState == AttackState.None)
+        {
+            weaponHitbox?.EndSwing();
+            attackIndicator?.Hide();
+            controller?.StopMoving();
+            return;
+        }
+
+        CancelAttackWithCooldown(0f);
     }
 
     private AttackData PickAttack(Transform target)

@@ -182,6 +182,10 @@ public class FrameAnimator : MonoBehaviour
         // Start + yield return null 之后才调 SetWerewolfVisual，本组件 Awake 已按战士渲染了一帧。
         // 在首次渲染前读载体直接初始化对应外形；SetWerewolfVisual 幂等，场景侧后续调用为 no-op。
         // 武器/属性等仍走原延迟链路，此处只对齐视觉首帧。
+        // v1.1.33 首帧外形对齐（进图闪现错形态的时序修复）：在首次渲染前读载体直接初始化对应外形；
+        // SetWerewolfVisual 幂等，场景侧后续调用为 no-op。
+        // v2.0.9 勘误：Warrior 帧目录是狼人角色的常人形态素材（人↔狼变身的「人」侧），
+        // 不是独立战士角色资源——目录保留，此前删除动作已回滚
         RunStateCarrier carrier = RunStateCarrier.Ensure();
         if (carrier.HasPlayableCharacter
             && carrier.ChosenPlayableCharacterId == PlayableCharacterId.Werewolf)

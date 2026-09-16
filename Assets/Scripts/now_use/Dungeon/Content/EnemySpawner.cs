@@ -121,6 +121,12 @@ public static class EnemySpawner
             // v0.5.4 楼层 HP 缩放（dmgMul 预留恒 1，见 EnemyStats.ApplyFloorScale 注释）
             if (config != null && floorNumber > 1)
                 go.GetComponent<EnemyStats>()?.ApplyFloorScale(1f + config.hpMultiplierPerFloor * (floorNumber - 1), 1f);
+            // v2.0.10 格兰总脑自举：只对 Enemy_Boss Prefab（源 Prefab 名精确匹配——
+            // 基础 Enemy.prefab 带 BossPhaseController 且全部敌人变体继承,
+            // GetComponent 检查会误伤所有小怪禁其 AI/Combat,此处必须按源判）
+            if (picks[i].prefab != null && picks[i].prefab.name == "Enemy_Boss")
+                GrandBossBrain.EnsureOn(go);
+
             room.RegisterEnemy(go.GetComponent<EnemyHealth>());
         }
     }

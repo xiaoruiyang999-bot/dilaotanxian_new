@@ -38,7 +38,30 @@ public static class RoomRewardHook
         subscriptions.Clear();
     }
 
+    /// <summary>v2.0.9 延迟弹出（用户定案）：清房 → 约 2 秒呼吸 → 奖励三选一。懒建协程宿主。</summary>
+    private static RewardSequencer sequencer;
+    private const float ShowDelaySeconds = 2.0f;
+
     private static void OnRoomCleared(Room room)
+    {
+        if (sequencer == null)
+        {
+            var go = new GameObject("RoomRewardSequencer");
+            sequencer = go.AddComponent<RewardSequencer>();
+        }
+        Room capturedRoom = room;
+        sequencer.StartCoroutine(SequencerDelayedShow(capturedRoom));
+    }
+
+    private static System.Collections.IEnumerator SequencerDelayedShow(Room room)
+    {
+        yield return new WaitForSeconds(ShowDelaySeconds);
+        // 延迟期间玩家死亡/换层：房间对象已失效则放弃本次奖励
+        if (room == null) yield break;
+        DoShowRewards(room);
+    }
+
+    private static void DoShowRewards(Room room)
     {
         PlayerStats stats = UnityEngine.Object.FindAnyObjectByType<PlayerStats>();
         Health health = stats != null ? stats.GetComponent<Health>() : null;
@@ -94,3 +117,6 @@ public static class RoomRewardHook
         Debug.Log($"[RoomReward] 应用奖励：{opt.Title}（{opt.Description}）");
     }
 }
+
+/// <summary>奖励延迟协程宿主（挂场景根，随场景卸载销毁——协程自动终止）。</summary>
+internal class RewardSequencer : MonoBehaviour { }
