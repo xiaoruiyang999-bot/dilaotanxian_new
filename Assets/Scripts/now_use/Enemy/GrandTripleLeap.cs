@@ -170,7 +170,7 @@ public class GrandTripleLeap : MonoBehaviour
         // P1 零GC:Unity 6 NonAlloc(带 results 数组,无分配)
         var filter = new ContactFilter2D { useLayerMask = true };
         filter.SetLayerMask(pillarMask);
-        return Physics2D.CircleCast(from, 0.1f, dir.normalized, dist, filter, blockBuf) > 0;
+        return Physics2D.CircleCast(from, 0.1f, dir.normalized, filter, blockBuf, dist) > 0;
     }
 
     private static IDamageable FindPlayerDamageable(Collider2D hit)
