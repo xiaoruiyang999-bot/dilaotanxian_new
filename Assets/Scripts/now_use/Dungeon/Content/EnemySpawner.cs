@@ -125,7 +125,10 @@ public static class EnemySpawner
             // 基础 Enemy.prefab 带 BossPhaseController 且全部敌人变体继承,
             // GetComponent 检查会误伤所有小怪禁其 AI/Combat,此处必须按源判）
             if (picks[i].prefab != null && picks[i].prefab.name == "Enemy_Boss")
+            {
+                Debug.Log($"[Boss] Enemy_Boss 实例化 pos={pos} (pick[{i}]={picks[i].prefab.name})");
                 GrandBossBrain.EnsureOn(go);
+            }
 
             room.RegisterEnemy(go.GetComponent<EnemyHealth>());
         }

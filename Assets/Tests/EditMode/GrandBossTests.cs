@@ -103,4 +103,18 @@ public class GrandBossTests
             Object.DestroyImmediate(boss);
         }
     }
+
+    [Test]
+    public void BossTable_EntryPrefab_ResolvesToEnemyBoss()
+    {
+        var table = UnityEditor.AssetDatabase.LoadAssetAtPath<SpawnTable>(
+            "Assets/Data/Dungeon/EnemyTable_Boss.asset");
+        Assert.NotNull(table, "EnemyTable_Boss.asset 缺失");
+        Assert.GreaterOrEqual(table.entries.Count, 1, "Boss 表至少一项");
+        var boss = table.entries[0];
+        Assert.NotNull(boss.prefab, "Boss 表第一项 Prefab 引用为 null(fileID 失效——格兰无法生成)");
+        Assert.AreEqual("Enemy_Boss", boss.prefab.name,
+            $"第一项应为 Enemy_Boss(实际: {boss.prefab.name})");
+        Assert.GreaterOrEqual(boss.minCount, 1, "Boss 保底 minCount ≥1(权重 0 依赖保底)");
+    }
 }

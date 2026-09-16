@@ -182,6 +182,7 @@ public class DungeonBuilder : MonoBehaviour
             && bossRitualLayouts.TryGetValue(node.id, out BossRitualRoomLayout bossLayout))
         {
             IReadOnlyList<Vector3> fixedPositions = BossRitualRoomDecorator.Build(room, bossLayout);
+            Debug.Log($"[Boss] 仪式厅装饰完成 node={node.id} 固定插槽={fixedPositions?.Count ?? 0} profile存在={profile != null}");
             if (profile != null)
             {
                 var bossRng = new System.Random(BossRitualRoomTemplate.ContentSeed);

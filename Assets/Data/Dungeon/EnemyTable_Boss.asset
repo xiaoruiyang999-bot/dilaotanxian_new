@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: EnemyTable_Boss
   m_EditorClassIdentifier: Assembly-CSharp::SpawnTable
   entries:
-  - prefab: {fileID: 6582660801496191243, guid: a1bf029a568e3ae4489a8fa7981093a8, type: 3}
+  - prefab: {fileID: 6136619345674069884, guid: a1bf029a568e3ae4489a8fa7981093a8, type: 3}
     weight: 0
     minCount: 1
     destructible: 0
