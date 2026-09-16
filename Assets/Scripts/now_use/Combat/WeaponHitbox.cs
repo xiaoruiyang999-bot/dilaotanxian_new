@@ -70,12 +70,11 @@ public class WeaponHitbox : MonoBehaviour
     private IDamageable swingFirstTarget;
     private float swingFirstDealt;
 
-    // V2 横向攻击带（玩家与敌人共用）：laneWidth>0 时判定不再是
-    // 跟随武器旋转的细长矩形，而是"玩家前方水平带"——X=攻击距离、Y=纵深容错，
-    // 以攻击者根位置（下半身判定）为基准。
+    // V2 横向攻击带：玩家和敌人的有方向攻击都使用同一矩形几何。
+    // X=攻击距离、Y=纵深/跨线能力，方向仅 Left/Right；视觉旋转不再影响判定。
     private float laneWidth;
-    private Vector2 laneDirection = Vector2.right;
     private float laneOriginOffset = 0.35f;
+    private Vector2 laneDirection = Vector2.right;
     private float circleRadius;
     /// <summary>当前攻击带纵深宽（>0 = 横向带模式；0 = 旧旋转矩形模式）。</summary>
     public float LaneWidth => laneWidth;
@@ -98,11 +97,12 @@ public class WeaponHitbox : MonoBehaviour
         SetLaneMode(width, facingSign >= 0f ? Vector2.right : Vector2.left);
     }
 
-    /// <summary>进入以攻击者为中心的圆形判定模式。</summary>
+    /// <summary>进入自身中心圆形判定模式；用于无方向范围技，预警与 Hitbox 共用半径。</summary>
     public void SetCircleMode(float radius)
     {
-        circleRadius = Mathf.Max(0f, radius);
+        circleRadius = Mathf.Max(0.01f, radius);
         laneWidth = 0f;
+        laneOriginOffset = 0f;
     }
 
     void Awake()

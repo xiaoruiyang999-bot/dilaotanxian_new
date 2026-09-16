@@ -133,7 +133,8 @@ public class EnemyCombat : MonoBehaviour
     }
 
     /// <summary>
-    /// 普通状态下不驱动武器旋转；EnemyAI 只更新水平 Sprite 朝向。
+    /// 普通状态不驱动攻击方向。EnemyController 同步水平视觉与武器朝向；
+    /// 真正攻击方向在 EnterWindup 解析并锁定。
     /// </summary>
     private void UpdateAiming()
     {
