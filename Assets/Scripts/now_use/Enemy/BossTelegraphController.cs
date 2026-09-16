@@ -22,7 +22,7 @@ public class BossTelegraphController : MonoBehaviour
     {
         if (brainCache != null) brainCache.BroadcastWarning(center, radius);
         var go = new GameObject("BossTelegraph_Circle");
-        go.transform.SetParent(transform, false);
+        go.transform.SetParent(null, false);   // P0-7:预警挂场景根不挂 Boss(锁点后不随 Boss 移动)
         go.transform.position = center;
         var mf = go.AddComponent<MeshFilter>();
         var mr = go.AddComponent<MeshRenderer>();
@@ -41,7 +41,7 @@ public class BossTelegraphController : MonoBehaviour
         if (brainCache != null) brainCache.BroadcastWarning(start, length);
 
         var go = new GameObject("BossTelegraph_Line");
-        go.transform.SetParent(transform, false);
+        go.transform.SetParent(null, false);   // P0-7:预警挂场景根不挂 Boss(锁点后不随 Boss 移动)
         go.transform.position = start + dir * (length * 0.5f);
         go.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
         var sr = go.AddComponent<SpriteRenderer>();

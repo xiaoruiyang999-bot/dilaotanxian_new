@@ -195,6 +195,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4699517870455456335}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6158618763668716059}
+    - targetCorrespondingSourceObject: {fileID: 6397662869274847100, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6158618763668716060}
   m_SourcePrefab: {fileID: 100100000, guid: d9dc7c82d6bd9044789ff9b7b7a49ef8, type: 3}
 --- !u!1 &6136619345674069884 stripped
 GameObject:
@@ -295,3 +301,64 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b572a3b36a0b48c99e62146c8a326476, type: 3}
   m_Name:
   m_EditorClassIdentifier: Game::GrandBossArtAdapter
+
+--- !u!114 &6158618763668716059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6397662869274847100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3024915ab2eaf0e44b53bb909d1fc2aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  windupTime: 0.9
+  chargeSpeed: 12
+  maxChargeDistance: 14
+  bodyHitRadius: 1.4
+  chargeDamage: 80
+  gapBetweenCharges: 0.8
+  allMissRecoverTime: 2.5
+  hitPlayerRecover: 1
+  intactPillarStagger: 1.8
+  crackedPillarStun: 4
+  wallRecover: 1.2
+  arena: {fileID: 0}
+  telegraph: {fileID: 0}
+  brain: {fileID: 0}
+  playerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  wallMask:
+    serializedVersion: 2
+    m_Bits: 257
+--- !u!114 &6158618763668716060
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6397662869274847100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c83a334b9b61354385e32c2348b16cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  prepTime: 1.2
+  runSpeed: 8
+  moonMarkSpacing: 2.5
+  maxMoonMarks: 14
+  moonMarkDamage: 22
+  moonMarkRadius: 1.2
+  markBurstInterval: 0.3
+  moonMarkTelegraph: 0.5
+  pounceDamage: 90
+  pounceRadius: 1.6
+  recoverTime: 1.8
+  arena: {fileID: 0}
+  telegraph: {fileID: 0}
+  playerMask:
+    serializedVersion: 2
+    m_Bits: 1

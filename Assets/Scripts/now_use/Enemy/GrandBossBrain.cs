@@ -82,9 +82,11 @@ public class GrandBossBrain : MonoBehaviour
         GrandMoonHunt hunt = boss.GetComponent<GrandMoonHunt>();
         if (hunt == null) hunt = boss.AddComponent<GrandMoonHunt>();
         BossArenaState arenaState = boss.GetComponentInParent<BossArenaState>();
-        if (arenaState == null) { var ago = new GameObject("BossArenaState"); arenaState = ago.AddComponent<BossArenaState>(); }
-        charge.Wire(arenaState, tele, LayerMask.GetMask("Player"), LayerMask.GetMask("Default"));
-        hunt.Wire(arenaState, tele, LayerMask.GetMask("Player"));
+        // P0-5:缺 Arena 不再静默创建空对象(空 Arena 使石柱联动静默失效)——
+        // 记警告继续但二阶段石柱功能明确降级(训练房/测试可手动挂)
+        if (arenaState == null) Debug.LogWarning("[Grand] 无 BossArenaState 上下文——二阶段石柱联动降级(奔袭/围猎可用,撞柱无效果)");
+        charge.Wire(arenaState, tele, LayerMask.GetMask("Default"), LayerMask.GetMask("Default", "Obstacle"));   // v2.0.10:玩家在 Default(无 Player Layer)
+        hunt.Wire(arenaState, tele, LayerMask.GetMask("Default"));
         brain.chargeAttack = charge;
         brain.moonHunt = hunt;
         brain.arena = arenaState;
@@ -250,7 +252,8 @@ public class GrandBossBrain : MonoBehaviour
                 activeRoutine = StartCoroutine(RunTripleLeap());
                 break;
             case BossState.ChargeAttack:
-                lastAttackState = next;
+                // P0-1 修复:lastAttackState 在模块完成后由 RunPhaseTwoAttack 写入实际执行的招式,
+                // 不在 Enter 提前覆盖(原提前覆盖导致 lastAttackState 恒=ChargeAttack→选择器恒判 MoonHunt)
                 activeRoutine = StartCoroutine(RunPhaseTwoAttack());
                 break;
         }
@@ -294,17 +297,20 @@ public class GrandBossBrain : MonoBehaviour
     {
         controller?.StopMoving();
 
-        bool chargeNext = lastAttackState != BossState.ChargeAttack;   // 交替
+        bool chargeNext = lastAttackState != BossState.ChargeAttack;   // 交替(P0-1:看上一招,非当前进入态)
         if (chargeNext && chargeAttack != null)
         {
+            lastAttackState = BossState.ChargeAttack;   // 完成后记——下次交替到围猎
             yield return chargeAttack.Run(player, this);
         }
         else if (!chargeNext && moonHunt != null)
         {
+            lastAttackState = BossState.MoonHunt;       // 完成后记——下次交替到奔袭
             yield return moonHunt.Run(player, this);
         }
         else if (chargeAttack != null)
         {
+            lastAttackState = BossState.ChargeAttack;
             yield return chargeAttack.Run(player, this);   // 围猎缺组件兜底
         }
         else
@@ -328,6 +334,8 @@ public class GrandBossBrain : MonoBehaviour
     private void FinishAction()
     {
         if (dead) return;
+        // P0-6:Stunned 状态不由 FinishAction 收管——撞裂柱长眩晕走独立恢复协程
+        if (State == BossState.Stunned) return;
         activeRoutine = null;
         controller?.StopMoving();
         State = BossState.Idle;
@@ -396,6 +404,8 @@ public class GrandBossBrain : MonoBehaviour
         }
         basicCombo?.Cancel();
         tripleLeap?.Cancel();
+        chargeAttack?.Cancel();   // P0-8:二阶段模块显式取消(防月痕/冲锋残留)
+        moonHunt?.Cancel();
         combat?.CancelCurrentAttack();
         telegraph?.HideAll();
         controller?.StopMoving();

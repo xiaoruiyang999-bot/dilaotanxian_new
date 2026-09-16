@@ -27,6 +27,8 @@ public static class BossRitualRoomDecorator
 
         BuildRune(rootGo.transform, room, layout);
         BuildPillars(rootGo.transform, room, layout);
+        // P0-4:Boss 房四柱注册到 BossArenaState(石柱三态真值;奔袭/围猎消费)
+        RegisterArenaPillars(rootGo, room, layout);
         BuildAltar(rootGo.transform, room, layout);
         BuildTorches(rootGo.transform, room, layout);
         BuildClutter(rootGo.transform, room, layout);
@@ -391,6 +393,27 @@ public static class BossRitualRoomDecorator
                 hideFlags = HideFlags.HideAndDontSave,
             };
             return lineMaterial;
+        }
+    }
+
+    /// <summary>P0-4:创建 BossArenaState 并注册四柱(实体碰撞+视觉引用)。</summary>
+    private static void RegisterArenaPillars(GameObject rootGo, Room room, BossRitualRoomLayout layout)
+    {
+        var ago = new GameObject("BossArenaState");
+        ago.transform.SetParent(rootGo.transform, false);
+        var arena = ago.AddComponent<BossArenaState>();
+
+        IReadOnlyList<Vector2> centers = layout.PillarCenters;
+        for (int i = 0; i < centers.Count; i++)
+        {
+            // 柱 slot 是 BuildPillars 创建的子物体(按名找)
+            Transform slot = rootGo.transform.Find($"ART_SLOT_Pillar_{i + 1:00}");
+            var col = new GameObject($"PillarCol_{i}");
+            col.transform.SetParent(ago.transform, false);
+            col.transform.position = new Vector3(centers[i].x, centers[i].y, 0f);
+            var box = col.AddComponent<BoxCollider2D>();
+            box.size = new Vector2(2f, 2f);
+            arena.RegisterPillar(i, centers[i], slot != null ? slot.gameObject : null, box);
         }
     }
 }
