@@ -39,6 +39,10 @@ public class BossPhaseController : MonoBehaviour
     private Color baseColor;
     private bool phase2;
     private bool phase3;
+    public bool Phase3 => phase3;
+
+    // v2.0.10 美术事件：阶段进入（P2 追猎/P3 失控）——染色外的独立订阅口
+    public event System.Action<int> OnPhaseEntered;   // (2 或 3)
 
     void Awake()
     {
@@ -66,6 +70,7 @@ public class BossPhaseController : MonoBehaviour
         if (!phase3 && phase3Threshold > 0f && ratio <= phase3Threshold)
         {
             phase3 = true;
+            OnPhaseEntered?.Invoke(3);   // 美术广播
             phase2 = true;   // 失控涵盖追猎强化
             if (combat != null)
             {
@@ -85,7 +90,8 @@ public class BossPhaseController : MonoBehaviour
         if (phase2 || ratio > phase2Threshold) return;
 
         phase2 = true;
-        if (brain != null) brain.EnterPhaseTwo();   // v2.0.10：状态机接管阶段切换（批2 起完整生效）
+        if (brain != null) brain.EnterPhaseTwo();
+        OnPhaseEntered?.Invoke(2);   // 美术广播   // v2.0.10：状态机接管阶段切换（批2 起完整生效）
         if (combat != null)
         {
             if (phase2Attacks != null && phase2Attacks.Length > 0)

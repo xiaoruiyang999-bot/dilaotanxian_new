@@ -14,8 +14,13 @@ public class BossTelegraphController : MonoBehaviour
     private readonly List<GameObject> active = new List<GameObject>();
 
     /// <summary>圆形落点预警：duration 后自动隐藏（攻击落地时调用方再 Hide 提前收）。</summary>
+    /// <summary>经 Brain 统一广播（美术只订 OnWarningShown 一个源）。</summary>
+    private GrandBossBrain brainCache;
+    internal void WireBrain(GrandBossBrain brain) => brainCache = brain;
+
     public void ShowCircle(Vector2 center, float radius, float duration)
     {
+        if (brainCache != null) brainCache.BroadcastWarning(center, radius);
         var go = new GameObject("BossTelegraph_Circle");
         go.transform.SetParent(transform, false);
         go.transform.position = center;

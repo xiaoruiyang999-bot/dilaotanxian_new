@@ -26,9 +26,18 @@ public class GrandBossBrain : MonoBehaviour
     // 挂点约定：子物体 "ArtRoot"（美术建预制体时放置角色渲染层级；不存在时全部事件静默空跑）
     // 状态进入事件（参数=状态名）——Animator 状态机/序列帧/VFX 均可订阅；FireOnStateEntered 广播
     public event System.Action<BossState> OnStateEntered;
+    public event System.Action<bool> OnPhaseTwoEntered;   // 阶段转换(参数=是否二阶段)——批2 狼嚎/四足接
+    public event System.Action<Vector2, float> OnWarningShown;   // 预警(位置,半径)——BossTelegraphController 同步发
+    public event System.Action<Vector2> OnDeathPosition;   // 死亡位置(结算特效/掉落锚点)
 
     /// <summary>美术挂点（Awake 自动查找子物体 "ArtRoot"；缺省=自身——程序占位色块挂这里）。</summary>
     public Transform ArtRoot { get; private set; }
+
+    /// <summary>预警广播出口（BossTelegraphController 调用——美术只订 Brain 一个源）。</summary>
+    public void BroadcastWarning(Vector2 pos, float radius)
+    {
+        if (broadcastState) OnWarningShown?.Invoke(pos, radius);
+    }
 
     [Header("美术预留（v2.0.10）")]
     [Tooltip("状态广播开关（关闭时 OnStateEntered 不触发——纯逻辑测试用）")]
@@ -79,6 +88,7 @@ public class GrandBossBrain : MonoBehaviour
         // 预制体变体路径不在 Resources 下——双路径兜底（编辑器 AssetDatabase 由调用环境保证;
         // 这里用完整路径 Load 尝试：Assets/Data 在 Resources 外,故复制到 Resources/Data 一份见资产步骤）
         brain.WireModules(combo, leap);
+        tele.WireBrain(brain);   // 预警统一经 Brain 广播
         GrandBossArtAdapter.EnsureOn(boss, brain);   // v2.0.10 美术适配层（占位表现+事件合同示范）
         return brain;
     }
@@ -231,6 +241,7 @@ public class GrandBossBrain : MonoBehaviour
     {
         if (PhaseTwo) return;
         PhaseTwo = true;
+        OnPhaseTwoEntered?.Invoke(true);   // 美术广播：二阶段开始（四足形态/嚎叫演出接此）
         StopActiveRoutine();
         // 批2：狼嚎演出→四段连击池/四足参数切换；当前保守回 Idle 继续一阶段循环
         Enter(BossState.Idle);
@@ -250,6 +261,7 @@ public class GrandBossBrain : MonoBehaviour
         StopActiveRoutine();
         State = BossState.Dead;
         OnStateEntered?.Invoke(BossState.Dead);   // 美术广播（死亡必发）
+        OnDeathPosition?.Invoke(transform.position);   // 死亡位置（结算特效锚点）
     }
 
     private void SetAILocomotion(bool on)
