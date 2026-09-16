@@ -7,9 +7,11 @@ using UnityEngine;
 /// </summary>
 public class GrandBasicCombo : MonoBehaviour
 {
-    [Header("爪击资产（右/左独立定义）")]
+    [Header("爪击资产（四击独立定义，§4.5）")]
     [SerializeField] private AttackData rightClaw;
     [SerializeField] private AttackData leftClaw;
+    [SerializeField] private AttackData rightUppercut;   // P1-3:右上挑(非横扫复用)
+    [SerializeField] private AttackData doubleClawSlam;  // P1-3:双爪下砸
 
     [Header("一阶段节奏")]
     [SerializeField, Min(0f)] private float gapBetweenClaws = 1.0f;
@@ -43,10 +45,13 @@ public class GrandBasicCombo : MonoBehaviour
         controller?.StopMoving();
     }
 
-    public void WireAssets(AttackData right, AttackData left)
+    public void WireAssets(AttackData right, AttackData left,
+        AttackData uppercut = null, AttackData slam = null)
     {
         rightClaw = right;
         leftClaw = left;
+        rightUppercut = uppercut;
+        doubleClawSlam = slam;
     }
 
     /// <summary>第一阶段：右爪→左爪→主动后退。</summary>
@@ -85,22 +90,20 @@ public class GrandBasicCombo : MonoBehaviour
     public IEnumerator RunCritical(Transform player)
     {
         cancelled = false;
+        // P1-3 修复:四段独立资产(右横扫→左横扫→右上挑→双爪下砸,§4.5)
         yield return Claw(rightClaw, player, 180f);
         if (cancelled) yield break;
         yield return WaitCancelable(criticalComboGap);
-        if (cancelled) yield break;
 
         yield return Claw(leftClaw, player, maxTurnAnglePerClaw);
         if (cancelled) yield break;
         yield return WaitCancelable(criticalComboGap);
-        if (cancelled) yield break;
 
-        yield return Claw(rightClaw, player, maxTurnAnglePerClaw);
+        yield return Claw(rightUppercut != null ? rightUppercut : rightClaw, player, maxTurnAnglePerClaw);
         if (cancelled) yield break;
         yield return WaitCancelable(criticalComboGap);
-        if (cancelled) yield break;
 
-        yield return Claw(leftClaw, player, maxTurnAnglePerClaw);
+        yield return Claw(doubleClawSlam != null ? doubleClawSlam : leftClaw, player, 0f);
         if (cancelled) yield break;
         yield return WaitCancelable(criticalRecovery);
     }

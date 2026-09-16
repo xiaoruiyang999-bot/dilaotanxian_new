@@ -27,6 +27,8 @@ public class GrandTripleLeap : MonoBehaviour
     private readonly IDamageable[] damagedTargets = new IDamageable[OverlapCapacity];
     private Rigidbody2D rb;
     private bool cancelled;
+    private const float shockExpansionSpeed = 6f;   // 扩张环速度(§4.4 测试值)
+    private const float shockBandWidth = 0.8f;       // 环带宽度(annulus 过滤)
     private int damagedCount;
 
     public enum Outcome { FollowUpCombo, Stunned }
@@ -127,15 +129,46 @@ public class GrandTripleLeap : MonoBehaviour
             centerHit = true;
         }
 
-        int shockCount = Physics2D.OverlapCircle(landPos, shockRadius, filter, overlapBuffer);
-        for (int i = 0; i < shockCount; i++)
-        {
-            IDamageable damageable = FindPlayerDamageable(overlapBuffer[i]);
-            if (damageable == null || WasDamaged(damageable)) continue;
-            damageable.TakeDamage(shockDamage);
-            RememberDamageable(damageable);
-        }
+        // P1-1 修复(§4.4):震荡改为扩张环(协程驱动)——取代瞬时大圆
+        if (shockRadius > centerRadius)
+            StartCoroutine(ExpandingShockwave(landPos, filter));
         return centerHit;
+    }
+
+    /// <summary>扩张环(§4.4):从中心到外围逐帧扫掠;站立柱截断(§4.4 柱遮挡)。</summary>
+    private System.Collections.IEnumerator ExpandingShockwave(Vector2 landPos, ContactFilter2D filter)
+    {
+        float radius = centerRadius;
+        while (radius < shockRadius && !cancelled)
+        {
+            radius += shockExpansionSpeed * Time.deltaTime;
+            int count = Physics2D.OverlapCircle(landPos, radius, filter, overlapBuffer);
+            for (int i = 0; i < count; i++)
+            {
+                IDamageable damageable = FindPlayerDamageable(overlapBuffer[i]);
+                if (damageable == null || WasDamaged(damageable)) continue;
+                // annulus:内圈已结算,只打环带上的
+                float dist = Vector2.Distance(landPos, overlapBuffer[i].transform.position);
+                if (dist < radius - shockBandWidth) continue;
+                // 柱遮挡:落点→玩家先碰站立柱则截断(§4.4)
+                if (IsBlockedByPillar(landPos, overlapBuffer[i].transform.position)) continue;
+                damageable.TakeDamage(shockDamage);
+                RememberDamageable(damageable);
+            }
+            yield return null;
+        }
+    }
+
+    /// <summary>线段遮挡:落点→目标是否先碰到站立石柱(BossPillar 层)。</summary>
+    private static bool IsBlockedByPillar(Vector2 from, Vector2 to)
+    {
+        int pillarMask = LayerMask.GetMask("BossPillar");
+        if (pillarMask == 0) return false;
+        Vector2 dir = to - from;
+        float dist = dir.magnitude;
+        var filter = new ContactFilter2D { layerMask = pillarMask, useLayerMask = true, useTriggers = false };
+        var buf = new Collider2D[2];
+        return Physics2D.CircleCastAll(from, 0.1f, dir.normalized, dist, pillarMask).Length > 0;
     }
 
     private static IDamageable FindPlayerDamageable(Collider2D hit)

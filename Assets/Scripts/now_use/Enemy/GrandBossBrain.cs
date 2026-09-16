@@ -71,7 +71,9 @@ public class GrandBossBrain : MonoBehaviour
 
         combo.WireAssets(
             Resources.Load<AttackData>("Data/AttackData_GrandRightClaw"),
-            Resources.Load<AttackData>("Data/AttackData_GrandLeftClaw"));
+            Resources.Load<AttackData>("Data/AttackData_GrandLeftClaw"),
+            Resources.Load<AttackData>("Data/AttackData_GrandRightUppercut"),
+            Resources.Load<AttackData>("Data/AttackData_GrandDoubleClawSlam"));
         leap.WireAssets(Resources.Load<AttackData>("Data/AttackData_GrandLeapLand"), tele);
         brain.WireModules(combo, leap, tele);
         tele.WireBrain(brain);
