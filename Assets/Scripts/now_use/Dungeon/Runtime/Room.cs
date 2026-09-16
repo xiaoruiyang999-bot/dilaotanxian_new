@@ -164,6 +164,7 @@ public class Room : MonoBehaviour
         if (State != RoomState.Unvisited) return;
         State = RoomState.Active;
         OnRoomEntered?.Invoke(this);
+        BossHealthBarUI.TryShowForRoom(this);   // v2.0.10 Boss 房进入时显示格兰血条
 
         if (ClearCondition == RoomClearCondition.None)
         {
@@ -211,6 +212,7 @@ public class Room : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (State == RoomState.Active) BossHealthBarUI.Hide();   // v2.0.10 房间卸载时收血条
         foreach (KeyValuePair<EnemyHealth, System.Action> pair in enemyDeathHandlers)
             if (pair.Key != null) pair.Key.OnDeath -= pair.Value;
 
