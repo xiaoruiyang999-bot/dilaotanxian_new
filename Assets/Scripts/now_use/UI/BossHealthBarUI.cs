@@ -31,21 +31,25 @@ public static class BossHealthBarUI
     {
         if (room == null) return;
 
-        // 找房内 Boss(挂 BossPhaseController 的敌人)
-        BossPhaseController boss = null;
-        foreach (var phase in Object.FindObjectsByType<BossPhaseController>(FindObjectsInactive.Exclude))
+        // 只在 Boss 类型房显示(普通战斗房不走此链);找 GrandBossBrain(只有格兰有——
+        // BossPhaseController 挂在基础 Enemy.prefab 上被全部敌人继承,不能作为判据)
+        if (room.Type != RoomType.Boss) return;
+        GrandBossBrain brain = null;
+        foreach (var b in Object.FindObjectsByType<GrandBossBrain>(FindObjectsInactive.Exclude))
         {
-            if (phase != null && room.ContentRoot != null
-                && phase.transform.IsChildOf(room.ContentRoot))
+            if (b != null && room.ContentRoot != null
+                && b.transform.IsChildOf(room.ContentRoot))
             {
-                boss = phase;
+                brain = b;
                 break;
             }
         }
-        if (boss == null) return;
+        if (brain == null) return;
 
-        var health = boss.GetComponent<EnemyHealth>();
+        var health = brain.GetComponent<EnemyHealth>();
         if (health == null) return;
+        BossPhaseController boss = brain.GetComponent<BossPhaseController>();
+        if (boss == null) return;
 
         // 隐藏 Boss 头顶世界空间血条(屏幕血条取代)
         var worldBar = boss.GetComponent<WorldSpaceHealthBar>();
