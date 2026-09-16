@@ -17,13 +17,29 @@ MonoBehaviour:
   activeDuration: 0.22
   recoveryTime: 0.3
   attackRange: 2.6
+  attackLaneWidth: 2.4
+  attackOriginOffset: 0.35
+  directionMode: 0
   attackAngle: 120
-  overrideWidth: 2.4
   attackDamage: 130
   attackCooldown: 2.2
   targetLayer:
     serializedVersion: 2
     m_Bits: 1
   obstacleLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  animationType: 0
+  attackEase: 6
+  activeMomentRatio: 0.5
+  distanceRange: {x: 0, y: 0}
+  weight: 1
+  isSummon: 0
+  summonPrefab: {fileID: 0}
+  summonCount: 2
+  summonRadius: 2
+  isCharge: 0
+  chargeDistance: 2.5
+  chargerCollisionLayer:
     serializedVersion: 2
     m_Bits: 0

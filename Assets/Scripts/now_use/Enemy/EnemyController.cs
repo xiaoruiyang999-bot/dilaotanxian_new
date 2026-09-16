@@ -16,7 +16,9 @@ public class EnemyController : MonoBehaviour
     private EnemyHealth health;
     private EnemyAI ai;
     private EnemyCombat combat;
+    private WeaponController weaponController;
     private SpriteRenderer sr;
+    private Vector2 horizontalFacing = Vector2.right;
 
     [Header("受伤反馈")]
     [SerializeField] private float hitFlashDuration = 0.15f;
@@ -37,7 +39,14 @@ public class EnemyController : MonoBehaviour
         health = GetComponent<EnemyHealth>();
         ai = GetComponent<EnemyAI>();
         combat = GetComponent<EnemyCombat>();
+        weaponController = GetComponent<WeaponController>();
         sr = GetComponent<SpriteRenderer>();
+        if (sr == null) sr = GetComponentInChildren<SpriteRenderer>(true);
+
+        // V2：敌人可二维移动，但身体始终正立。物理和 AI 都不得再旋转根节点。
+        rb.constraints |= RigidbodyConstraints2D.FreezeRotation;
+        rb.SetRotation(0f);
+        transform.rotation = Quaternion.identity;
 
         // 监听事件
         if (health != null)
@@ -62,6 +71,7 @@ public class EnemyController : MonoBehaviour
     public void MoveTowards(Vector2 direction)
     {
         if (stats == null || rb == null) return;
+        FaceTowards(direction);
         rb.linearVelocity = direction.normalized * stats.MoveSpeed;
     }
 
@@ -69,6 +79,7 @@ public class EnemyController : MonoBehaviour
     public void MoveTowards(Vector2 direction, float speedMultiplier)
     {
         if (stats == null || rb == null) return;
+        FaceTowards(direction);
         rb.linearVelocity = direction.normalized * (stats.MoveSpeed * speedMultiplier);
     }
 
@@ -76,7 +87,9 @@ public class EnemyController : MonoBehaviour
     /// 绕过 StopMoving 后的零速限制，由 EnemyCombat.UpdateActive 每帧驱动。</summary>
     public void SetChargeVelocity(Vector2 velocity)
     {
-        if (rb != null) rb.linearVelocity = velocity;
+        if (rb == null) return;
+        FaceTowards(velocity);
+        rb.linearVelocity = velocity;
     }
 
     /// <summary>停止移动</summary>
@@ -85,12 +98,17 @@ public class EnemyController : MonoBehaviour
         if (rb != null) rb.linearVelocity = Vector2.zero;
     }
 
-    /// <summary>面向指定方向</summary>
+    /// <summary>
+    /// 更新水平朝向。Y 只参与移动，不旋转身体；视觉保持正立并仅做左右镜像。
+    /// 非攻击状态下武器 Pivot 同步朝向；攻击锁定时 WeaponController 会忽略本次更新。
+    /// </summary>
     public void FaceTowards(Vector2 direction)
     {
-        if (direction.sqrMagnitude < 0.001f) return;
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        transform.rotation = Quaternion.Euler(0, 0, angle);
+        if (Mathf.Abs(direction.x) <= 0.0001f) return;
+        horizontalFacing = direction.x < 0f ? Vector2.left : Vector2.right;
+        if (sr != null) sr.flipX = horizontalFacing.x < 0f;
+        weaponController?.SetAimDirection(horizontalFacing, applyRotation: true);
+        transform.rotation = Quaternion.identity;
     }
 
     // ========== 受伤反馈 ==========
@@ -147,4 +165,5 @@ public class EnemyController : MonoBehaviour
     public EnemyHealth GetHealth() => health;
     public EnemyAI GetAI() => ai;
     public EnemyCombat GetCombat() => combat;
+    public Vector2 HorizontalFacing => horizontalFacing;
 }

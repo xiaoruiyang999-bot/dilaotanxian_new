@@ -18,7 +18,9 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 - 角色与职业已合并为职业角色；战士退役，首发狼人。
 - 武器视觉烘入角色 Sprite；Attack Hitbox 和身体碰撞独立。
 - 新动画只扩展 Unity Animation/Animator。
-- v2.0.1 首轮只做左右攻击灰盒：键鼠按鼠标相对角色的 X 正负定向，Y 不参与；不同时开发四方向版本，未确认手感前不量产最终攻击动画。
+- 玩家左右攻击已最终定案：键鼠按鼠标相对角色的 X 正负定向，Y 不参与；所有有方向敌人攻击同样只锁定 Left/Right。召唤和自身中心范围技例外，跨 Y 轴能力通过单招判定宽度配置。
+- 敌人根节点在移动、追击和攻击中始终正立不旋转，只翻转 Sprite 或子级表现；非攻击状态的武器朝向跟随实际水平移动方向，攻击状态由 Windup 锁定方向接管。
+- Space + WASD 为八向 Dash：X 长、Y 短，斜向同时使用两轴比例和独立缩放；所有参数放在 PlayableCharacterDefinition。
 - now_use 中旧 Character/Class、四向网格房间、WeaponPivot、FrameAnimator 是迁移基线，不得当作新目标继续扩建。
 
 ## 2. 写代码前 Checklist
@@ -45,12 +47,15 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 ## 4. 战斗与 Animator
 
 1. AttackDefinition 是前摇、有效帧、后摇、方向、判定几何、位移、伤害和反馈的同源数据。
-2. Body Hurtbox、Movement Collider、Attack Hitbox 分责；Sprite 中画出的武器不参与身体碰撞。
-3. Animator/Animation Event 只发窗口信号，不计算伤害、不直接改 Build。
-4. 每个攻击 Clip 必须包含标准的 AttackStart、HitboxOpen、HitboxClose、AttackEnd，导入或测试时验证完整性。
-5. 同武器模组共享 Controller 和时序；用 Animator Override Controller 替换 Clip。
-6. FrameAnimator 与 WeaponPivot 只作旧场景兼容。在新 Animator 链接管、引用清零并回归通过前不删除。
-7. 同帧多命中音效限流；变色/停帧/震屏协程或 Tween 必须互斥并绑定生命周期。
+2. 敌人预警、近战 Hitbox、弹体最大边界、冲锋位移必须消费同一几何；冲锋总预警纵深为 AttackRange + ChargeDistance。
+3. 有方向攻击只接受 Left/Right；AttackLaneWidth 决定跨 Y 轴能力。禁止 Windup 后追踪玩家并改写方向或范围。
+4. 召唤和自身中心范围技可使用中心圆形判定，不受左右定向限制。
+5. Body Hurtbox、Movement Collider、Attack Hitbox 分责；Sprite 中画出的武器不参与身体碰撞。
+6. Animator/Animation Event 只发窗口信号，不计算伤害、不直接改 Build。
+7. 每个攻击 Clip 必须包含标准的 AttackStart、HitboxOpen、HitboxClose、AttackEnd，导入或测试时验证完整性。
+8. 同武器模组共享 Controller 和时序；用 Animator Override Controller 替换 Clip。
+9. FrameAnimator 与 WeaponPivot 只作旧场景兼容。在新 Animator 链接管、引用清零并回归通过前不删除。
+10. 同帧多命中音效限流；变色/停帧/震屏协程或 Tween 必须互斥并绑定生命周期。
 
 ## 5. 物理与性能
 
@@ -86,6 +91,7 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 
 - UI 只呈现和发送意图，不直接写节点完成、金币、伤害或职业真值。
 - V2 MVP 键位：WASD、左键攻击、Space 闪避、E 交互、F 小技能、Q 大招/兽化、Tab 地图、Esc 暂停。
+- Dash 输入按每轴符号离散为八方向；X/Y 距离不得被 normalize 成等长，斜向必须乘独立缩放以避免位移过长。
 - 旧 T 兽化入口停用；R 武器技能与 C 道具键不进入首轮 MVP，是否恢复须在相应系统设计时确认。
 - 运行时 TMP 对象避免重复添加组件；字体和资源必须有构建态来源。
 

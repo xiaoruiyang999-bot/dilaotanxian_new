@@ -17,6 +17,9 @@ MonoBehaviour:
   activeDuration: 0.1
   recoveryTime: 0.4
   attackRange: 8
+  attackLaneWidth: 0.3
+  attackOriginOffset: 0.6
+  directionMode: 0
   attackAngle: 0
   attackDamage: 25
   attackCooldown: 1.5
@@ -26,20 +29,17 @@ MonoBehaviour:
   obstacleLayer:
     serializedVersion: 2
     m_Bits: 128
-  chargerCollisionLayer:
-    serializedVersion: 2
-    m_Bits: 0
   animationType: 0
   attackEase: 1
   activeMomentRatio: 0.5
   distanceRange: {x: 0, y: 0}
   weight: 1
-  isProjectile: 1
-  projectilePrefab: {fileID: 1000000000000000000, guid: b500ba02de884a4aadb6af15a56f4cf9, type: 3}
-  projectileSpeed: 8
-  isCharge: 0
-  chargeSpeedMultiplier: 3
   isSummon: 0
   summonPrefab: {fileID: 0}
   summonCount: 2
   summonRadius: 2
+  isCharge: 0
+  chargeDistance: 2.5
+  chargerCollisionLayer:
+    serializedVersion: 2
+    m_Bits: 0

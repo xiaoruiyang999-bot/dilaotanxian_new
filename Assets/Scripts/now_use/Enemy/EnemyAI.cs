@@ -432,13 +432,27 @@ public class EnemyAI : MonoBehaviour
         }
         else
         {
-            // 在理想距离区间内，停住射击
-            controller.StopMoving();
-
-            bool hasLineOfSight = perception == null || combat.HasProjectileLineOfSight(target);
-            if (combat.CanAttack && hasLineOfSight)
+            // 在理想 X 距离内先对齐横向攻击带；Y 未对齐时只换线，不斜转身体。
+            if (!combat.IsInAttackRange(target))
             {
-                if (combat.TryStartAttack(target))
+                Vector2 delta = target.position - transform.position;
+                if (Mathf.Abs(delta.y) > 0.05f)
+                {
+                    float alignSpeed = behaviorConfig != null
+                        ? behaviorConfig.strafeSpeedMultiplier
+                        : 0.75f;
+                    controller.MoveTowards(new Vector2(0f, Mathf.Sign(delta.y)), alignSpeed);
+                }
+                else
+                {
+                    MoveWithPathing(target.position);
+                }
+            }
+            else
+            {
+                controller.StopMoving();
+                bool hasLineOfSight = perception == null || combat.HasProjectileLineOfSight(target);
+                if (combat.CanAttack && hasLineOfSight && combat.TryStartAttack(target))
                     ChangeState(State.Attack);
             }
         }
@@ -530,7 +544,7 @@ public class EnemyAI : MonoBehaviour
     {
         isSkirmishRetreating = true;
         skirmishRetreatTimer = behaviorConfig != null ? behaviorConfig.retreatDuration : 0.5f;
-        skirmishRetreatDirection = -transform.right; // 面朝玩家的反方向
+        skirmishRetreatDirection = -controller.HorizontalFacing; // 水平朝向的反方向
     }
 
     // --- Charger 冲锋型：进入范围直接蓄力冲锋 ---

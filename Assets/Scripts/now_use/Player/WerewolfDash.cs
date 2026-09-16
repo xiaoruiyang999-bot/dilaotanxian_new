@@ -5,8 +5,8 @@ using UnityEngine;
 /// 仅狼人职业角色可用（PlayableCharacterId.Werewolf 时由装配链挂上本组件，
 /// 切换到其他职业角色时随组件销毁自动下线）。触发键 = 输入资产既有 Dash 动作（Space，
 /// 正好复用）；也可代码调用 TryDash()。
-/// 参数与无敌帧口径完全沿用 MCP 分支原版：18 速 / 0.15s / 0.9s CD / 收招无敌 +0.06s
-///（Health.SetInvincible 实现无敌窗口，冲刺结束自动解除；重复授予取更晚截止语义由本类自管）。
+/// V2 最终规则：Space + WASD 八方向；X 长、Y 短，斜向保留轴向比例并乘独立缩放。
+/// 距离、斜向缩放、时长、冷却与无敌延长全部由 PlayableCharacterDefinition 暴露给 Inspector 调整。
 /// 移动写入不走 PlayerMovement（常规移速管线），冲刺期间由本组件直写 rb.linearVelocity 并抑制
 /// PlayerMovement 写入（SetSuspended），结束归还——单一写速者原则（v0.7.0 PlayerMovement 注释合同）。
 /// 高速隧穿防护：Awake 置 rb.collisionDetectionMode = Continuous（MCP 分支 v0.7.1 教训）。
@@ -15,15 +15,13 @@ using UnityEngine;
 [RequireComponent(typeof(Health))]
 public class WerewolfDash : MonoBehaviour
 {
-    [Header("冲刺参数（MCP 原版）")]
-    [Tooltip("冲刺速度（远高于移速）")]
-    [SerializeField] private float dashSpeed = 18f;
-    [Tooltip("冲刺持续时间（秒）")]
-    [SerializeField] private float dashDuration = 0.15f;
-    [Tooltip("冲刺冷却（秒），从冲刺结束起算")]
-    [SerializeField] private float dashCooldown = 0.9f;
-    [Tooltip("无敌帧额外延长：冲刺结束后仍免伤一小段，避免收招瞬间被弹道擦中")]
-    [SerializeField] private float iFrameBonus = 0.06f;
+    // 运行时快照；唯一可编辑真值位于 PlayableCharacterDefinition，避免动态挂载组件藏参数。
+    private float horizontalDashDistance = 3f;
+    private float verticalDashDistance = 1.5f;
+    private float diagonalDistanceScale = 0.8f;
+    private float dashDuration = 0.15f;
+    private float dashCooldown = 0.9f;
+    private float iFrameBonus = 0.06f;
 
     private Rigidbody2D rb;
     private Health health;
@@ -33,7 +31,7 @@ public class WerewolfDash : MonoBehaviour
     private bool isDashing;
     private float dashTimer;
     private float invincibleUntil;          // Time.time 口径（无敌窗口截止）
-    private Vector2 dashDirection;
+    private Vector2 dashVelocity;
 
     /// <summary>是否在冲刺中（PlayerController 可查，防冲刺中重复触发）。</summary>
     public bool IsDashing => isDashing;
@@ -42,11 +40,30 @@ public class WerewolfDash : MonoBehaviour
     private float dashCooldownUntil;
 
     /// <summary>给狼人玩家装上冲刺；切换其他职业角色时由装配侧销毁。</summary>
-    public static WerewolfDash EnsureOn(GameObject player)
+    public static WerewolfDash EnsureOn(GameObject player, PlayableCharacterDefinition definition = null)
     {
         var d = player.GetComponent<WerewolfDash>();
         if (d == null) d = player.AddComponent<WerewolfDash>();
+        if (definition == null)
+        {
+            PlayerStats stats = player.GetComponent<PlayerStats>();
+            definition = stats != null ? stats.CurrentPlayableCharacter : null;
+        }
+        d.Configure(definition);
         return d;
+    }
+
+    /// <summary>从职业角色定义刷新运行时 Dash 参数；空定义保留安全默认值。</summary>
+    public void Configure(PlayableCharacterDefinition definition)
+    {
+        if (definition == null) return;
+
+        horizontalDashDistance = Mathf.Max(0.1f, definition.dashDistanceX);
+        verticalDashDistance = Mathf.Clamp(definition.dashDistanceY, 0.1f, horizontalDashDistance);
+        diagonalDistanceScale = Mathf.Clamp(definition.dashDiagonalScale, 0.1f, 1f);
+        dashDuration = Mathf.Max(0.02f, definition.dashDuration);
+        dashCooldown = Mathf.Max(0f, definition.dashCooldown);
+        iFrameBonus = Mathf.Max(0f, definition.dashIFrameBonus);
     }
 
     void Awake()
@@ -75,7 +92,7 @@ public class WerewolfDash : MonoBehaviour
         if (!isDashing) return;
 
         dashTimer -= Time.deltaTime;
-        rb.linearVelocity = dashDirection * dashSpeed;
+        rb.linearVelocity = dashVelocity;
         if (dashTimer <= 0f) EndDash();
     }
 
@@ -85,7 +102,13 @@ public class WerewolfDash : MonoBehaviour
         if (health == null || health.IsDead) return false;
         if (isDashing || Time.time < dashCooldownUntil) return false;
 
-        dashDirection = inputDir.sqrMagnitude > 0.01f ? inputDir.normalized : fallbackFacing.normalized;
+        Vector2 displacement = ResolveDashDisplacement(
+            inputDir,
+            fallbackFacing,
+            horizontalDashDistance,
+            verticalDashDistance,
+            diagonalDistanceScale);
+        dashVelocity = displacement / Mathf.Max(0.02f, dashDuration);
         isDashing = true;
         dashTimer = dashDuration;
         health.SetInvincible(true);
@@ -98,6 +121,7 @@ public class WerewolfDash : MonoBehaviour
     {
         isDashing = false;
         dashCooldownUntil = Time.time + dashCooldown;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
         if (movement != null) movement.SetSuspended(false);
         // 无敌帧自然到期由 Update 解除；此处不提前撤（收招缓冲语义）
     }
@@ -106,8 +130,34 @@ public class WerewolfDash : MonoBehaviour
     public void ResetDash()
     {
         isDashing = false;
+        dashVelocity = Vector2.zero;
         dashCooldownUntil = 0f;
+        if (rb != null) rb.linearVelocity = Vector2.zero;
         if (health != null && health.IsInvincible) health.SetInvincible(false);
         if (movement != null) movement.SetSuspended(false);
+    }
+
+    /// <summary>
+    /// 将 WASD 输入离散为八方向位移。斜向不同时吃满两轴，统一乘可调缩放；
+    /// 无输入时沿最后有效水平朝向兜底。
+    /// </summary>
+    public static Vector2 ResolveDashDisplacement(
+        Vector2 inputDirection,
+        Vector2 fallbackFacing,
+        float horizontalDistance,
+        float verticalDistance,
+        float diagonalScale)
+    {
+        const float epsilon = 0.01f;
+        float x = inputDirection.x > epsilon ? 1f : inputDirection.x < -epsilon ? -1f : 0f;
+        float y = inputDirection.y > epsilon ? 1f : inputDirection.y < -epsilon ? -1f : 0f;
+
+        if (x == 0f && y == 0f)
+            x = fallbackFacing.x < 0f ? -1f : 1f;
+
+        float scale = x != 0f && y != 0f ? Mathf.Clamp(diagonalScale, 0.1f, 1f) : 1f;
+        return new Vector2(
+            x * Mathf.Max(0.1f, horizontalDistance) * scale,
+            y * Mathf.Max(0.1f, verticalDistance) * scale);
     }
 }
