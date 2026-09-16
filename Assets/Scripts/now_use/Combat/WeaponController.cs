@@ -75,9 +75,8 @@ public class WeaponController : MonoBehaviour
     /// </summary>
     /// <param name="direction">瞄准方向</param>
     /// <param name="applyRotation">是否立即将角度应用到 WeaponPivot.localRotation。
-    /// Player 应传 true（Player transform 不旋转，由 WeaponPivot 直接朝向鼠标）。
-    /// Enemy 应传 false（Enemy transform 已朝向目标，WeaponPivot 保持 identity 跟随父物体，
-    /// 避免父物体旋转与 localRotation 叠加导致武器方向翻倍）。</param>
+    /// Player 应传 true（Player transform 不旋转，由 WeaponPivot 直接朝向）。
+    /// V2 Enemy 根节点同样保持正立，攻击时也传 true，仅旋转 WeaponPivot。</param>
     public void SetAimDirection(Vector2 direction, bool applyRotation = true)
     {
         if (isDirectionLocked) return;
@@ -110,7 +109,7 @@ public class WeaponController : MonoBehaviour
 
     /// <summary>
     /// 重置武器朝向为父物体正前方（localRotation = identity）。
-    /// 用于 Enemy 攻击结束后让武器自然跟随自身 transform 旋转。
+    /// 兼容旧调用；V2 Enemy 攻击结束后应恢复为独立水平朝向。
     /// </summary>
     public void ResetAimToForward()
     {

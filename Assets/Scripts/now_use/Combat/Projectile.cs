@@ -25,6 +25,9 @@ public class Projectile : MonoBehaviour
     private float damageMul = 1f;
     private float speedMul = 1f;
     private float lifetime;
+    private float maxTravelDistance;
+    private float traveledDistance;
+    private float collisionRadius;
     private bool resolved;   // v1.1.13：扫射与 Trigger 双通道防同帧重复结算
 
     // 位移段查询过滤器：实体碰撞才挡弹（跳过 trigger——探测圈/其他子弹），与红线"投射物查询跳过 trigger"一致
@@ -46,7 +49,8 @@ public class Projectile : MonoBehaviour
     /// damageMul/speedMul 为弓箭蓄力增益入口（不动数据资产）。
     /// </summary>
     public static Projectile Launch(ProjectileData data, Vector2 origin, Vector2 direction,
-        GameObject owner, float damageMul = 1f, float speedMul = 1f)
+        GameObject owner, float damageMul = 1f, float speedMul = 1f,
+        float maxTravelDistance = 0f, float collisionRadiusOverride = 0f)
     {
         if (data == null || direction.sqrMagnitude < 0.0001f) return null;
 
@@ -60,12 +64,16 @@ public class Projectile : MonoBehaviour
         rb.bodyType = RigidbodyType2D.Kinematic;
         rb.gravityScale = 0f;
 
+        float collisionRadius = collisionRadiusOverride > 0f
+            ? collisionRadiusOverride
+            : data.Radius;
         CircleCollider2D col = go.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
-        col.radius = data.Radius;
+        col.radius = collisionRadius;
 
         Projectile p = go.AddComponent<Projectile>();
-        p.Init(data, direction.normalized, owner, damageMul, speedMul);
+        p.Init(data, direction.normalized, owner, damageMul, speedMul,
+            maxTravelDistance, collisionRadius);
 
         GameObject visual = ProjectileVisualBuilder.BuildVisual(data);
         if (visual != null)
@@ -74,7 +82,8 @@ public class Projectile : MonoBehaviour
     }
 
     /// <summary>存发射参数（Launch 内部调用）。</summary>
-    private void Init(ProjectileData data, Vector2 dir, GameObject owner, float damageMul, float speedMul)
+    private void Init(ProjectileData data, Vector2 dir, GameObject owner, float damageMul,
+        float speedMul, float maxTravelDistance, float collisionRadius)
     {
         this.data = data;
         direction = dir;
@@ -82,6 +91,9 @@ public class Projectile : MonoBehaviour
         ownerRoot = owner != null ? owner.transform.root : null;
         this.damageMul = damageMul;
         this.speedMul = speedMul;
+        this.maxTravelDistance = Mathf.Max(0f, maxTravelDistance);
+        this.collisionRadius = Mathf.Max(0.01f, collisionRadius);
+        traveledDistance = 0f;
         lifetime = data.Lifetime;
 
         // v0.7.0：玩家发射的子弹走 DamageResolver（owner 根查 PlayerStats，敌人根无此组件）
@@ -97,11 +109,27 @@ public class Projectile : MonoBehaviour
         Vector2 oldPos = transform.position;
         Vector2 step = direction * (data.Speed * speedMul * Time.deltaTime);
         float stepDist = step.magnitude;
+        if (maxTravelDistance > 0f)
+        {
+            float remainingDistance = maxTravelDistance - traveledDistance;
+            if (remainingDistance <= 0f)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            if (stepDist > remainingDistance)
+            {
+                step = direction * remainingDistance;
+                stepDist = remainingDistance;
+            }
+        }
         if (stepDist > 0.0001f)
         {
             Vector2 dir = step / stepDist;
             Vector2 center = oldPos + step * 0.5f;
-            Vector2 size = new Vector2(stepDist + data.Radius * 2f, data.Radius * 2f);
+            Vector2 size = new Vector2(
+                stepDist + collisionRadius * 2f,
+                collisionRadius * 2f);
             float angle = Vector2.SignedAngle(Vector2.right, dir);
             int n = Physics2D.OverlapBox(center, size, angle, sweepFilter, sweepBuffer);
 
@@ -129,6 +157,13 @@ public class Projectile : MonoBehaviour
         }
 
         transform.position += (Vector3)step;
+        traveledDistance += stepDist;
+
+        if (maxTravelDistance > 0f && traveledDistance >= maxTravelDistance - 0.0001f)
+        {
+            Destroy(gameObject);
+            return;
+        }
 
         lifetime -= Time.deltaTime;
         if (lifetime <= 0f)
