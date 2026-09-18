@@ -18,11 +18,56 @@ public class DungeonGraphNode
     public List<int> PreviousNodeIds = new List<int>();
     public List<int> NextNodeIds = new List<int>();
 
+    // v2.1.0：节点内容只保存数据与确定性种子；Room GameObject 生命周期不写入图。
+    public string RoomArchetypeId;
+    public int RoomSeed;
+    public int EncounterSeed;
+    public int RewardSeed;
+    public int ShopSeed;
+
     // 状态位（V2 §10.1：跨房间卸载持久）
     public bool Generated;
     public bool Discovered;
+    public bool Selected;
     public bool Visited;
+    public bool ObjectiveCompleted;
+    public bool RewardResolved;
     public bool Completed;
+
+    public bool TrySelect()
+    {
+        if (!Discovered || Selected || Completed) return false;
+        Selected = true;
+        return true;
+    }
+
+    public bool TryVisit()
+    {
+        if (!Selected || Visited || Completed) return false;
+        Visited = true;
+        return true;
+    }
+
+    public bool TryCompleteObjective()
+    {
+        if (!Visited || ObjectiveCompleted || Completed) return false;
+        ObjectiveCompleted = true;
+        return true;
+    }
+
+    public bool TryResolveReward()
+    {
+        if (!ObjectiveCompleted || RewardResolved || Completed) return false;
+        RewardResolved = true;
+        return true;
+    }
+
+    public bool TryComplete()
+    {
+        if (!RewardResolved || Completed) return false;
+        Completed = true;
+        return true;
+    }
 }
 
 /// <summary>节点类型（V2 §10.3）。Boss 由结构固定；其余按权重与间距约束分配。</summary>
@@ -36,6 +81,8 @@ public enum NodeType
     Event,
     Recovery,
     Boss,
+    Supply,
+    Sage,
 }
 
 /// <summary>

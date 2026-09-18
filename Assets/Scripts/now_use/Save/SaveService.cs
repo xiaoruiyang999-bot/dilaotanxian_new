@@ -10,7 +10,7 @@ using UnityEngine;
 /// </summary>
 public static class SaveService
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     // ---------- DTO ----------
 
@@ -28,20 +28,50 @@ public static class SaveService
     public class ActiveRunData
     {
         public int schemaVersion;
+        public string runId;
         public int mainSeed;
         public int floorNumber;
         public int currentHp;
         public int currentArmor;
+        public float currentMana;
+        public float currentClassResource;
         public int runCoins;                          // 随身星蓝币
         public string playableCharacterId;
         public List<string> relicIds = new List<string>();
         public int killsThisRun;
+
+        // v2.1.0：ActiveRun 是唯一持久化 Run DTO；旧 RunManager 暂不消费这些字段。
+        public DungeonGraphData dungeonGraph;
+        public int currentNodeId = -1;
+        public bool routeInitializationPending = true; // v1 档缺少真实图，不能凭旧房间推断
+        public int inscriptionRank = InscriptionRankRules.MinRank;
+        public RunBuildState build = new RunBuildState();
+        public List<RunOfferData> pendingOffers = new List<RunOfferData>();
+        public List<RunShopData> shops = new List<RunShopData>();
+        public List<RunItemStackData> inventory = new List<RunItemStackData>();
+        public string activeItemId;
+        public List<RunBuffData> activeBuffs = new List<RunBuffData>();
+        public List<RunTransactionRecord> transactions = new List<RunTransactionRecord>();
     }
 
     // ---------- 键与路径 ----------
 
-    private static string ProfilePath => Application.persistentDataPath + "/profile.json";
-    private static string RunPath => Application.persistentDataPath + "/active_run.json";
+    // EditMode 使用独立临时目录，不能清理玩家真实 persistentDataPath。
+#if UNITY_EDITOR
+    public static string EditorStorageRootOverride { get; set; }
+#endif
+    private static string StorageRoot
+    {
+        get
+        {
+#if UNITY_EDITOR
+            if (!string.IsNullOrEmpty(EditorStorageRootOverride)) return EditorStorageRootOverride;
+#endif
+            return Application.persistentDataPath;
+        }
+    }
+    private static string ProfilePath => System.IO.Path.Combine(StorageRoot, "profile.json");
+    private static string RunPath => System.IO.Path.Combine(StorageRoot, "active_run.json");
     private const string PrefsKeyCoins = "starcoin_banked";
     private const string PrefsKeyNarrative = "narrative_read";
 
@@ -67,8 +97,15 @@ public static class SaveService
             return profile;
         }
 
+        bool upgraded = profile.schemaVersion < CurrentSchemaVersion;
         while (profile.schemaVersion < CurrentSchemaVersion)
             profile = UpgradeProfile(profile, profile.schemaVersion);
+        if (profile.readNarrativeIds == null) profile.readNarrativeIds = new List<string>();
+        if (upgraded)
+        {
+            BackupFile(ProfilePath);
+            SaveProfile(profile);
+        }
         return profile;
     }
 
@@ -79,6 +116,22 @@ public static class SaveService
     }
 
     // ---------- ActiveRun ----------
+
+    /// <summary>只建立新 Run 的持久数据；图与当前节点由 v2.1.1 的路线入口初始化。</summary>
+    public static ActiveRunData CreateNewRun(int mainSeed, PlayableCharacterId characterId)
+    {
+        return new ActiveRunData
+        {
+            schemaVersion = CurrentSchemaVersion,
+            runId = Guid.NewGuid().ToString("N"),
+            mainSeed = mainSeed,
+            floorNumber = 1,
+            playableCharacterId = characterId.ToString(),
+            inscriptionRank = InscriptionRankRules.MinRank,
+            currentNodeId = -1,
+            routeInitializationPending = true,
+        };
+    }
 
     public static ActiveRunData LoadRun()
     {
@@ -91,13 +144,22 @@ public static class SaveService
             DeleteRun();
             return null;
         }
+        bool upgraded = run.schemaVersion < CurrentSchemaVersion;
         while (run.schemaVersion < CurrentSchemaVersion)
             run = UpgradeRun(run, run.schemaVersion);
+        EnsureRunDefaults(run);
+        if (upgraded)
+        {
+            BackupFile(RunPath);
+            SaveRun(run);
+        }
         return run;
     }
 
     public static void SaveRun(ActiveRunData run)
     {
+        if (run == null) throw new ArgumentNullException(nameof(run));
+        EnsureRunDefaults(run);
         run.schemaVersion = CurrentSchemaVersion;
         WriteFile(RunPath, run);
     }
@@ -108,6 +170,10 @@ public static class SaveService
 
     private static void MigrateFromPlayerPrefs(ProfileData profile)
     {
+#if UNITY_EDITOR
+        // 测试目录不消费玩家真实 PlayerPrefs；实际存档目录仍执行一次性迁移。
+        if (!string.IsNullOrEmpty(EditorStorageRootOverride)) return;
+#endif
         if (PlayerPrefs.HasKey(PrefsKeyCoins))
         {
             profile.bankedStarCoins = PlayerPrefs.GetInt(PrefsKeyCoins, 0);
@@ -132,8 +198,31 @@ public static class SaveService
 
     private static ActiveRunData UpgradeRun(ActiveRunData r, int fromVersion)
     {
+        if (fromVersion == 1)
+        {
+            // 旧档无 DAG / 当前节点真值。保留旧战斗字段，路线由 v2.1.1 明确初始化。
+            r.runId = "legacy-" + r.mainSeed + "-" + r.floorNumber;
+            r.currentNodeId = -1;
+            r.routeInitializationPending = true;
+            r.inscriptionRank = InscriptionRankRules.MinRank;
+        }
         r.schemaVersion = fromVersion + 1;
         return r;
+    }
+
+    private static void EnsureRunDefaults(ActiveRunData run)
+    {
+        if (string.IsNullOrEmpty(run.runId)) run.runId = Guid.NewGuid().ToString("N");
+        if (run.relicIds == null) run.relicIds = new List<string>();
+        if (run.inscriptionRank < InscriptionRankRules.MinRank)
+            run.inscriptionRank = InscriptionRankRules.MinRank;
+        if (run.build == null) run.build = new RunBuildState();
+        if (run.build.inscriptions == null) run.build.inscriptions = new List<OwnedInscriptionData>();
+        if (run.pendingOffers == null) run.pendingOffers = new List<RunOfferData>();
+        if (run.shops == null) run.shops = new List<RunShopData>();
+        if (run.inventory == null) run.inventory = new List<RunItemStackData>();
+        if (run.activeBuffs == null) run.activeBuffs = new List<RunBuffData>();
+        if (run.transactions == null) run.transactions = new List<RunTransactionRecord>();
     }
 
     // ---------- IO ----------
@@ -158,6 +247,7 @@ public static class SaveService
     {
         try
         {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
             System.IO.File.WriteAllText(path, JsonUtility.ToJson(data, true));
         }
         catch (Exception e)

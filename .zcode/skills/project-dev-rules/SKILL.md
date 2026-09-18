@@ -108,6 +108,7 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 
 - [ ] 编译无错误，Console 无新增红错。
 - [ ] EditMode：DAG 无环/可达/Seed、节点状态、伤害公式、奖励职业过滤、Missing Script。
+- [ ] 存档 EditMode 用独立临时目录并跳过真实 PlayerPrefs 迁移，不删除或覆盖玩家存档与偏好数据。
 - [ ] Play/人工：职业角色选择、房间进入完成、Room unload、死亡重开、Camera Bounds。
 - [ ] 场景中无 Debug_、临时 Player、错误 Camera target 或未说明 dirty。
 - [ ] 版本实施记录已新增；玩法决策回写 GDD。

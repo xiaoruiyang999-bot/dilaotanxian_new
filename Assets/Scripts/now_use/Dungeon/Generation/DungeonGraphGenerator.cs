@@ -88,6 +88,7 @@ public static class DungeonGraphGenerator
             lastTypeColumn[node.Type] = node.Column;
         }
 
+        AssignNodeSeeds(graph);
         graph.RevealInitial();
         return graph;
     }
@@ -118,6 +119,32 @@ public static class DungeonGraphGenerator
         to.PreviousNodeIds.Add(from.NodeId);
     }
 
+    private static void AssignNodeSeeds(DungeonGraphData graph)
+    {
+        foreach (DungeonGraphNode node in graph.Nodes)
+        {
+            node.RoomSeed = DeriveSeed(graph.Seed, node.NodeId, 1);
+            node.EncounterSeed = DeriveSeed(graph.Seed, node.NodeId, 2);
+            node.RewardSeed = DeriveSeed(graph.Seed, node.NodeId, 3);
+            node.ShopSeed = DeriveSeed(graph.Seed, node.NodeId, 4);
+        }
+    }
+
+    private static int DeriveSeed(int graphSeed, int nodeId, int stream)
+    {
+        unchecked
+        {
+            uint value = (uint)graphSeed ^ ((uint)nodeId + 1u) * 0x9E3779B9u
+                ^ (uint)stream * 0x85EBCA6Bu;
+            value ^= value >> 16;
+            value *= 0x7FEB352Du;
+            value ^= value >> 15;
+            value *= 0x846CA68Bu;
+            value ^= value >> 16;
+            return (int)(value & 0x7FFFFFFFu);
+        }
+    }
+
     private static DungeonGraphData BuildFallback(int seed)
     {
         var graph = new DungeonGraphData { Seed = seed };
@@ -136,6 +163,7 @@ public static class DungeonGraphGenerator
             prev = node;
         }
         graph.BossNodeId = prev.NodeId;
+        AssignNodeSeeds(graph);
         graph.RevealInitial();
         return graph;
     }

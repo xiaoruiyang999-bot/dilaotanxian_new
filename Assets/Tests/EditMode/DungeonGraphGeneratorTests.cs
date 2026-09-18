@@ -56,7 +56,26 @@ public class DungeonGraphGeneratorTests
             Assert.AreEqual(a.Nodes[i].Row, b.Nodes[i].Row);
             Assert.AreEqual(a.Nodes[i].Type, b.Nodes[i].Type);
             CollectionAssert.AreEqual(a.Nodes[i].NextNodeIds, b.Nodes[i].NextNodeIds);
+            Assert.AreEqual(a.Nodes[i].RoomSeed, b.Nodes[i].RoomSeed);
+            Assert.AreEqual(a.Nodes[i].EncounterSeed, b.Nodes[i].EncounterSeed);
+            Assert.AreEqual(a.Nodes[i].RewardSeed, b.Nodes[i].RewardSeed);
+            Assert.AreEqual(a.Nodes[i].ShopSeed, b.Nodes[i].ShopSeed);
         }
+    }
+
+    [Test]
+    public void Node_RequiresRewardResolutionBeforeCompletion()
+    {
+        DungeonGraphData graph = DungeonGraphGenerator.Generate(20260917);
+        DungeonGraphNode start = graph.Get(graph.StartNodeId);
+        Assert.IsTrue(start.TrySelect());
+        Assert.IsTrue(start.TryVisit());
+        Assert.IsFalse(start.TryComplete(), "进入房间不等于完成节点");
+        Assert.IsTrue(start.TryCompleteObjective());
+        Assert.IsFalse(start.TryComplete(), "目标完成但未领奖时出口保持锁定");
+        Assert.IsTrue(start.TryResolveReward());
+        Assert.IsTrue(start.TryComplete());
+        Assert.IsFalse(start.TrySelect(), "完成后不能再次进入");
     }
 
     [Test]

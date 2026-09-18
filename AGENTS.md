@@ -25,6 +25,7 @@
 13. **Prefab 与 YAML**：组件写入 Prefab 本体；外部改场景后 Reload；YAML 手术先备份、感知行尾、验证 fileID 双向引用并重载。
 14. **资源导入**：Sprite Mode、PPU、Pivot、帧尺寸显式统一；Editor-only 资源扫描在构建前资源化。
 15. **调试纪律**：不移动相机或瞬移玩家伪造测试，不保存未授权场景，不留 Debug_ 对象；场景中只有一个激活 Player。
+16. **存档测试隔离**：EditMode 测试使用独立临时目录并跳过真实 PlayerPrefs 迁移，不删除或覆盖玩家存档与偏好数据。
 
 ## 迁移顺序
 
