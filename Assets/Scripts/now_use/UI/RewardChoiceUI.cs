@@ -19,6 +19,7 @@ public static class RewardChoiceUI
     private static TMP_Text confirmLabel;
     private static GameObject selectedRing;
     private static System.Action<NodeRewardService.RewardOption> pendingPick;
+    private static GameModalToken modalToken;
 
     public static void Show(List<NodeRewardService.RewardOption> options,
         System.Action<NodeRewardService.RewardOption> onPicked)
@@ -26,6 +27,7 @@ public static class RewardChoiceUI
         if (IsOpen || options == null || options.Count == 0) return;
         selected = default;
         pendingPick = onPicked;
+        modalToken = GameModalService.Push(GameModalKind.RewardChoice, Close);
 
         canvasGo = new GameObject("RewardChoiceCanvas", typeof(Canvas));
         Canvas canvas = canvasGo.GetComponent<Canvas>();
@@ -80,6 +82,7 @@ public static class RewardChoiceUI
         confirmButton = null;
         confirmLabel = null;
         pendingPick = null;
+        GameModalService.Release(ref modalToken);
     }
 
     /// <summary>选中一张卡：金环高亮 + 激活确认按钮；重复点同卡保持选中。</summary>

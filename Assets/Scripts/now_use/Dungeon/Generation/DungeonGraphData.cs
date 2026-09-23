@@ -15,6 +15,10 @@ public class DungeonGraphNode
     public int Column;
     /// <summary>列内行序（同列多节点垂直错位排布，纯可视化，不映射物理门向）。</summary>
     public int Row;
+    /// <summary>固定主分支（0～2）；Start/Boss 为 -1。进入主分支后直到 Boss 都不得改变。</summary>
+    public int MainBranchId = -1;
+    /// <summary>主分支内轨道：0=主干，1=短支路。只用于拓扑验证与地图排布。</summary>
+    public int BranchLane;
     public List<int> PreviousNodeIds = new List<int>();
     public List<int> NextNodeIds = new List<int>();
 
@@ -92,6 +96,7 @@ public enum NodeType
 [Serializable]
 public class DungeonGraphData
 {
+    public int GenerationVersion;
     public int Seed;
     public List<DungeonGraphNode> Nodes = new List<DungeonGraphNode>();
     public int StartNodeId = -1;
@@ -103,25 +108,85 @@ public class DungeonGraphData
         return null;
     }
 
-    /// <summary>
-    /// 结构验证（生成后必过；EditMode 门禁同源）：唯一 Start/Boss、边只指向更大列、
-    /// 全节点从 Start 可达、Boss 可达、Next/Prev 双向一致。
-    /// </summary>
+    /// <summary>v2.1 图合同：规模、单向相邻边、双向索引、全可达与每路径机会。</summary>
     public bool Validate(out string error)
     {
         error = null;
-        if (Nodes.Count < 3) { error = "节点数不足"; return false; }
+        if (GenerationVersion != DungeonGraphGenerator.CurrentGenerationVersion)
+        { error = $"路线图版本 {GenerationVersion} 已过期"; return false; }
+        if (Nodes == null || Nodes.Count < 10) { error = "节点数不足"; return false; }
 
-        int startCount = 0, bossCount = 0;
+        var ids = new HashSet<int>();
+        var rowsByColumn = new Dictionary<int, HashSet<int>>();
+        int startCount = 0, bossCount = 0, maxColumn = -1;
+        int foundStartId = -1, foundBossId = -1;
         foreach (DungeonGraphNode n in Nodes)
         {
-            if (n.Type == NodeType.Start) { startCount++; StartNodeId = n.NodeId; }
-            if (n.Type == NodeType.Boss) { bossCount++; BossNodeId = n.NodeId; }
+            if (n == null || !ids.Add(n.NodeId)) { error = "空节点或重复 NodeId"; return false; }
+            if (n.Column < 0 || n.Row < 0 || n.PreviousNodeIds == null || n.NextNodeIds == null)
+            { error = $"节点 {n.NodeId} 基础字段非法"; return false; }
+            if (!rowsByColumn.TryGetValue(n.Column, out HashSet<int> rows))
+            { rows = new HashSet<int>(); rowsByColumn[n.Column] = rows; }
+            if (!rows.Add(n.Row)) { error = $"第 {n.Column} 层 Row 重复"; return false; }
+            if (n.Column > maxColumn) maxColumn = n.Column;
+            if (n.Type == NodeType.Start) { startCount++; foundStartId = n.NodeId; }
+            if (n.Type == NodeType.Boss) { bossCount++; foundBossId = n.NodeId; }
+            if (n.Type == NodeType.Start || n.Type == NodeType.Boss)
+            {
+                if (n.MainBranchId != -1) { error = $"端点 {n.NodeId} 不应属于主分支"; return false; }
+            }
+            else if (n.MainBranchId < 0 || n.MainBranchId > 2 || n.BranchLane < 0 || n.BranchLane > 1)
+            { error = $"节点 {n.NodeId} 主分支或轨道非法"; return false; }
+            if (n.Type != NodeType.Start && n.Type != NodeType.Boss
+                && n.Type != NodeType.Supply && n.Type != NodeType.Sage && n.Type != NodeType.Shop)
+            { error = $"节点 {n.NodeId} 使用未投放类型 {n.Type}"; return false; }
+            if (n.NextNodeIds.Count > 3) { error = $"节点 {n.NodeId} 出度超过 3"; return false; }
+            if (new HashSet<int>(n.NextNodeIds).Count != n.NextNodeIds.Count
+                || new HashSet<int>(n.PreviousNodeIds).Count != n.PreviousNodeIds.Count)
+            { error = $"节点 {n.NodeId} 有重复边"; return false; }
+        }
+        if (maxColumn < 9 || maxColumn > 11 || rowsByColumn.Count != maxColumn + 1)
+        { error = "层数必须为 10～12 且不能缺层"; return false; }
+        if (startCount != 1 || bossCount != 1 || StartNodeId != foundStartId || BossNodeId != foundBossId)
+        { error = "Start/Boss 不唯一或 ID 不一致"; return false; }
+        if (Get(StartNodeId).Column != 0 || Get(BossNodeId).Column != maxColumn
+            || rowsByColumn[0].Count != 1 || rowsByColumn[maxColumn].Count != 1)
+        { error = "Start/Boss 必须分别独占首末层"; return false; }
+        for (int col = 0; col <= maxColumn; col++)
+        {
+            int count = rowsByColumn[col].Count;
+            if (count < 1 || count > 6) { error = $"第 {col} 层节点数越界"; return false; }
+            if (col > 0 && col < maxColumn)
+                for (int branch = 0; branch < 3; branch++)
+                {
+                    int mainCount = 0;
+                    foreach (DungeonGraphNode node in Nodes)
+                        if (node.Column == col && node.MainBranchId == branch && node.BranchLane == 0)
+                            mainCount++;
+                    if (mainCount != 1)
+                    { error = $"第 {col} 层主分支 {branch} 缺少唯一主干节点"; return false; }
+                }
+        }
+
+        int branches = 0, merges = 0;
+        var branchSplits = new int[3];
+        var branchMerges = new int[3];
+        foreach (DungeonGraphNode n in Nodes)
+        {
+            if (n.NodeId == BossNodeId ? n.NextNodeIds.Count != 0 : n.NextNodeIds.Count < 1)
+            { error = $"节点 {n.NodeId} 出口数量非法"; return false; }
+            if (n.NodeId == StartNodeId ? n.PreviousNodeIds.Count != 0 : n.PreviousNodeIds.Count < 1)
+            { error = $"节点 {n.NodeId} 入口数量非法"; return false; }
+            if (n.NextNodeIds.Count > 1) branches++;
+            if (n.PreviousNodeIds.Count > 1) merges++;
             foreach (int next in n.NextNodeIds)
             {
                 DungeonGraphNode target = Get(next);
                 if (target == null) { error = $"节点 {n.NodeId} 指向不存在的 {next}"; return false; }
-                if (target.Column <= n.Column) { error = $"边 {n.NodeId}->{next} 未指向更大列（环）"; return false; }
+                if (target.Column != n.Column + 1) { error = $"边 {n.NodeId}->{next} 未指向相邻右层"; return false; }
+                if (n.NodeId != StartNodeId && target.NodeId != BossNodeId
+                    && n.MainBranchId != target.MainBranchId)
+                { error = $"边 {n.NodeId}->{next} 跨越主分支"; return false; }
                 if (!target.PreviousNodeIds.Contains(n.NodeId))
                 { error = $"Next/Prev 不一致：{n.NodeId}->{next}"; return false; }
             }
@@ -131,11 +196,52 @@ public class DungeonGraphData
                 if (source == null || !source.NextNodeIds.Contains(n.NodeId))
                 { error = $"Prev/Next 不一致：{prev}->{n.NodeId}"; return false; }
             }
+            if (n.MainBranchId >= 0 && n.NextNodeIds.Count > 1) branchSplits[n.MainBranchId]++;
+            if (n.MainBranchId >= 0 && n.PreviousNodeIds.Count > 1) branchMerges[n.MainBranchId]++;
         }
-        if (startCount != 1) { error = $"起点数 {startCount} ≠ 1"; return false; }
-        if (bossCount != 1) { error = $"Boss 数 {bossCount} ≠ 1"; return false; }
+        if (branches == 0 || merges == 0) { error = "缺少分叉或汇聚"; return false; }
+        DungeonGraphNode start = Get(StartNodeId);
+        if (start.NextNodeIds.Count != 3)
+        { error = "Start 必须恰好展开三条主分支"; return false; }
+        var startBranches = new HashSet<int>();
+        foreach (int nextId in start.NextNodeIds) startBranches.Add(Get(nextId).MainBranchId);
+        if (startBranches.Count != 3 || !startBranches.Contains(0)
+            || !startBranches.Contains(1) || !startBranches.Contains(2))
+        { error = "Start 的三个出口未覆盖三条独立主分支"; return false; }
+        var bossBranches = new HashSet<int>();
+        foreach (int prevId in Get(BossNodeId).PreviousNodeIds)
+            bossBranches.Add(Get(prevId).MainBranchId);
+        if (bossBranches.Count != 3)
+        { error = "Boss 前未汇入全部三条主分支"; return false; }
+        for (int branch = 0; branch < 3; branch++)
+            if (branchSplits[branch] < 1 || branchMerges[branch] < 1)
+            { error = $"主分支 {branch} 缺少局部分叉或回汇"; return false; }
 
-        // 全可达（BFS 自 Start）
+        // 去掉共享的 Start/Boss 后，整张图必须恰好剩下三个互不连通的分量。
+        var componentVisited = new HashSet<int>();
+        int components = 0;
+        foreach (DungeonGraphNode seedNode in Nodes)
+        {
+            if (seedNode.NodeId == StartNodeId || seedNode.NodeId == BossNodeId
+                || componentVisited.Contains(seedNode.NodeId)) continue;
+            components++;
+            int componentBranch = seedNode.MainBranchId;
+            var componentQueue = new Queue<int>();
+            componentQueue.Enqueue(seedNode.NodeId);
+            componentVisited.Add(seedNode.NodeId);
+            while (componentQueue.Count > 0)
+            {
+                DungeonGraphNode current = Get(componentQueue.Dequeue());
+                if (current.MainBranchId != componentBranch)
+                { error = "独立分量包含多个主分支"; return false; }
+                foreach (int linkedId in current.NextNodeIds)
+                    if (linkedId != BossNodeId && componentVisited.Add(linkedId)) componentQueue.Enqueue(linkedId);
+                foreach (int linkedId in current.PreviousNodeIds)
+                    if (linkedId != StartNodeId && componentVisited.Add(linkedId)) componentQueue.Enqueue(linkedId);
+            }
+        }
+        if (components != 3) { error = $"去掉端点后应有 3 个独立主分支，实际 {components}"; return false; }
+        // Start 正向与 Boss 反向都必须覆盖全图。
         var visited = new HashSet<int> { StartNodeId };
         var queue = new Queue<int>();
         queue.Enqueue(StartNodeId);
@@ -147,7 +253,38 @@ public class DungeonGraphData
         }
         if (visited.Count != Nodes.Count)
         { error = $"{Nodes.Count - visited.Count} 个节点从起点不可达"; return false; }
-        if (!visited.Contains(BossNodeId)) { error = "Boss 不可达"; return false; }
+        visited.Clear();
+        visited.Add(BossNodeId);
+        queue.Enqueue(BossNodeId);
+        while (queue.Count > 0)
+        {
+            DungeonGraphNode cur = Get(queue.Dequeue());
+            foreach (int prev in cur.PreviousNodeIds)
+                if (visited.Add(prev)) queue.Enqueue(prev);
+        }
+        if (visited.Count != Nodes.Count) { error = "存在无法抵达 Boss 的死路"; return false; }
+
+        // 层序动态规划：每个节点保存所有到达路径中的最少 Sage/中后段 Shop 数。
+        var minSage = new Dictionary<int, int> { [StartNodeId] = 0 };
+        var minShop = new Dictionary<int, int> { [StartNodeId] = 0 };
+        for (int col = 0; col <= maxColumn; col++)
+            foreach (DungeonGraphNode n in Nodes)
+            {
+                if (n.Column != col || !minSage.TryGetValue(n.NodeId, out int sage)) continue;
+                int shop = minShop[n.NodeId];
+                foreach (int nextId in n.NextNodeIds)
+                {
+                    DungeonGraphNode next = Get(nextId);
+                    int nextSage = sage + (next.Type == NodeType.Sage ? 1 : 0);
+                    int nextShop = shop + (next.Type == NodeType.Shop && next.Column >= maxColumn / 2 ? 1 : 0);
+                    if (!minSage.TryGetValue(nextId, out int oldSage) || nextSage < oldSage)
+                        minSage[nextId] = nextSage;
+                    if (!minShop.TryGetValue(nextId, out int oldShop) || nextShop < oldShop)
+                        minShop[nextId] = nextShop;
+                }
+            }
+        if (minSage[BossNodeId] < 3 || minShop[BossNodeId] < 1)
+        { error = "存在缺少 3 次贤者或中后段商店机会的路径"; return false; }
         return true;
     }
 
@@ -172,6 +309,8 @@ public class DungeonGraphData
         DungeonGraphNode start = Get(StartNodeId);
         if (start == null) return;
         start.Discovered = true;
+        DungeonGraphNode boss = Get(BossNodeId);
+        if (boss != null) boss.Discovered = true;
         foreach (int id in start.NextNodeIds)
         {
             DungeonGraphNode t = Get(id);

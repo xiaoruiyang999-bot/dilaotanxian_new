@@ -35,7 +35,9 @@ public class ColliderOutlineDebug : MonoBehaviour
     private readonly List<WeaponHitbox> hitboxes = new List<WeaponHitbox>(16);
 
     private float refreshTimer;
-    private bool show = true;
+    // 编辑器诊断工具默认关闭。此前默认 true 会把准备房四面墙等长碰撞体直接画进 Game View，
+    // 看起来像场景边框/十字线，并让调试图例污染正常游戏画面。
+    private bool show;
     private Material lineMat;
     private static GUIStyle legendStyle;
     private static GUIStyle labelStyle;
@@ -47,13 +49,22 @@ public class ColliderOutlineDebug : MonoBehaviour
         go.hideFlags = HideFlags.HideInHierarchy;
         DontDestroyOnLoad(go);
         go.AddComponent<ColliderOutlineDebug>();
-        Debug.Log("[ColliderOutlineDebug] 已启用：红=实体碰撞(受击层) 黄=触发器(攻击忽略) 橙=挥击判定盒 | F9 开关");
+        Debug.Log("[ColliderOutlineDebug] 已加载（默认关闭）：F9 开关碰撞体可视化");
     }
 
     void Update()
     {
         if (Keyboard.current != null && Keyboard.current.f9Key.wasPressedThisFrame)
+        {
             show = !show;
+            if (show)
+            {
+                refreshTimer = RefreshInterval;
+                RefreshCache();
+            }
+        }
+
+        if (!show) return;
 
         refreshTimer -= Time.unscaledDeltaTime;
         if (refreshTimer <= 0f)

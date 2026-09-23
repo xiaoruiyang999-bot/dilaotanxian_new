@@ -104,8 +104,8 @@ public class CameraFollow : MonoBehaviour
             }
         }
 
-        ClampToMapBounds();
         SnapCameraToScreenPixel();
+        ClampToMapBounds();
     }
 
     // ========== 地图边界锁定（v1.1.50）==========
@@ -118,11 +118,17 @@ public class CameraFollow : MonoBehaviour
     [SerializeField] private float boundsMarginX = 0f;
     [Tooltip("钳制线在半屏基础上的额外垂直余量（世界单位）：正 = 少露地图；负 = 多露地图外")]
     [SerializeField] private float boundsMarginY = 0f;
+    [Tooltip("视口允许越过左右围墙的距离，用于完整显示墙体并保留少量黑边")]
+    [SerializeField, Min(0f)] private float outsidePaddingX = 1f;
+    [Tooltip("视口允许越过上下围墙的距离，用于完整显示墙体并保留少量黑边")]
+    [SerializeField, Min(0f)] private float outsidePaddingY = 1f;
     [Tooltip("选中相机时在 Scene 视图画出地图边界（黄）与钳制线（红）辅助手动调节")]
     [SerializeField] private bool drawBoundsGizmos = true;
 
     private static Rect mapBounds;
     private static bool hasMapBounds;
+    public static Rect MapBounds => mapBounds;
+    public static bool HasMapBounds => hasMapBounds;
 
     /// <summary>设置地图世界边界（DungeonBuilder.Build / PrepRoomManager.Start 调用）。</summary>
     public static void SetMapBounds(Rect worldBounds)
@@ -143,9 +149,24 @@ public class CameraFollow : MonoBehaviour
         float halfW = halfH * attachedCamera.aspect;
         Vector3 p = transform.position;
 
-        p.x = ClampAxis(p.x, mapBounds.xMin, mapBounds.xMax, halfW + boundsMarginX);
-        // v2.0.7 用户定案：上边界不再固定（向上看时镜头可出地图上缘，后期换背景）——Y 只钳下界        float yLo = mapBounds.yMin + halfH + boundsMarginY;        p.y = p.y < yLo ? yLo : p.y;
+        Vector2 clamped = ClampViewportCenter(p, mapBounds,
+            halfW + boundsMarginX, halfH + boundsMarginY,
+            outsidePaddingX, outsidePaddingY);
+        p.x = clamped.x;
+        p.y = clamped.y;
         transform.position = p;
+    }
+
+    /// <summary>将正交视口的四条边限制在当前地图内。</summary>
+    public static Vector2 ClampViewportCenter(Vector2 desired, Rect bounds,
+        float halfWidth, float halfHeight, float outsidePaddingX = 0f,
+        float outsidePaddingY = 0f)
+    {
+        float effectiveHalfWidth = Mathf.Max(0f, halfWidth - Mathf.Max(0f, outsidePaddingX));
+        float effectiveHalfHeight = Mathf.Max(0f, halfHeight - Mathf.Max(0f, outsidePaddingY));
+        return new Vector2(
+            ClampAxis(desired.x, bounds.xMin, bounds.xMax, effectiveHalfWidth),
+            ClampAxis(desired.y, bounds.yMin, bounds.yMax, effectiveHalfHeight));
     }
 
     /// <summary>单轴钳制：范围不足（含余量后地图小于屏幕）时取中点居中。</summary>
@@ -190,6 +211,7 @@ public class CameraFollow : MonoBehaviour
         if (target == null) return;
         transform.position = target.position + offset;
         currentVelocity = Vector3.zero;
+        SnapCameraToScreenPixel();
         ClampToMapBounds();
         // 切层/出生时不携带旧震动
         shakeTimeRemaining = 0f;

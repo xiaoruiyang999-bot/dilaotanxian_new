@@ -26,6 +26,7 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 ## 2. 写代码前 Checklist
 
 - [ ] 本任务对应 GDD 的哪个版本、模块和验收条件？
+- [ ] `计划书/` 是否已有本小版本计划书和问题汇总与修复记录？从 v2.1.2 起两者为必需，计划先于实施，问题记录随实施更新。
 - [ ] 是否触及未定案设计？若是，范围是否仅限原型？
 - [ ] 能否保持当前可运行入口？
 - [ ] 新真值放在纯 C#、ScriptableObject、场景还是运行组件？是否唯一？
@@ -112,5 +113,6 @@ description: 本 Unity 俯视横向单向 DAG Roguelite 的开发红线。凡编
 - [ ] Play/人工：职业角色选择、房间进入完成、Room unload、死亡重开、Camera Bounds。
 - [ ] 场景中无 Debug_、临时 Player、错误 Camera target 或未说明 dirty。
 - [ ] 版本实施记录已新增；玩法决策回写 GDD。
+- [ ] `计划书/vX.Y.Z_主题_计划书.md` 与 `计划书/vX.Y.Z_问题汇总与修复记录.md` 均存在；后者含症状、证据、根因、处理、验证与遗留项，无问题时明确注明。
 - [ ] 若新增工程教训，已同步开发必读、AGENTS.md 与本 skill。
 

@@ -775,7 +775,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.1, g: 0.1, b: 0.15, a: 1}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -854,6 +854,8 @@ MonoBehaviour:
   shakeScale: 1
   boundsMarginX: 0
   boundsMarginY: 0
+  outsidePaddingX: 1
+  outsidePaddingY: 1
   drawBoundsGizmos: 1
 --- !u!114 &725043941
 MonoBehaviour:

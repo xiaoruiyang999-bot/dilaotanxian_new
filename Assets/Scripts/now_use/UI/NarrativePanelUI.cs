@@ -16,6 +16,7 @@ public static class NarrativePanelUI
     private static Queue<NarrativeService.Fragment> queue;
     private static NarrativeService.Fragment current;
     private static int lineIndex;
+    private static GameModalToken modalToken;
 
     public static bool IsOpen => canvasGo != null;
 
@@ -35,6 +36,7 @@ public static class NarrativePanelUI
         canvasGo = null;
         queue = null;
         current = null;
+        GameModalService.Release(ref modalToken);
     }
 
     /// <summary>点击/J 键：推进正文段落，段落尽则下一篇；整队列播完关闭并标记已读。</summary>
@@ -69,6 +71,8 @@ public static class NarrativePanelUI
     private static void EnsureCanvas()
     {
         if (canvasGo != null) return;
+
+        modalToken = GameModalService.Push(GameModalKind.Narrative, Close);
 
         canvasGo = new GameObject("NarrativeCanvas", typeof(Canvas));
         Canvas canvas = canvasGo.GetComponent<Canvas>();

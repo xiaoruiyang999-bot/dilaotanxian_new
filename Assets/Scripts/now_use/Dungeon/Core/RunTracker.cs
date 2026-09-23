@@ -26,4 +26,6 @@ public static class RunTracker
 
     /// <summary>击杀 +1：EnemyHealth.Die 调用（含 Debug 菜单击杀，口径统一）。</summary>
     public static void OnEnemyKilled() => Kills++;
+
+    public static void RestoreKills(int kills) => Kills = Mathf.Max(0, kills);
 }

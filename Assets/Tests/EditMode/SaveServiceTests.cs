@@ -58,6 +58,7 @@ public class SaveServiceTests
             floorNumber = 3,
             currentHp = 80,
             currentMana = 29,
+            resourcesInitialized = true,
             runCoins = 45,
             playableCharacterId = "Werewolf",
             relicIds = { "bleed_fang", "moon_fur" },
@@ -97,6 +98,7 @@ public class SaveServiceTests
         Assert.IsTrue(loaded.relicIds.SequenceEqual(new[] { "bleed_fang", "moon_fur" }));
         Assert.AreEqual(31, loaded.killsThisRun);
         Assert.AreEqual(29, loaded.currentMana);
+        Assert.IsTrue(loaded.resourcesInitialized);
         Assert.AreEqual(2, loaded.inscriptionRank);
         Assert.AreEqual(3, loaded.currentNodeId);
         Assert.IsFalse(loaded.routeInitializationPending);
@@ -179,5 +181,46 @@ public class SaveServiceTests
         Assert.IsNull(first.dungeonGraph);
         Assert.AreEqual(-1, first.currentNodeId);
         Assert.IsTrue(first.routeInitializationPending);
+        Assert.IsFalse(first.resourcesInitialized, "新 Run 尚未应用职业属性，资源快照必须保持未初始化");
+    }
+
+    [Test]
+    public void WerewolfEntry_IgnoresPrefabDefaultSnapshot_ButPreservesRealLegacyResources()
+    {
+        GameObject player = new GameObject("WerewolfResourceRestoreTest");
+        try
+        {
+            PlayerStats stats = player.AddComponent<PlayerStats>();
+            Health health = player.AddComponent<Health>();
+            PlayableCharacterDefinition definition = Resources.Load<PlayableCharacterDefinition>(
+                "Characters/Character_Werewolf");
+            Assert.IsNotNull(definition);
+
+            stats.ApplyPlayableCharacter(definition);
+            var broken = SaveService.CreateNewRun(1, PlayableCharacterId.Werewolf);
+            broken.currentHp = 5;
+            broken.currentArmor = 0;
+            broken.currentMana = 0f;
+            broken.runCoins = 17;
+            RunManager.RestoreVitalResourcesForEntry(broken, health, stats);
+            Assert.AreEqual(health.MaxHealth, health.CurrentHealth);
+            Assert.AreEqual(stats.MaxArmor, stats.CurrentArmor);
+            Assert.AreEqual(stats.MaxMana, stats.CurrentMana);
+            Assert.AreEqual(17, stats.Coins);
+
+            stats.ApplyPlayableCharacter(definition);
+            var realLegacy = SaveService.CreateNewRun(2, PlayableCharacterId.Werewolf);
+            realLegacy.currentHp = 37;
+            realLegacy.currentArmor = 12;
+            realLegacy.currentMana = 8f;
+            RunManager.RestoreVitalResourcesForEntry(realLegacy, health, stats);
+            Assert.AreEqual(37f, health.CurrentHealth);
+            Assert.AreEqual(12f, stats.CurrentArmor);
+            Assert.AreEqual(8f, stats.CurrentMana);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(player);
+        }
     }
 }

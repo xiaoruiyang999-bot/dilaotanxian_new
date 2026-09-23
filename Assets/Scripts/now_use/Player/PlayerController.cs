@@ -88,12 +88,14 @@ public class PlayerController : MonoBehaviour
     {
         if (playerInput != null)
             playerInput.onActionTriggered += OnActionTriggered;
+        GameModalService.StateChanged += OnModalStateChanged;
     }
 
     void OnDisable()
     {
         if (playerInput != null)
             playerInput.onActionTriggered -= OnActionTriggered;
+        GameModalService.StateChanged -= OnModalStateChanged;
 
         moveInput = Vector2.zero;
         if (movement != null) movement.StopImmediately();
@@ -106,12 +108,18 @@ public class PlayerController : MonoBehaviour
         string actionName = context.action?.name;
         if (string.IsNullOrEmpty(actionName)) return;
 
-        // 选择类 UI 打开期间：屏蔽攻击/技能/交互输入——鼠标点 UI 按钮会触发左键 Attack action，必须拦在分发前；
-        // 移动不受限（出生房安全）。角色选择页（v1.0.8）与职业选择页同规则。
-        // v1.1.47 技能树同入此列：开着时按 E 会再触发石碑开关（打开即被关掉），Attack 同理必须拦。
-        if ((CharacterSelectUI.IsOpen || SkillTreeUI.IsOpen) &&
-            (actionName == "Attack" || actionName == "Skill" || actionName == "Interact" || actionName == "UseItem"
-                || actionName == "Ultimate" || actionName == "WeaponSkill"))
+        // v2.1.2：Cancel 只走顶层模态→暂停菜单→世界取消的单一链路，
+        // 避免 PausePanel/PlayerController 同帧重复消费导致面板闪开闪关。
+        if (actionName == "Cancel" && context.performed)
+        {
+            if (GameModalService.TryCancelTop()) return;
+            if (PausePanel.Instance != null && PausePanel.Instance.TryOpenFromInput()) return;
+            interactor.OnCancelPressed();
+            return;
+        }
+
+        // 任何模态界面打开时阻断全部世界输入，包括移动、攻击、技能、交互和 Dash。
+        if (GameModalService.BlocksWorldInput)
             return;
 
         if (actionName == "Move")
@@ -134,18 +142,6 @@ public class PlayerController : MonoBehaviour
         {
             interactor.OnInteractPressed();
         }
-        else if (actionName == "Cancel" && context.performed)
-        {
-            // 选择类 UI 打开时 Esc 优先逐级关 UI（未确认不生效），否则关拾取列表
-            if (NarrativeArchiveUI.IsOpen) NarrativeArchiveUI.Close();   // 档案柜 Esc 关闭（叙事推进已改 J 键）
-            else if (SkillTreeUI.IsOpen)
-                SkillTreeUI.Close();   // v1.1.47 技能树最上层（sortingOrder 230，可从暂停菜单盖入）
-            else if (CharacterSelectUI.IsOpen)
-                CharacterSelectUI.Close();
-            else
-                interactor.OnCancelPressed();
-        }
-
         else if (actionName == "Dash" && context.performed)
         {
             // v1.1.42 狼人冲刺（MCP Dash 动作复用 Space）：仅狼人挂了 WerewolfDash 时生效
@@ -185,11 +181,26 @@ public class PlayerController : MonoBehaviour
         var keyboard = UnityEngine.InputSystem.Keyboard.current;
         if (keyboard == null) return;
         // v2.0.8 用户定案：叙事碎片 J 键逐段推进（Esc 不再消费；点击推进保留）
-        if (keyboard.jKey.wasPressedThisFrame && NarrativePanelUI.IsOpen)
+        if (keyboard.jKey.wasPressedThisFrame && GameModalService.IsTop(GameModalKind.Narrative))
             NarrativePanelUI.Advance();
+        if (keyboard.tabKey.wasPressedThisFrame
+            && (GameModalService.IsTop(GameModalKind.MapPreview)
+                || GameModalService.IsTop(GameModalKind.RouteChoice)))
+        {
+            DungeonMapUI.Close();
+            return;
+        }
+        if (GameModalService.BlocksWorldInput) return;
         // v2.0.5 Tab 开关 DAG 地图预览（Input System 设备直读——action 表暂无 Map 键，随 T-07 重绑 action 化）
-        if (keyboard.tabKey.wasPressedThisFrame)
-            DungeonMapUI.Toggle();
+        if (keyboard.tabKey.wasPressedThisFrame) DungeonMapUI.Toggle();
+    }
+
+    private void OnModalStateChanged()
+    {
+        if (!GameModalService.BlocksWorldInput) return;
+        moveInput = Vector2.zero;
+        movement?.StopImmediately();
+        combat?.OnAttackReleased();
     }
 
     // ========== 死亡处理 ==========

@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -21,10 +20,9 @@ public class DeathPanel : MonoBehaviour
 
     private GameObject panelRoot;
     private Health playerHealth;
-    private PlayerInput playerInput;
     private bool subscribedDeath;
-    private bool subscribedInput;
     private bool returning;
+    private GameModalToken modalToken;
 
     void Awake()
     {
@@ -53,17 +51,6 @@ public class DeathPanel : MonoBehaviour
             subscribedDeath = true;
         }
 
-        if (!subscribedInput)
-        {
-            if (playerInput == null)
-            {
-                GameObject p = GameObject.FindGameObjectWithTag("Player");
-                playerInput = p != null ? p.GetComponent<PlayerInput>() : null;
-                if (playerInput == null) return;
-            }
-            playerInput.onActionTriggered += OnAction;
-            subscribedInput = true;
-        }
     }
 
     void OnDisable() => UnsubscribeAll();
@@ -75,17 +62,7 @@ public class DeathPanel : MonoBehaviour
             playerHealth.OnDeath -= OnPlayerDied;
             subscribedDeath = false;
         }
-        if (playerInput != null && subscribedInput)
-        {
-            playerInput.onActionTriggered -= OnAction;
-            subscribedInput = false;
-        }
-    }
-
-    private void OnAction(InputAction.CallbackContext ctx)
-    {
-        if (ctx.action?.name == "Cancel" && ctx.performed && panelRoot != null)
-            ReturnToPrep();
+        GameModalService.Release(ref modalToken);
     }
 
     private void OnPlayerDied()
@@ -100,6 +77,7 @@ public class DeathPanel : MonoBehaviour
 
     private void Show(int floor, int kills, float elapsed)
     {
+        modalToken = GameModalService.Push(GameModalKind.Death, ReturnToPrep);
         var canvasGo = new GameObject("DeathCanvas", typeof(Canvas));
         canvasGo.transform.SetParent(transform, false);
         Canvas canvas = canvasGo.GetComponent<Canvas>();
@@ -147,6 +125,9 @@ public class DeathPanel : MonoBehaviour
     {
         if (returning) return;
         returning = true;
+        GameModalService.Release(ref modalToken);
+        // 点击/Esc 提前返回会销毁 RunManager 的延迟协程，因此必须在这里同步结束旧 Run。
+        SaveService.DeleteRun();
         RunStateCarrier.Ensure().ResetWeaponToCharacterDefault();
         CharacterSelectUI.Close();
         Debug.Log("[Death] 返回准备房间");

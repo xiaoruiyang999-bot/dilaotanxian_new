@@ -51,6 +51,11 @@ public class PrepPortalInteractable : Interactable
             return;
         }
 
+        // 守灯厅传送门是“开始新 Run”入口，不是无提示续局入口。
+        // 若保留旧 ActiveRun，RunManager 会恢复旧 currentNodeId 与旧 HP/护甲快照，
+        // 表现为第一分支已被代选、半血且护甲为空。续局必须由未来独立入口显式触发。
+        SaveService.DeleteRun();
+
         // 加载新场景前确保选择 UI 等静态状态不残留
         CharacterSelectUI.Close();
         Debug.Log($"[Run] 进入地牢：{carrier.ChosenPlayableCharacter.DisplayName} + {carrier.LastWeapon.DisplayName} → {dungeonSceneName}");

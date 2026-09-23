@@ -35,10 +35,12 @@ public static class SaveService
         public int currentArmor;
         public float currentMana;
         public float currentClassResource;
+        public bool resourcesInitialized;             // false=旧默认值/新 Run，不能覆盖职业满状态
         public int runCoins;                          // 随身星蓝币
         public string playableCharacterId;
         public List<string> relicIds = new List<string>();
         public int killsThisRun;
+        public float temporaryRewardAttackBonus;
 
         // v2.1.0：ActiveRun 是唯一持久化 Run DTO；旧 RunManager 暂不消费这些字段。
         public DungeonGraphData dungeonGraph;
@@ -202,6 +204,7 @@ public static class SaveService
         {
             // 旧档无 DAG / 当前节点真值。保留旧战斗字段，路线由 v2.1.1 明确初始化。
             r.runId = "legacy-" + r.mainSeed + "-" + r.floorNumber;
+            r.dungeonGraph = null;
             r.currentNodeId = -1;
             r.routeInitializationPending = true;
             r.inscriptionRank = InscriptionRankRules.MinRank;

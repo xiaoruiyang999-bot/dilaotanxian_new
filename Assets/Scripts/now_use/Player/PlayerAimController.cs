@@ -38,6 +38,8 @@ public class PlayerAimController : MonoBehaviour
     private void Update()
     {
         HasValidAimInput = false;
+        if (GameModalService.BlocksWorldInput) return;
+
         switch (inputDevice)
         {
             case AimInputDevice.Mouse:

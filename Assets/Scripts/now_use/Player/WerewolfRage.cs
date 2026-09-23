@@ -78,6 +78,15 @@ public sealed class WerewolfRage : MonoBehaviour
         SetCurrent(0f);
     }
 
+    /// <summary>读档恢复怒痕，重置本帧伤害充能账本。</summary>
+    public void RestoreCurrent(float value)
+    {
+        damageGainFrame = -1;
+        damageGainThisFrame = 0f;
+        GainPaused = false;
+        SetCurrent(value);
+    }
+
 #if UNITY_EDITOR
     public void DebugFill()
     {

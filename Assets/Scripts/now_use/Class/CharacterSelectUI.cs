@@ -19,6 +19,7 @@ public class CharacterSelectUI : MonoBehaviour
     private readonly List<CharacterButton> buttons = new List<CharacterButton>();
     private GameObject canvasGo;
     private PlayableCharacterDefinition selected;
+    private GameModalToken modalToken;
 
     private struct CharacterButton
     {
@@ -44,6 +45,7 @@ public class CharacterSelectUI : MonoBehaviour
 
     private void Show()
     {
+        if (IsOpen) return;
         EnsureEventSystem();
         RunStateCarrier carrier = RunStateCarrier.Ensure();
         selected = carrier.HasPlayableCharacter
@@ -52,18 +54,21 @@ public class CharacterSelectUI : MonoBehaviour
         RefreshHighlights();
         canvasGo.SetActive(true);
         IsOpen = true;
+        modalToken = GameModalService.Push(GameModalKind.CharacterSelect, Hide);
     }
 
     private void Hide()
     {
         canvasGo.SetActive(false);
         IsOpen = false;
+        GameModalService.Release(ref modalToken);
     }
 
     private void OnDestroy()
     {
         if (instance == this) instance = null;
         IsOpen = false;
+        GameModalService.Release(ref modalToken);
     }
 
     private void Build()

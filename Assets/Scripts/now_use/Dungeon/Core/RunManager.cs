@@ -34,25 +34,30 @@ public class RunManager : MonoBehaviour
     private Health playerHealth;
     private PlayerStats playerStats;
     private Room bossRoomSubscribed;
+    private int bossRewardSpawnedForNode = -1;
 
     void Start()
     {
-        // DungeonManager.Start 先生成第 1 层；延迟一帧初始化，保证脚本执行顺序无关
+        // 等待玩家与跨场景职业角色载体初始化后，再进入唯一 DAG。
         StartCoroutine(InitDelayed());
     }
 
     private IEnumerator InitDelayed()
     {
         yield return null;
+        SaveService.ActiveRunData saved = SaveService.LoadRun();
+        RunStateCarrier carrier = RunStateCarrier.Ensure();
+        if (saved != null && System.Enum.TryParse(saved.playableCharacterId,
+                out PlayableCharacterId savedCharacter))
+            carrier.SetPlayableCharacter(savedCharacter);
         // v1.0.6 统一入口：未选职业直连本场景（编辑器里 Play 了地牢场景/旧 v0_5 场景）时，
         // 重定向回准备场景走正式流程，而不是以无职业状态裸进地牢
-        if (redirectToPrepWhenNoClass && !RunStateCarrier.Ensure().HasPlayableCharacter)
+        if (redirectToPrepWhenNoClass && !carrier.HasPlayableCharacter)
         {
             Debug.Log("[Run] 未选职业角色：重定向到准备场景（统一入口）");
             SceneManager.LoadScene(prepSceneName);
             yield break;
         }
-        MainSeed = dungeonManager.ActiveSeed;
         player = FindAnyObjectByType<PlayerController>();
         if (player == null)
         {
@@ -62,11 +67,69 @@ public class RunManager : MonoBehaviour
         playerHealth = player.GetHealth();
         playerStats = player.GetStats();
         playerHealth.OnDeath += OnPlayerDeath;
-        RunTracker.BeginRun();          // v1.0.5 死亡结算统计：每次地牢场景加载重置，NextFloor 不重置（整局累计）
         ApplyLoadoutFromCarrier();
-        SubscribeBossRoom();
-        Debug.Log($"[Run] 楼层循环启动：floor=1 mainSeed={MainSeed}");
+        RunTracker.BeginRun();
+        if (saved != null) RestoreSavedResources(saved);
+        else carrier.Relics.Clear();
+        SaveService.ActiveRunData run = saved ?? SaveService.CreateNewRun(
+            System.Environment.TickCount, carrier.ChosenPlayableCharacterId);
+        if (!run.resourcesInitialized) CaptureInitialResources(run);
+        MainSeed = run.mainSeed;
+        FloorNumber = run.floorNumber;
+        dungeonManager.OnGenerated += OnRoomGenerated;
+        if (!dungeonManager.BeginOrResumeRun(run))
+        {
+            Debug.LogError("[Run] 无法进入当前 DAG 节点");
+            yield break;
+        }
+        Debug.Log($"[Run] DAG 启动：node={run.currentNodeId} seed={MainSeed}");
         StartCoroutine(PlayRequiredNarrative());   // v2.0.7 每 Run 必得碎片（V2 §2.3 保底）
+    }
+
+    private void RestoreSavedResources(SaveService.ActiveRunData saved)
+    {
+        RestoreVitalResourcesForEntry(saved, playerHealth, playerStats);
+        playerStats.PermDamageMult += saved.temporaryRewardAttackBonus;
+        WerewolfRage rage = player.GetComponent<WerewolfRage>();
+        if (rage != null) rage.RestoreCurrent(saved.currentClassResource);
+        RunTracker.RestoreKills(saved.killsThisRun);
+        RelicInventory relics = RunStateCarrier.Ensure().Relics;
+        relics.Clear();
+        if (saved.relicIds == null || saved.relicIds.Count == 0) return;
+        foreach (RelicDefinition definition in Resources.LoadAll<RelicDefinition>("Relics"))
+            if (definition != null && saved.relicIds.Contains(definition.relicId))
+                relics.TryAdd(definition);
+    }
+
+    /// <summary>恢复进场资源；公开静态入口用于无场景 EditMode 门禁。</summary>
+    public static void RestoreVitalResourcesForEntry(SaveService.ActiveRunData saved,
+        Health health, PlayerStats stats)
+    {
+        if (saved == null || health == null || stats == null) return;
+        bool restoreVitals = HasUsableVitalSnapshot(saved);
+        if (restoreVitals && saved.currentHp > 0) health.RestoreCurrent(saved.currentHp);
+        float armor = restoreVitals ? saved.currentArmor : stats.CurrentArmor;
+        float mana = restoreVitals ? saved.currentMana : stats.CurrentMana;
+        stats.RestoreRunResources(armor, mana, saved.runCoins);
+    }
+
+    private static bool HasUsableVitalSnapshot(SaveService.ActiveRunData saved)
+    {
+        if (saved == null) return false;
+        if (saved.resourcesInitialized) return true;
+        // v2.1.1 之前可能把 Player Prefab 的 5 HP / 0 护甲 / 0 法力当成职业快照。
+        // 其他旧档数值仍按真实资源恢复，避免路线版本迁移时无条件回满。
+        return saved.currentHp > 5 || saved.currentArmor > 0 || saved.currentMana > 0.01f;
+    }
+
+    private void CaptureInitialResources(SaveService.ActiveRunData run)
+    {
+        run.currentHp = Mathf.RoundToInt(playerHealth.CurrentHealth);
+        run.currentArmor = Mathf.RoundToInt(playerStats.CurrentArmor);
+        run.currentMana = playerStats.CurrentMana;
+        WerewolfRage rage = player.GetComponent<WerewolfRage>();
+        if (rage != null) run.currentClassResource = rage.Current;
+        run.resourcesInitialized = true;
     }
 
     /// <summary>
@@ -107,7 +170,17 @@ public class RunManager : MonoBehaviour
     void OnDestroy()
     {
         if (playerHealth != null) playerHealth.OnDeath -= OnPlayerDeath;
+        if (dungeonManager != null) dungeonManager.OnGenerated -= OnRoomGenerated;
         UnsubscribeBossRoom();
+    }
+
+    private void OnRoomGenerated()
+    {
+        UnsubscribeBossRoom();
+        bossRewardSpawnedForNode = -1;
+        SubscribeBossRoom();
+        if (bossRoomSubscribed != null && bossRoomSubscribed.State == RoomState.Cleared)
+            OnBossCleared(bossRoomSubscribed);
     }
 
     // ---------- Boss 结算 ----------
@@ -126,6 +199,8 @@ public class RunManager : MonoBehaviour
 
     private void OnBossCleared(Room room)
     {
+        if (room == null || bossRewardSpawnedForNode == room.Id) return;
+        bossRewardSpawnedForNode = room.Id;
         // v1.1.52：消费固定仪式厅的最终 SpawnCells 插槽，并做 NonAlloc 物理复核；
         // 不再使用 world-X 的 Center±1.5，也不让结算位置受地图 seed 影响。
         Vector3? reservedPosition = null;
@@ -212,10 +287,14 @@ public class RunManager : MonoBehaviour
     /// </summary>
     public void CompleteRun()
     {
+        SaveService.ActiveRunData run = dungeonManager != null ? dungeonManager.ActiveRun : null;
+        if (run != null)
+            DungeonRouteRules.TryResolveReward(run, run.currentNodeId);
         int runCoins = playerStats != null ? playerStats.Coins : 0;
         int banked = StarCoinBank.BankOnBossClear(runCoins);
         if (playerStats != null) playerStats.ResetCoins();
         VictoryPanel.Show(FloorNumber, RunTracker.Kills, RunTracker.Elapsed, runCoins, banked);
+        SaveService.DeleteRun();
         Debug.Log($"[Run] 通关：星蓝币 100% 封存 +{banked}（守灯厅累计 {StarCoinBank.Banked}）");
     }
 
@@ -251,6 +330,7 @@ public class RunManager : MonoBehaviour
     private IEnumerator RestartRun()
     {
         yield return new WaitForSeconds(restartDelay);
+        SaveService.DeleteRun();
         RunStateCarrier.Ensure().ResetWeaponToCharacterDefault();
         CharacterSelectUI.Close();   // 防御：静态 UI 状态不残留到新场景
         Debug.Log("[Run] 玩家死亡：返回准备场景");

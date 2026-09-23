@@ -19,6 +19,7 @@ public static class SkillTreeUI
     private static TMP_Text essenceLabel;
     private static TMP_Text hintLabel;
     private static readonly List<GameObject> treeItems = new List<GameObject>();
+    private static GameModalToken modalToken;
 
     private static readonly Color gold = new Color(1f, 0.82f, 0.35f);
     private static readonly Color warmWhite = new Color(1f, 0.95f, 0.8f);
@@ -35,6 +36,7 @@ public static class SkillTreeUI
     {
         if (canvasGo != null) return;
         EnsureEventSystem();
+        modalToken = GameModalService.Push(GameModalKind.SkillTree, Close);
 
         canvasGo = new GameObject("SkillTreeCanvas", typeof(Canvas));
         Canvas canvas = canvasGo.GetComponent<Canvas>();
@@ -85,6 +87,7 @@ public static class SkillTreeUI
         essenceLabel = null;
         hintLabel = null;
         treeItems.Clear();
+        GameModalService.Release(ref modalToken);
     }
 
     /// <summary>整树重建（解锁操作低频，直接清空重画最稳）。</summary>

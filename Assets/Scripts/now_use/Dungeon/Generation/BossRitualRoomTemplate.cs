@@ -184,6 +184,17 @@ public static class BossRitualRoomTemplate
         // 都保持同一构图尺度，不会因吸附 SpawnCells 后挤在中央或被房宽拉得过散。
         float lateral = 2.5f / Mathf.Max(1, layout.LateralCells - 1);
         var used = new HashSet<Vector2Int>();
+        if (layout.Forward == Vector2Int.right)
+        {
+            // v2.1.1：左入右出。宝箱位于中央偏右，通关门固定靠右墙；后两组保底同样保持此顺序。
+            AddNearestSafePosition(layout, -lateral, 0.68f, used, result);
+            AddNearestSafePosition(layout, 0f, 0.95f, used, result);
+            AddNearestSafePosition(layout, lateral, 0.62f, used, result);
+            AddNearestSafePosition(layout, 0f, 0.90f, used, result);
+            AddNearestSafePosition(layout, -lateral, 0.56f, used, result);
+            AddNearestSafePosition(layout, 0f, 0.85f, used, result);
+            return result;
+        }
         AddNearestSafePosition(layout, -lateral, 0.44f, used, result);
         AddNearestSafePosition(layout, lateral, 0.44f, used, result);
         AddNearestSafePosition(layout, -lateral, 0.53f, used, result);

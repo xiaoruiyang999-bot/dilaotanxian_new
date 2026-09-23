@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -8,7 +7,8 @@ using UnityEngine.UI;
 /// v1.0.4 变更：输入资产已无 "Pause" 动作（v0.7.5），改听 "Cancel"（Esc）——
 /// 职业角色选择 UI 打开时让位，玩家死亡流程中不暂停
 /// （重开协程的 WaitForSeconds 受 timeScale 影响会被卡死）。
-/// 时停与 HitStop.SuppressByUI 协调；重开 = 回准备场景（与 RunManager 死亡重开同链路：清武器 + 关静态 UI）。
+/// v2.1.2：暂停和设置页分别占用统一模态栈层；Esc 由 PlayerController 单点分发，
+/// 关闭内层设置不会误恢复战斗，Hit Stop 也不再覆盖 UI 暂停。
 /// 挂载模式同 MinimapSystem：场景空对象 PauseSystem 挂本组件，UI 运行时代码构建。
 /// v1.2.0：Label/CreateMenuButton 迁移至 UIHelper 消除重复代码。
 /// </summary>
@@ -23,8 +23,10 @@ public class PausePanel : MonoBehaviour
     private GameObject settingsRoot;
     private GameObject settingsMainRoot, audioRoot, controlsRoot;
     private RectTransform menuButtonsRoot;
-    private PlayerInput playerInput;
-    private bool subscribed;
+    private GameModalToken pauseToken;
+    private GameModalToken settingsToken;
+
+    public bool IsOpen => panelRoot != null;
 
     void Awake()
     {
@@ -35,58 +37,24 @@ public class PausePanel : MonoBehaviour
     void OnDestroy()
     {
         if (Instance == this) Instance = null;
-        Unsubscribe();
+        Close();
     }
 
-    void Update()
+    /// <summary>Cancel 的唯一无模态入口；有顶层模态时由 GameModalService 优先处理。</summary>
+    public bool TryOpenFromInput()
     {
-        if (subscribed) return;
-
-        if (playerInput == null)
-        {
-            GameObject p = GameObject.FindGameObjectWithTag("Player");
-            playerInput = p != null ? p.GetComponent<PlayerInput>() : null;
-            if (playerInput == null) return;
-        }
-
-        playerInput.onActionTriggered += OnAction;
-        subscribed = true;
-    }
-
-    void OnDisable() => Unsubscribe();
-
-    private void Unsubscribe()
-    {
-        if (playerInput != null && subscribed)
-        {
-            playerInput.onActionTriggered -= OnAction;
-            subscribed = false;
-        }
-    }
-
-    private void OnAction(InputAction.CallbackContext ctx)
-    {
-        if (ctx.action?.name == "Cancel" && ctx.performed) Toggle();
-    }
-
-    private void Toggle()
-    {
-        if (SkillTreeUI.IsOpen) return;
-        if (panelRoot != null) { Close(); return; }
-
-        if (CharacterSelectUI.IsOpen) return;
+        if (panelRoot != null || GameModalService.HasModal) return false;
         GameObject p = GameObject.FindGameObjectWithTag("Player");
-        if (p != null && p.TryGetComponent(out Health h) && h.IsDead) return;
+        if (p != null && p.TryGetComponent(out Health h) && h.IsDead) return false;
 
         Open();
+        return panelRoot != null;
     }
 
     private void Open()
     {
-        if (Time.timeScale == 0f) return;
-
-        Time.timeScale = 0f;
-        HitStop.SuppressByUI = true;
+        if (panelRoot != null) return;
+        pauseToken = GameModalService.Push(GameModalKind.PauseMenu, Close);
         AudioManager.PauseBgm();
 
         var canvasGo = new GameObject("PauseCanvas", typeof(Canvas));
@@ -144,11 +112,12 @@ public class PausePanel : MonoBehaviour
     {
         bool hadPanel = panelRoot != null;
         Close();
-        Debug.Log($"[Pause] 继续游戏：面板{(hadPanel ? "已销毁" : "本就不存在")}，timeScale={Time.timeScale}，SuppressByUI={HitStop.SuppressByUI}");
+        Debug.Log($"[Pause] 继续游戏：面板{(hadPanel ? "已销毁" : "本就不存在")}，modalCount={GameModalService.ModalCount}");
     }
 
     private void Close()
     {
+        CloseSettings();
         if (panelRoot != null)
         {
             Destroy(panelRoot);
@@ -160,18 +129,31 @@ public class PausePanel : MonoBehaviour
         controlsRoot = null;
         menuButtonsRoot = null;
 
-        HitStop.SuppressByUI = false;
-        Time.timeScale = 1f;
+        GameModalService.Release(ref pauseToken);
         AudioManager.ResumeBgm();
     }
 
     private void ToggleSettings()
     {
         if (settingsRoot == null || menuButtonsRoot == null) return;
-        bool show = !settingsRoot.activeSelf;
-        settingsRoot.SetActive(show);
-        menuButtonsRoot.gameObject.SetActive(!show);
-        if (show) ShowSettingsPage(SettingsPage.Main);
+        if (settingsRoot.activeSelf) CloseSettings();
+        else OpenSettings();
+    }
+
+    private void OpenSettings()
+    {
+        if (settingsRoot == null || menuButtonsRoot == null || settingsRoot.activeSelf) return;
+        settingsToken = GameModalService.Push(GameModalKind.PauseSettings, CloseSettings);
+        settingsRoot.SetActive(true);
+        menuButtonsRoot.gameObject.SetActive(false);
+        ShowSettingsPage(SettingsPage.Main);
+    }
+
+    private void CloseSettings()
+    {
+        if (settingsRoot != null) settingsRoot.SetActive(false);
+        if (menuButtonsRoot != null) menuButtonsRoot.gameObject.SetActive(true);
+        GameModalService.Release(ref settingsToken);
     }
 
     // ---------- 设置两级导航（v1.1.16） ----------
@@ -276,6 +258,7 @@ public class PausePanel : MonoBehaviour
     private void RestartRun()
     {
         Close();
+        SaveService.DeleteRun();
         RunStateCarrier.Ensure().ResetWeaponToCharacterDefault();
         CharacterSelectUI.Close();
         Debug.Log("[Pause] 手动重开本局：回准备场景");

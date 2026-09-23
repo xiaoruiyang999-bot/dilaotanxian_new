@@ -14,6 +14,7 @@ public class VictoryPanel : MonoBehaviour
     [SerializeField] private string prepSceneName = "v0_7_PrepRoom";
     private GameObject panelRoot;
     private bool returning;
+    private GameModalToken modalToken;
 
     public static void Show(int floor, int kills, float elapsed, int runCoins, int banked)
     {
@@ -24,6 +25,7 @@ public class VictoryPanel : MonoBehaviour
 
     private void Build(int floor, int kills, float elapsed, int runCoins, int banked)
     {
+        modalToken = GameModalService.Push(GameModalKind.Victory, ReturnToPrep);
         var canvasGo = new GameObject("VictoryCanvas", typeof(Canvas));
         canvasGo.transform.SetParent(transform, false);
         Canvas canvas = canvasGo.GetComponent<Canvas>();
@@ -63,26 +65,21 @@ public class VictoryPanel : MonoBehaviour
         Debug.Log($"[Victory] 通关结算：楼层 {floor} / 击杀 {kills} / 时长 {minutes:00}:{seconds:00} / 星蓝币封存 +{banked}");
     }
 
-    private void Update()
-    {
-        if (InputSystemEscPressed()) ReturnToPrep();
-    }
-
-    private static bool InputSystemEscPressed()
-    {
-        var keyboard = UnityEngine.InputSystem.Keyboard.current;
-        return keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
-    }
-
     private void ReturnToPrep()
     {
         if (returning) return;
         returning = true;
+        GameModalService.Release(ref modalToken);
         NarrativeArchiveUI.Close();
         NarrativePanelUI.Close();
         RunStateCarrier.Ensure().ResetWeaponToCharacterDefault();
         Debug.Log("[Victory] 返回守灯厅");
         SceneManager.LoadScene(prepSceneName);
+    }
+
+    private void OnDestroy()
+    {
+        GameModalService.Release(ref modalToken);
     }
 
     private static void Label(Transform parent, string text, int size, Color color, Vector2 anchor, Vector2 sizeDelta)

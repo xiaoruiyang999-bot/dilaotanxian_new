@@ -104,6 +104,16 @@ public class PlayerStats : MonoBehaviour
         OnStatsChanged?.Invoke();
     }
 
+    /// <summary>读档恢复局内可变资源，不改职业角色的基础上限。</summary>
+    public void RestoreRunResources(float armor, float mana, int starCoins)
+    {
+        CurrentArmor = Mathf.Clamp(armor, 0f, MaxArmor);
+        CurrentMana = Mathf.Clamp(mana, 0f, MaxMana);
+        coins = Mathf.Max(0, starCoins);
+        OnStatsChanged?.Invoke();
+        OnCoinsChanged?.Invoke(coins);
+    }
+
     /// <summary>
     /// 回复法力（不超上限）。法力不可自动回复，来源仅：法力瓶 / 击杀法力球 / 技能宠物（计划书 4.4）。
     /// </summary>

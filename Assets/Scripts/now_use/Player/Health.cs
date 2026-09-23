@@ -73,6 +73,14 @@ public class Health : MonoBehaviour, IDamageable
         OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }
 
+    /// <summary>读档恢复当前生命；上限仍由职业角色定义决定。</summary>
+    public void RestoreCurrent(float value)
+    {
+        CurrentHealth = Mathf.Clamp(value, 1f, maxHealth);
+        IsDead = false;
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+    }
+
     /// <summary>上限与当前血等比 ×multiplier（v0.6.9 兽化血量，v1.0.9 自 MCP 分支恢复；退兽化传 1/N 等比还原）。</summary>
     public void ScaleMaxHealth(float multiplier)
     {

@@ -14,12 +14,15 @@ public static class NarrativeArchiveUI
     private static TMP_Text bodyText;
     private static TMP_Text titleText;
     private static readonly List<GameObject> rows = new List<GameObject>();
+    private static GameModalToken modalToken;
 
     public static bool IsOpen => canvasGo != null;
 
     public static void Open()
     {
         if (IsOpen) return;
+
+        modalToken = GameModalService.Push(GameModalKind.NarrativeArchive, Close);
 
         canvasGo = new GameObject("ArchiveCanvas", typeof(Canvas));
         Canvas canvas = canvasGo.GetComponent<Canvas>();
@@ -85,6 +88,7 @@ public static class NarrativeArchiveUI
         Object.Destroy(canvasGo);
         canvasGo = null;
         rows.Clear();
+        GameModalService.Release(ref modalToken);
     }
 
     private static void BuildList(Transform listRoot)

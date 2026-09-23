@@ -6,6 +6,24 @@ using UnityEngine;
 public class BossRitualRoomTemplateTests
 {
     [Test]
+    public void V211_LeftEntrance_ReachesRightExitAndPlacesPortalAfterChest()
+    {
+        var interior = new RectInt(1, 1, 61, 37);
+        List<Vector2Int> entrance = VerticalDoor(interior, interior.xMin - 1);
+        BossRitualRoomLayout layout = BossRitualRoomTemplate.Build(interior, entrance);
+        Assert.AreEqual(Vector2Int.right, layout.Forward);
+        var anchors = new List<Vector2Int>(layout.DoorAnchors);
+        anchors.AddRange(VerticalDoor(interior, interior.xMax - 1));
+        Assert.IsTrue(RoomLayoutValidator.ValidatePlayerGauge(layout.Plan, anchors,
+            layout.Cell(0f, 0.44f)));
+        List<Vector3> rewards = BossRitualRoomTemplate.BuildRewardSpawnPositions(layout);
+        Assert.AreEqual(6, rewards.Count);
+        Assert.Greater(rewards[1].x, rewards[0].x);
+        Assert.Greater(rewards[3].x, rewards[2].x);
+        Assert.Greater(rewards[5].x, rewards[4].x);
+    }
+
+    [Test]
     public void TemplateBuild_DefensivelyMapsAllDoorDirections()
     {
         var interior = new RectInt(10, 20, 61, 37);

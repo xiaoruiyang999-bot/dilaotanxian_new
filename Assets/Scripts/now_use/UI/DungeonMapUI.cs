@@ -14,9 +14,26 @@ public static class DungeonMapUI
     private static GameObject canvasGo;
     private static readonly List<GameObject> items = new List<GameObject>();
 
-    /// <summary>当前层的图（地牢生成时由 DungeonManager 写入；null 时 Tab 不响应）。</summary>
-    public static DungeonGraphData CurrentGraph { get; set; }
-    public static int CurrentNodeId { get; set; } = -1;
+    private static SaveService.ActiveRunData boundRun;
+    private static System.Func<int, bool> chooseNext;
+    private static bool selectingRoute;
+    private static GameModalToken modalToken;
+    public static DungeonGraphData CurrentGraph => boundRun?.dungeonGraph;
+    public static int CurrentNodeId => boundRun?.currentNodeId ?? -1;
+
+    public static void BindRun(SaveService.ActiveRunData run, System.Func<int, bool> onChooseNext)
+    {
+        Close();
+        boundRun = run;
+        chooseNext = onChooseNext;
+    }
+
+    public static void UnbindRun()
+    {
+        Close();
+        boundRun = null;
+        chooseNext = null;
+    }
 
     private static readonly Color gold = new Color(1f, 0.82f, 0.35f);
     private static readonly Color visitedGray = new Color(0.45f, 0.45f, 0.45f);
@@ -31,12 +48,15 @@ public static class DungeonMapUI
         { NodeType.Recovery, new Color(0.4f,  0.85f, 0.5f) },
         { NodeType.Boss,     new Color(0.9f,  0.25f, 0.3f) },
         { NodeType.Start,    new Color(0.5f,  0.8f,  0.5f) },
+        { NodeType.Supply,   new Color(0.48f, 0.78f, 0.55f) },
+        { NodeType.Sage,     new Color(0.67f, 0.55f, 0.92f) },
     };
     private static readonly Dictionary<NodeType, string> typeGlyphs = new Dictionary<NodeType, string>
     {
         { NodeType.Combat, "战" }, { NodeType.Elite, "精" }, { NodeType.Treasure, "宝" },
         { NodeType.Shop, "店" }, { NodeType.Event, "?" }, { NodeType.Recovery, "愈" },
         { NodeType.Boss, "王" }, { NodeType.Start, "起" },
+        { NodeType.Supply, "资" }, { NodeType.Sage, "贤" },
     };
 
     public static bool IsOpen => canvasGo != null;
@@ -44,12 +64,24 @@ public static class DungeonMapUI
     public static void Toggle()
     {
         if (IsOpen) Close();
-        else Open();
+        else { selectingRoute = false; Open(); }
+    }
+
+    public static void OpenRouteChoice()
+    {
+        if (boundRun == null || chooseNext == null) return;
+        if (IsOpen) Close();
+        selectingRoute = true;
+        Open();
     }
 
     public static void Open()
     {
         if (IsOpen || CurrentGraph == null) return;
+
+        modalToken = GameModalService.Push(
+            selectingRoute ? GameModalKind.RouteChoice : GameModalKind.MapPreview,
+            Close);
 
         canvasGo = new GameObject("DungeonMapCanvas", typeof(Canvas));
         Canvas canvas = canvasGo.GetComponent<Canvas>();
@@ -74,7 +106,8 @@ public static class DungeonMapUI
 
         var title = CreateText(panel.transform, "Title", "路 线 图", 34, TextAlignmentOptions.Center, Color.white);
         title.rectTransform.anchoredPosition = new Vector2(0f, 235f);
-        var hint = CreateText(panel.transform, "Hint", "Tab 关闭 · 节点选择将在下一版本开放",
+        var hint = CreateText(panel.transform, "Hint", selectingRoute
+                ? "选择右侧相邻节点 · Tab 关闭" : "Tab 关闭 · 完成房间后从右出口选择路线",
             16, TextAlignmentOptions.Center, new Color(0.8f, 0.78f, 0.7f));
         hint.rectTransform.anchoredPosition = new Vector2(0f, -235f);
 
@@ -83,10 +116,11 @@ public static class DungeonMapUI
 
     public static void Close()
     {
-        if (canvasGo == null) return;
-        Object.Destroy(canvasGo);
+        if (canvasGo != null) Object.Destroy(canvasGo);
         canvasGo = null;
         items.Clear();
+        selectingRoute = false;
+        GameModalService.Release(ref modalToken);
     }
 
     private static void Rebuild(Transform panel)
@@ -96,7 +130,10 @@ public static class DungeonMapUI
         DungeonGraphData graph = CurrentGraph;
 
         int maxColumn = 0;
-        foreach (DungeonGraphNode n in graph.Nodes) maxColumn = Mathf.Max(maxColumn, n.Column);
+        foreach (DungeonGraphNode n in graph.Nodes)
+        {
+            maxColumn = Mathf.Max(maxColumn, n.Column);
+        }
         float colStep = 1250f / Mathf.Max(1, maxColumn);
 
         // 连线（画在节点之下）
@@ -105,7 +142,8 @@ public static class DungeonMapUI
             {
                 DungeonGraphNode t = graph.Get(nextId);
                 if (t == null) continue;
-                Vector2 a = NodePos(n, maxColumn), b = NodePos(t, maxColumn);
+                Vector2 a = NodePos(n, maxColumn);
+                Vector2 b = NodePos(t, maxColumn);
                 CreateLink(panel, (a + b) * 0.5f, Vector2.Distance(a, b),
                     n.Completed && t.Discovered ? gold : new Color(0.35f, 0.35f, 0.35f, 0.7f),
                     Mathf.Atan2(b.y - a.y, b.x - a.x) * Mathf.Rad2Deg);
@@ -119,7 +157,8 @@ public static class DungeonMapUI
     {
         float colStep = 1250f / Mathf.Max(1, maxColumn);
         float x = -625f + n.Column * colStep;
-        float y = (n.Row == 0 ? 1 : -1) * 70f + (n.Column % 2 == 0 ? 0f : 35f);   // 错位排布
+        float y = n.MainBranchId < 0 ? 0f
+            : (1 - n.MainBranchId) * 115f - n.BranchLane * 50f;
         return new Vector2(x, y);
     }
 
@@ -138,7 +177,19 @@ public static class DungeonMapUI
             : typeColors[n.Type];
         img.rectTransform.anchorMin = img.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
         img.rectTransform.anchoredPosition = pos;
-        img.rectTransform.sizeDelta = new Vector2(74f, 74f);
+        float nodeSize = n.MainBranchId < 0 ? 64f : 48f;
+        img.rectTransform.sizeDelta = new Vector2(nodeSize, nodeSize);
+
+        if (selectingRoute && DungeonRouteRules.CanChooseNext(boundRun, n.NodeId))
+        {
+            Button button = go.AddComponent<Button>();
+            button.targetGraphic = img;
+            int chosenId = n.NodeId;
+            button.onClick.AddListener(() =>
+            {
+                if (chooseNext != null && chooseNext(chosenId)) Close();
+            });
+        }
 
         string glyph = revealed ? typeGlyphs[n.Type] : "?";
         var text = CreateText(go.transform, "Glyph", glyph, 26, TextAlignmentOptions.Center,
@@ -153,7 +204,7 @@ public static class DungeonMapUI
             ringImg.color = gold;
             ringImg.rectTransform.anchorMin = ringImg.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             ringImg.rectTransform.anchoredPosition = Vector2.zero;
-            ringImg.rectTransform.sizeDelta = new Vector2(88f, 88f);
+            ringImg.rectTransform.sizeDelta = new Vector2(76f, 76f);
             // 环在下、节点盖上：用同尺寸空心效果（石板风格简化：金色描边方块垫底）
             ring.transform.SetAsFirstSibling();
         }

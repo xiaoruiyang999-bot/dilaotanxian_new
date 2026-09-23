@@ -99,6 +99,8 @@ public class PlayerInteractor : MonoBehaviour
 
     void Update()
     {
+        if (GameModalService.BlocksWorldInput) return;
+
         detectTimer -= Time.deltaTime;
         if (detectTimer <= 0f)
         {

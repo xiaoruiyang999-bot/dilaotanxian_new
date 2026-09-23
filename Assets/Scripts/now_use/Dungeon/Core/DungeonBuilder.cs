@@ -73,6 +73,49 @@ public class DungeonBuilder : MonoBehaviour
     private readonly Dictionary<Vector2Int, int> fixedBossWallVariants = new Dictionary<Vector2Int, int>();
     private readonly Dictionary<int, BossRitualRoomLayout> bossRitualLayouts =
         new Dictionary<int, BossRitualRoomLayout>();
+    private bool singleNodeBuild;
+    private int singleEncounterSeed;
+    private int singleShopSeed;
+    private bool singleObjectiveCompleted;
+
+    /// <summary>只绘制当前 DAG 节点。入口/出口为房内左右锚点，路线选择不依赖相邻实体房。</summary>
+    public DungeonLayout BuildSingle(DungeonGraphNode graphNode, DungeonConfig config,
+        int floorNumber, bool objectiveCompleted, out Vector3 spawnPosition)
+    {
+        RoomType roomType = graphNode.Type == NodeType.Start ? RoomType.Start
+            : graphNode.Type == NodeType.Shop ? RoomType.Shop
+            : graphNode.Type == NodeType.Boss ? RoomType.Boss : RoomType.Combat;
+        var roomNode = new RoomNode
+        {
+            id = graphNode.NodeId,
+            gridPos = Vector2Int.zero,
+            type = roomType,
+            distanceFromStart = graphNode.Column,
+            spanX = graphNode.Type == NodeType.Boss ? 2 : 1,
+            spanY = graphNode.Type == NodeType.Boss ? 2 : 1,
+        };
+        var layout = new DungeonLayout { seed = graphNode.RoomSeed, startRoom = roomNode };
+        if (graphNode.Type == NodeType.Boss) layout.bossRoom = roomNode;
+        layout.rooms.Add(roomNode);
+        singleNodeBuild = true;
+        singleEncounterSeed = graphNode.EncounterSeed;
+        singleShopSeed = graphNode.ShopSeed;
+        singleObjectiveCompleted = objectiveCompleted;
+        try
+        {
+            Build(layout, config, graphNode.RoomSeed, floorNumber);
+            Rect bounds = InteriorRect(roomNode);
+            spawnPosition = new Vector3(bounds.xMin + 3f, bounds.center.y, 0f);
+            return layout;
+        }
+        finally
+        {
+            singleNodeBuild = false;
+            singleEncounterSeed = 0;
+            singleShopSeed = 0;
+            singleObjectiveCompleted = false;
+        }
+    }
 
     public Vector3 Build(DungeonLayout layout, DungeonConfig config, int layoutSeed, int floorNumber = 1)
     {
@@ -114,6 +157,19 @@ public class DungeonBuilder : MonoBehaviour
             doorRects[conn] = r.Value;
             AddDoorCells(doorCellsByRoom, conn.a.id, r.Value);
             AddDoorCells(doorCellsByRoom, conn.b.id, r.Value);
+        }
+        if (singleNodeBuild && layout.rooms.Count == 1)
+        {
+            RoomNode only = layout.rooms[0];
+            RectInt rect = TileRect(only);
+            var anchors = new List<Vector2Int>(doorW * 2);
+            int firstY = rect.yMin + Mathf.Max(1, (rect.height - doorW) / 2);
+            for (int i = 0; i < doorW; i++)
+            {
+                anchors.Add(new Vector2Int(rect.xMin, firstY + i));
+                anchors.Add(new Vector2Int(rect.xMax, firstY + i));
+            }
+            doorCellsByRoom[only.id] = anchors;
         }
 
         // v1.1.29 渲染序自上而下：下方墙格后画——竖向墙列"下图扣上图"的堆叠遮挡（prop_01 顶伸 0.47）
@@ -163,7 +219,9 @@ public class DungeonBuilder : MonoBehaviour
                 minX = Mathf.Min(minX, r.xMin); minY = Mathf.Min(minY, r.yMin);
                 maxX = Mathf.Max(maxX, r.xMax); maxY = Mathf.Max(maxY, r.yMax);
             }
-            CameraFollow.SetMapBounds(new Rect(minX, minY, maxX - minX, maxY - minY));
+            // 右墙/上墙绘制在 TileRect 的排他上界格；相机范围要包含整格墙砖。
+            CameraFollow.SetMapBounds(new Rect(minX, minY,
+                maxX - minX + 1, maxY - minY + 1));
         }
 
         return GetRoomCenterWorld(layout.startRoom);
@@ -183,7 +241,7 @@ public class DungeonBuilder : MonoBehaviour
         {
             IReadOnlyList<Vector3> fixedPositions = BossRitualRoomDecorator.Build(room, bossLayout);
             Debug.Log($"[Boss] 仪式厅装饰完成 node={node.id} 固定插槽={fixedPositions?.Count ?? 0} profile存在={profile != null}");
-            if (profile != null)
+            if (profile != null && !(singleNodeBuild && singleObjectiveCompleted))
             {
                 var bossRng = new System.Random(BossRitualRoomTemplate.ContentSeed);
                 EnemySpawner.Spawn(room, profile.enemyTable, bossRng, floorNumber, config, fixedPositions);
@@ -191,9 +249,11 @@ public class DungeonBuilder : MonoBehaviour
             return;
         }
 
+        if (singleNodeBuild && singleObjectiveCompleted) return;
+
         if (profile == null) return;
 
-        var rng = new System.Random(layoutSeed * 7919 + node.id);
+        var rng = new System.Random(singleNodeBuild ? singleEncounterSeed : layoutSeed * 7919 + node.id);
         EnemySpawner.Spawn(room, profile.enemyTable, rng, floorNumber, config);
 
         // v1.1.46 怪物轮次：掷中概率的普通战斗房追加第二波（第一波全灭 → 延迟 0.9s 增援，
@@ -220,7 +280,7 @@ public class DungeonBuilder : MonoBehaviour
         if (node.type == RoomType.Shop)
         {
             // v2.0.6 第三批 商店付费化（V2 §13.3）：停旧免费补给表，按 ShopService 摆 3 个付费货架
-            var goods = ShopService.Roll(layoutSeed * 17 + node.id, floorNumber);
+            var goods = ShopService.Roll(singleNodeBuild ? singleShopSeed : layoutSeed * 17 + node.id, floorNumber);
             for (int i = 0; i < goods.Count; i++)
             {
                 Vector3 pos = new Vector3(
@@ -269,8 +329,9 @@ public class DungeonBuilder : MonoBehaviour
     public void ClearAll()
     {
         if (wallDropAnimator != null) wallDropAnimator.Cancel();
-        floorTilemap.ClearAllTiles();
-        wallsTilemap.ClearAllTiles();
+        // 场景卸载时 Unity 不保证同级 Tilemap 与 Manager 的 OnDestroy 顺序。
+        if (floorTilemap != null) floorTilemap.ClearAllTiles();
+        if (wallsTilemap != null) wallsTilemap.ClearAllTiles();
         groundCells.Clear();
         skeletonCells.Clear();
         roomSkeletons.Clear();
@@ -279,6 +340,7 @@ public class DungeonBuilder : MonoBehaviour
         fixedBossWallVariants.Clear();
         bossRitualLayouts.Clear();
         rooms.Clear();
+        if (dungeonRoot == null) return;
         for (int i = dungeonRoot.childCount - 1; i >= 0; i--)
         {
             Transform child = dungeonRoot.GetChild(i);
@@ -306,7 +368,7 @@ public class DungeonBuilder : MonoBehaviour
         Vector2Int o = CellOrigin(node);
         // v2.0.7 商店支线平台（用户定案）：半尺寸（linear 尺寸的 1/2）、粗格内水平居中、
         // 垂直抬高 6 格与主链隔空——不与战斗房在同一条线上，进出只靠传送门对
-        if (node.type == RoomType.Shop)
+        if (node.type == RoomType.Shop && !singleNodeBuild)
         {
             int w = Mathf.Max(8, roomW / 2);
             int h = Mathf.Max(8, roomH / 2);
@@ -357,7 +419,15 @@ public class DungeonBuilder : MonoBehaviour
         bool legacyBossRitual = node.type == RoomType.Boss;
         if (legacyBossRitual)
         {
-            BossRitualRoomLayout bossLayout = BossRitualRoomTemplate.Build(interiorRect, doorCells);
+            IReadOnlyList<Vector2Int> bossEntrance = doorCells;
+            if (singleNodeBuild && doorCells != null)
+            {
+                var leftOnly = new List<Vector2Int>();
+                foreach (Vector2Int cell in doorCells)
+                    if (cell.x < interiorRect.xMin) leftOnly.Add(cell);
+                bossEntrance = leftOnly;
+            }
+            BossRitualRoomLayout bossLayout = BossRitualRoomTemplate.Build(interiorRect, bossEntrance);
             bossRitualLayouts[node.id] = bossLayout;
             plan = bossLayout.Plan;
             if (doorCells != null)
@@ -369,6 +439,17 @@ public class DungeonBuilder : MonoBehaviour
             plan = RoomPlanner.CreatePlan(interiorRect, doorCells, rng);
         }
         else plan = RoomPlan.Plain(interiorRect);
+        if (singleNodeBuild && doorCells != null)
+        {
+            var anchors = new List<Vector2Int>(doorCells.Count);
+            foreach (Vector2Int cell in doorCells)
+                anchors.Add(new Vector2Int(Mathf.Clamp(cell.x, interiorRect.xMin, interiorRect.xMax - 1),
+                    Mathf.Clamp(cell.y, interiorRect.yMin, interiorRect.yMax - 1)));
+            Vector2Int center = new Vector2Int(interiorRect.xMin + interiorRect.width / 2,
+                interiorRect.yMin + interiorRect.height / 2);
+            if (!RoomLayoutValidator.ValidatePlayerGauge(plan, anchors, center))
+                throw new System.InvalidOperationException($"节点 {node.id} 左入口到右出口不可达");
+        }
         foreach (var sk in plan.Skeleton) skeletonCells.Add(sk);   // v1.1.41 地皮融入：骨架合集
         roomSkeletons[node.id] = plan.Skeleton;   // v1.1.44 大石块避让用
         roomSpawnCells[node.id] = new List<Vector2Int>(plan.SpawnCells);
