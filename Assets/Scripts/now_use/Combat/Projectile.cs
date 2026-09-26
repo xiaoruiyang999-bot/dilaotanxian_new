@@ -208,12 +208,15 @@ public class Projectile : MonoBehaviour
                     critRate = ownerStats.CritRate,
                     critDamage = ownerStats.CritDamage
                 };
-                dealtDamage = DamageResolver.Deal(damageable, ctx);
+                InscriptionCombatRuntime inscriptions = ownerStats.CombatInscriptions;
+                dealtDamage = inscriptions != null && damageable is EnemyHealth enemy
+                    ? inscriptions.DealDirect(enemy, ctx, true)
+                    : DamageResolver.Deal(damageable, ctx);
             }
             else
             {
                 dealtDamage = data.Damage * damageMul;
-                damageable.TakeDamage(dealtDamage);
+                DamageResolver.DealEnemy(damageable, dealtDamage);
             }
             DamagePopup.Spawn(other.bounds.center, dealtDamage);
             ProjectileVisualBuilder.SpawnHitEffect(hitPoint, data.BodyColor);

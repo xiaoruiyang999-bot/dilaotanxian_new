@@ -140,7 +140,7 @@ public class GrandMoonHunt : MonoBehaviour
                 Collider2D hit = Physics2D.OverlapCircle(rb.position, pounceRadius, playerMask);
                 if (hit != null && hit.TryGetComponent(out IDamageable dmg))
                 {
-                    dmg.TakeDamage(pounceDamage);
+                    DamageResolver.DealEnemy(dmg, pounceDamage);
                     break;
                 }
                 yield return null;
@@ -171,7 +171,7 @@ public class GrandMoonHunt : MonoBehaviour
             yield return new WaitForSeconds(markBurstInterval);
             Collider2D hit = Physics2D.OverlapCircle(m.Position, moonMarkRadius, playerMask);
             if (hit != null && hit.TryGetComponent(out IDamageable dmg))
-                dmg.TakeDamage(moonMarkDamage);
+                DamageResolver.DealEnemy(dmg, moonMarkDamage);
             // 爆发视觉（占位：闪烁后隐）
             if (m.Sr != null) m.Sr.color = new Color(1f, 0.5f, 0.3f, 0.9f);
             yield return new WaitForSeconds(0.1f);

@@ -21,7 +21,12 @@ public static class DamageResolver
     /// 返回实际结算伤害，供表现层/测试断言使用。
     /// </summary>
     public static float Deal(IDamageable target, DamageContext ctx)
+        => Deal(target, ctx, out _);
+
+    /// <summary>与 Deal 同一结算链，额外返回本次唯一暴击判定。</summary>
+    public static float Deal(IDamageable target, DamageContext ctx, out bool critical)
     {
+        critical = false;
         if (target == null) return 0f;
         EnemyHealth enemy = target as EnemyHealth;
         float healthBefore = enemy != null && !enemy.IsDead ? enemy.CurrentHealth : 0f;
@@ -37,8 +42,16 @@ public static class DamageResolver
         }
 
         float final = ctx.Roll();
+        critical = ctx.IsCrit;
         target.TakeDamage(final);
         return PublishActualEnemyDamage(enemy, healthBefore, final);
+    }
+
+    /// <summary>敌对攻击的显式来源；只此入口可激活血誓受敌伤害共鸣。</summary>
+    public static void DealEnemy(IDamageable target, float damage)
+    {
+        if (target is Health player) player.TakeEnemyDamage(damage);
+        else target?.TakeDamage(damage);
     }
 
     private static float PublishActualEnemyDamage(EnemyHealth enemy, float healthBefore, float fallbackDamage)

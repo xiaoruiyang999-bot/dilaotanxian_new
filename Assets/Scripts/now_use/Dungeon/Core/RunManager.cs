@@ -33,6 +33,7 @@ public class RunManager : MonoBehaviour
     private PlayerController player;
     private Health playerHealth;
     private PlayerStats playerStats;
+    private InscriptionCombatRuntime inscriptions;
     private Room bossRoomSubscribed;
     private int bossRewardSpawnedForNode = -1;
 
@@ -73,6 +74,9 @@ public class RunManager : MonoBehaviour
         else carrier.Relics.Clear();
         SaveService.ActiveRunData run = saved ?? SaveService.CreateNewRun(
             System.Environment.TickCount, carrier.ChosenPlayableCharacterId);
+        inscriptions = player.GetComponent<InscriptionCombatRuntime>();
+        if (inscriptions == null) inscriptions = player.gameObject.AddComponent<InscriptionCombatRuntime>();
+        inscriptions.Bind(run.build);
         if (!run.resourcesInitialized) CaptureInitialResources(run);
         MainSeed = run.mainSeed;
         FloorNumber = run.floorNumber;
@@ -176,6 +180,7 @@ public class RunManager : MonoBehaviour
 
     private void OnRoomGenerated()
     {
+        if (inscriptions != null) inscriptions.ResetForRoom();
         UnsubscribeBossRoom();
         bossRewardSpawnedForNode = -1;
         SubscribeBossRoom();

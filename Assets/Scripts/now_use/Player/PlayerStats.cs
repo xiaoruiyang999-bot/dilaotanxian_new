@@ -24,6 +24,7 @@ public class PlayerStats : MonoBehaviour
     public float Attack => attack * BeastDamageMult * PermDamageMult;
     public float CritRate => critRate;
     public float CritDamage => critDamage + PermCritDamageBonus;
+    public InscriptionCombatRuntime CombatInscriptions { get; internal set; }
     public float ArmorReduceMul => armorReduceMul;
     public float ArmorLossMul => armorLossMul;
 

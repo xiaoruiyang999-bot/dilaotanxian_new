@@ -62,6 +62,8 @@ public class WeaponHitbox : MonoBehaviour
     private static readonly Collider2D[] hitBuffer = new Collider2D[MaxHits];
 
     private readonly HashSet<Collider2D> hitThisSwing = new HashSet<Collider2D>();
+    private readonly HashSet<IDamageable> damagedThisSwing = new HashSet<IDamageable>();
+    private int uniqueHitCount;
     private bool isSwinging;
     private WeaponController wc;   // v0.6.3：缓存引用，Tick 实时读其 WeaponWidth（蓄力宽度缩放）
     private PlayerStats attackerStats;   // v0.7.0：Awake 缓存攻击者根的 PlayerStats；非空 = 玩家（走新管线），空 = 敌人（原路径）
@@ -131,6 +133,8 @@ public class WeaponHitbox : MonoBehaviour
     public void BeginSwing()
     {
         hitThisSwing.Clear();
+        damagedThisSwing.Clear();
+        uniqueHitCount = 0;
         LengthMultiplier = 1f;   // 戳击倍率复位（v0.6.3）
         DamageMultiplier = 1f;   // 蓄力伤害倍率复位（v0.7.0）
         laneWidth = 0f;          // v1.1.48 横向带复位（PlayerCombat 每段按需重设）
@@ -188,11 +192,13 @@ public class WeaponHitbox : MonoBehaviour
 
             if (hit.TryGetComponent<IDamageable>(out var damageable))
             {
+                if (!damagedThisSwing.Add(damageable)) continue;
+                uniqueHitCount++;
                 // v0.7.0 结算分流：玩家走新管线（角色攻击+武器攻击）×倍率×暴击；敌人保持原路径
                 if (attackerStats != null)
                 {
                     // v0.7.5 二期长枪贯穿：本挥击第 2 个及以后目标 ×MultiHitDamageMul（默认 1 = 零差异）
-                    float pierceMul = MultiHitDamageMul > 1f && hitThisSwing.Count >= 2 ? MultiHitDamageMul : 1f;
+                    float pierceMul = MultiHitDamageMul > 1f && uniqueHitCount >= 2 ? MultiHitDamageMul : 1f;
                     DamageContext ctx = new DamageContext
                     {
                         baseAttack = attackerStats.Attack + attackData.AttackDamage,
@@ -201,7 +207,10 @@ public class WeaponHitbox : MonoBehaviour
                         critRate = attackerStats.CritRate,
                         critDamage = attackerStats.CritDamage
                     };
-                    float dealt = DamageResolver.Deal(damageable, ctx);
+                    InscriptionCombatRuntime inscriptions = attackerStats.CombatInscriptions;
+                    float dealt = inscriptions != null && damageable is EnemyHealth enemy
+                        ? inscriptions.DealDirect(enemy, ctx, true)
+                        : DamageResolver.Deal(damageable, ctx);
 
                     // VS 第三批：状态触发（有实际伤害才结算——防对无敌/物件挂状态）
                     if (dealt > 0f && hit.TryGetComponent(out EnemyStatus status))
@@ -212,13 +221,13 @@ public class WeaponHitbox : MonoBehaviour
 
                     if (MultiHitDamageMul > 1f)
                     {
-                        if (hitThisSwing.Count == 1)
+                        if (uniqueHitCount == 1)
                         {
                             // 记录本挥击第 1 个目标（追补用）
                             swingFirstTarget = damageable;
                             swingFirstDealt = dealt;
                         }
-                        else if (hitThisSwing.Count == 2 && swingFirstTarget != null)
+                        else if (uniqueHitCount == 2 && swingFirstTarget != null)
                         {
                             // 达 2 目标：给第 1 个目标追补倍率差（走正常 TakeDamage，护甲同比例结算）
                             swingFirstTarget.TakeDamage(swingFirstDealt * (MultiHitDamageMul - 1f));
@@ -228,7 +237,7 @@ public class WeaponHitbox : MonoBehaviour
                 }
                 else
                 {
-                    damageable.TakeDamage(attackData.AttackDamage);
+                    DamageResolver.DealEnemy(damageable, attackData.AttackDamage);
                 }
                 OnHit?.Invoke(damageable, hit.ClosestPoint(queryCenter));
 
@@ -304,6 +313,8 @@ public class WeaponHitbox : MonoBehaviour
     {
         isSwinging = false;
         hitThisSwing.Clear();
+        damagedThisSwing.Clear();
+        uniqueHitCount = 0;
     }
 
     /// <summary>

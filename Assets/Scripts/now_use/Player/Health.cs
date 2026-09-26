@@ -8,12 +8,14 @@ public class Health : MonoBehaviour, IDamageable
     public float MaxHealth => maxHealth;
     public float HealthRatio => maxHealth > 0 ? CurrentHealth / maxHealth : 0f;
     public bool IsDead { get; private set; }
+    public float TemporaryHealth { get; private set; }
 
     /// <summary>无敌标记（v0.6.0 闪避用）：无敌期间 TakeDamage 直接忽略。</summary>
     public bool IsInvincible { get; private set; }
 
     public System.Action<float, float> OnHealthChanged;
     public System.Action OnDeath;
+    public System.Action<float> OnEnemyHealthLost;
 
     void Awake()
     {
@@ -25,16 +27,29 @@ public class Health : MonoBehaviour, IDamageable
         maxHealth = health;
         CurrentHealth = maxHealth;
         IsDead = false;
+        TemporaryHealth = 0f;
         OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }
 
-    public void TakeDamage(float damage)
+    public void TakeDamage(float damage) => ApplyDamage(damage, false);
+
+    public void TakeEnemyDamage(float damage) => ApplyDamage(damage, true);
+
+    private void ApplyDamage(float damage, bool enemySource)
     {
         if (IsDead) return;
         if (IsInvincible) return;   // 无敌期间不扣血、不触发受伤事件
         if (damage <= 0) return;
 
         float damageToHealth = damage;
+        if (TemporaryHealth > 0f)
+        {
+            float absorbed = Mathf.Min(TemporaryHealth, damageToHealth);
+            TemporaryHealth -= absorbed;
+            damageToHealth -= absorbed;
+            OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+            if (damageToHealth <= 0f) return;
+        }
 
         // Buff 受击减伤（v0.7.5：屹立不倒 0.5 = 受伤减半）：乘在护甲结算之前；
         // 敌人/旧场景无 BuffManager，TryGetComponent 为空 → 行为不变
@@ -50,8 +65,11 @@ public class Health : MonoBehaviour, IDamageable
         // 应用剩余伤害到生命值
         if (damageToHealth > 0)
         {
+            float before = CurrentHealth;
             CurrentHealth = Mathf.Max(CurrentHealth - damageToHealth, 0f);
             OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+            if (enemySource && CurrentHealth < before)
+                OnEnemyHealthLost?.Invoke(before - CurrentHealth);
             // 受击反馈（M1.5·v0.6.1，v1.0.8 自 MCP 分支恢复震屏）：音效 + 重震屏
             AudioManager.PlaySFX("hurt");
             CameraFollow.ShakeMain(0.18f, 0.2f);
@@ -73,10 +91,25 @@ public class Health : MonoBehaviour, IDamageable
         OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }
 
+    public void AddTemporaryHealth(float amount, float cap)
+    {
+        if (IsDead || amount <= 0f || cap <= 0f) return;
+        TemporaryHealth = Mathf.Min(cap, TemporaryHealth + amount);
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+    }
+
+    public void ClearTemporaryHealth()
+    {
+        if (TemporaryHealth <= 0f) return;
+        TemporaryHealth = 0f;
+        OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
+    }
+
     /// <summary>读档恢复当前生命；上限仍由职业角色定义决定。</summary>
     public void RestoreCurrent(float value)
     {
         CurrentHealth = Mathf.Clamp(value, 1f, maxHealth);
+        TemporaryHealth = 0f;
         IsDead = false;
         OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }
@@ -87,12 +120,14 @@ public class Health : MonoBehaviour, IDamageable
         if (multiplier <= 0f) return;
         maxHealth = Mathf.Max(1f, maxHealth * multiplier);
         CurrentHealth = Mathf.Clamp(CurrentHealth * multiplier, 0f, maxHealth);
+        TemporaryHealth = Mathf.Max(0f, TemporaryHealth * multiplier);
         OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }
 
     public void ResetHealth()
     {
         CurrentHealth = maxHealth;
+        TemporaryHealth = 0f;
         IsDead = false;
         OnHealthChanged?.Invoke(CurrentHealth, maxHealth);
     }

@@ -118,7 +118,9 @@ public class PlayerCombat : MonoBehaviour
             mul *= Mathf.Max(0.01f, stats.BeastAttackSpeedMult);   // 兽化攻速（叠乘）
             mul *= Mathf.Max(0.01f, stats.PermAttackSpeedMult);    // 技能树攻速（v1.1.47 叠乘）
         }
-        return mul;
+        return stats != null && stats.CombatInscriptions != null
+            ? stats.CombatInscriptions.GetAttackSpeedMultiplier(mul)
+            : mul;
     }
 
     void Awake()

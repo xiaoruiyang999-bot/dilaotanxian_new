@@ -125,7 +125,7 @@ public class GrandTripleLeap : MonoBehaviour
         {
             IDamageable damageable = FindPlayerDamageable(overlapBuffer[i]);
             if (damageable == null || WasDamaged(damageable)) continue;
-            damageable.TakeDamage(landAttack != null ? landAttack.AttackDamage : shockDamage * 1.5f);
+            DamageResolver.DealEnemy(damageable, landAttack != null ? landAttack.AttackDamage : shockDamage * 1.5f);
             RememberDamageable(damageable);
             centerHit = true;
         }
@@ -153,7 +153,7 @@ public class GrandTripleLeap : MonoBehaviour
                 if (dist < radius - shockBandWidth) continue;
                 // 柱遮挡:落点→玩家先碰站立柱则截断(§4.4)
                 if (IsBlockedByPillar(landPos, overlapBuffer[i].transform.position)) continue;
-                damageable.TakeDamage(shockDamage);
+                DamageResolver.DealEnemy(damageable, shockDamage);
                 RememberDamageable(damageable);
             }
             yield return null;

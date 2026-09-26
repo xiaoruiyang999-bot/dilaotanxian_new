@@ -1,4 +1,5 @@
 using DG.Tweening;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -52,6 +53,7 @@ public class SkillExecutor : MonoBehaviour
     private float empowerRemaining;
 
     private static int enemyMask = -1;   // Enemy 层（首次施放时解析，层缺失 Warning 一次后 AOE 无目标）
+    private readonly HashSet<IDamageable> aoeDamagedTargets = new HashSet<IDamageable>();
 
     void Awake()
     {
@@ -395,13 +397,19 @@ public class SkillExecutor : MonoBehaviour
         {
             // 处决：直接击杀（不走伤害结算），燃命强化时回血
             eh.Die();
+            if (stats != null && stats.CombatInscriptions != null)
+                stats.CombatInscriptions.RegisterExternalKill(eh);
             if (executeHeal > 0f && health != null)
                 health.Heal(executeHeal);
         }
         else
         {
             // 未达阈值 / Boss：真实伤害（绕过护甲结算）
-            DamageResolver.Deal(eh, new DamageContext { trueDamage = trueDamage });
+            InscriptionCombatRuntime inscriptions = stats != null ? stats.CombatInscriptions : null;
+            if (inscriptions != null)
+                inscriptions.DealDirect(eh, new DamageContext { trueDamage = trueDamage }, false);
+            else
+                DamageResolver.Deal(eh, new DamageContext { trueDamage = trueDamage });
         }
 
         // 击杀震颤只属于狼人裸绞：阈值处决或本次真伤致死均触发；
@@ -416,6 +424,7 @@ public class SkillExecutor : MonoBehaviour
     /// </summary>
     private void CastMeleeAoE(SkillData data)
     {
+        aoeDamagedTargets.Clear();
         if (enemyMask < 0)
         {
             enemyMask = LayerMask.GetMask("Enemy");
@@ -431,6 +440,7 @@ public class SkillExecutor : MonoBehaviour
             if (hit.transform.IsChildOf(transform)) continue;        // 跳过自身（含子物体）
             if (hit.TryGetComponent<IDamageable>(out var damageable))
             {
+                if (!aoeDamagedTargets.Add(damageable)) continue;
                 DamageContext ctx = new DamageContext
                 {
                     baseAttack = stats.Attack,
@@ -439,7 +449,11 @@ public class SkillExecutor : MonoBehaviour
                     critRate = stats.CritRate,
                     critDamage = stats.CritDamage
                 };
-                DamageResolver.Deal(damageable, ctx);
+                InscriptionCombatRuntime inscriptions = stats.CombatInscriptions;
+                if (inscriptions != null && damageable is EnemyHealth enemy)
+                    inscriptions.DealDirect(enemy, ctx, false);
+                else
+                    DamageResolver.Deal(damageable, ctx);
             }
         }
 

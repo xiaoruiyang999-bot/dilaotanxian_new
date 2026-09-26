@@ -139,7 +139,7 @@ public class GrandChargeAttack : MonoBehaviour
         Collider2D player = Physics2D.OverlapCircle(rb.position, bodyHitRadius, playerMask);
         if (player != null && player.TryGetComponent(out IDamageable dmg))
         {
-            dmg.TakeDamage(chargeDamage);
+            DamageResolver.DealEnemy(dmg, chargeDamage);
             return ChargeEndReason.HitPlayer;
         }
 

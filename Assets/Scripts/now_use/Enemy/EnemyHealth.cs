@@ -12,9 +12,12 @@ public class EnemyHealth : MonoBehaviour, IDamageable
     public float CurrentHealth { get; private set; }
     public float MaxHealth => maxHealth;
     public bool IsDead { get; private set; }
+    public bool IsBoss { get; private set; }
+    public bool EligibleForKillRewards => rewardController == null || rewardController.DropCoins;
 
     // 护甲（v0.7.1）：数据源在 EnemyStats，本类只持当前值
     private EnemyStats stats;
+    private EnemyController rewardController;
     private float currentArmor = float.NaN; // NaN=未初始化（懒读 MaxArmor，保证组件 Awake 顺序无关）
 
     private EnemyStats Stats => stats != null ? stats : (stats = GetComponent<EnemyStats>());
@@ -32,6 +35,8 @@ public class EnemyHealth : MonoBehaviour, IDamageable
 
     void Awake()
     {
+        IsBoss = GetComponentInParent<GrandBossBrain>() != null || name.Contains("Boss");
+        rewardController = GetComponent<EnemyController>();
         CurrentHealth = maxHealth;
         IsDead = false;
         currentArmor = MaxArmor;
